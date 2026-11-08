@@ -1,11 +1,14 @@
 # Calidad
 
-Lo que dice cómo se comprueba el juego y por qué está como está. Lo amplía la fase Doc de la
-reorganización de la arquitectura con el detalle de «Control de calidad» de `CLAUDE.md`.
+Se lee antes de tocar: `test/`, `tools/qa/`, `.github/workflows/ci.yml`, `vitest.config.ts`.
+
+Lo que dice cómo se comprueba el juego y por qué está como está. La fase Doc de la reorganización
+de la arquitectura (08-11-2026) le trajo, tal cual, el detalle de «Control de calidad» de `CLAUDE.md`
+(al final); allí queda la tabla en corto.
 
 ## Las semillas de `pnpm capturas`
 
-Sale del comentario de `DESTINO` en `tools/qa/capturas.ts` (hoy `tools/qa/capturas/pagina.ts`),
+Sale del comentario de `DESTINO` en el antiguo tools/qa/capturas.ts (hoy `tools/qa/capturas/pagina.ts`),
 donde vivió hasta H5 de la reorganización (08-11-2026); el texto va tal cual, primero el bloque y
 después la nota de debajo. Hoy ninguna pasada escribe su semilla: la busca en el espejo.
 
@@ -73,3 +76,68 @@ pierde ya no se escriben aquí: las buscan sus pasadas en el espejo
 (`capturas/escenas.ts`). Eran la 3 con destino (8,8), la 2 199 y la 97;
 «menos caminos» (06-10-2026) rompió las dos primeras a la vez, como cada
 cambio del generador antes, y la 97 había caído ya dos veces.
+
+## Arrancar: la build, CI y las sesiones
+
+- **`vite build` copia `assets/` sin lo que solo lee el taller**: de cada
+  `unidades/<id>/dN/`, solo `atlas.webp`; ninguna carpeta `fuentes/` ni `_guias/`, a cualquier altura;
+  y nada de `art/` (láminas y referencias de estilo) (`seCopiaAlBuild`, `tools/vite/publico.ts`,
+  #137). Por eso las letras de los temas viven en `assets/letras/`.
+
+- **CI** (`.github/workflows/ci.yml`): `pnpm verify`, `pnpm test:lento`, `pnpm banco`,
+  `vite build` y `pnpm qa`. No gasta un céntimo: no llama a ningún servicio de pago.
+
+- **Ninguna sesión corre la suite entera** (25-10-2026, decisión del usuario: «Elimina el verify
+  completo. Los tests se hacen por partes y justificando cada parte»). El hook `Stop` que lanzaba
+  `pnpm verify` al acabar cada turno se retiró: con varias sesiones a la vez se juntaban varios de
+  16 procesos y, a las 22:00 de ese día, la memoria se agotó y earlyoom mató la app de Claude y
+  Chrome. La suite entera la corre CI.
+
+## Control de calidad (el detalle)
+
+La tabla y las notas tal como estaban en `CLAUDE.md` hasta la fase Doc (08-11-2026); allí queda la tabla en corto.
+
+| Comprobación | Tarda | Cuándo |
+|---|---|---|
+| `pnpm typecheck` y `pnpm lint` | segundos | siempre que cambie código |
+| `pnpm vitest run test/<x>.test.ts` | según el fichero | **por partes**: solo los ficheros de lo que se toca, y cada uno con su porqué (qué mira y por qué el cambio puede romperlo) |
+| `pnpm verify` | ~80 s | **no lo corren las sesiones**: lo corre CI |
+| `pnpm verify:lento` | ~75 s | lo corre CI; a mano, entero no: los ficheros lentos de lo que se toca (`HEROES_LENTO=1 pnpm vitest run test/<x>.test.ts`), con su porqué. **El arte de una unidad, no** (23-10-2026, decisión del usuario: «no se pueden lanzar los tests todo el rato sin pensar»): una vez, cuando lo visual está dado por bueno, solo los tests que lo leen: `HEROES_LENTO=1 pnpm vitest run test/taller-8d.test.ts -t <id>` (el atlas de cada dirección sale de sus hojas) y `pnpm vitest run test/clips-por-unidad.test.ts` (su maniquí lleva los clips que declara); con su identidad o su giro, también `test/arte-hojas.test.ts -t <id>` |
+| El navegador / el espectador | minutos | si el cambio se ve, o tocas `comun/html.ts`, `espectador/` o el canal |
+| `pnpm qa` | ~3 s | si tocas `src/server/` o el contrato |
+| `npx tsx tools/qa/exportaciones.ts` | ~7 s | si añades o dejas de leer una exportación: nada exportado sin lector (lo corre CI); lo que se lee sin que `tsc` lo vea (un `import()` calculado), en su lista blanca, `SE_LEEN_SIN_TSC` |
+| `pnpm capturas` | ~245 s | si el cambio se ve; sale 1 con un error en consola |
+| `barrido-semillas.ts` | ~1 s | si tocas la IA o la economía: 4 semillas; una sola sin terminar es regresión |
+| `pnpm banco` | ~2 s | si tocas el núcleo sin querer cambiar el juego: 20 partidas (eran 200; decisión del usuario, 21-10-2026: «estamos en pleno desarrollo»); para medir más, `pnpm banco 200` |
+| `npx tsx tools/qa/medidas/rectitud.ts` | ~50 s | si tocas `map/generar/` o `map/vestir/`: tramos rectos en **1-3000**, tres procesos por bloques de 1000, con los largos a escala (`largoALaEscala`, en `core/escala.ts`; en 42×42: ≥ 10 ≤ 176, caras ≥ 10 ≤ 3, mapas con tramo ≥ 12 ≤ 23; desde #231 lo medido, 143 / 0 / 12, más 10 / 3 / 3, y con #232, 164 / 0 / 14: los mapas que se visten otra vez, al ritmo de los que no cambian; con los ríos (#144), 95 / 0 / 4, con el río de una casilla, 90 / 0 / 5, y también entre dos niveles, 102 / 0 / 5; con el río continuo, 102 / 0 / 5, y sin agua de frontera fuera de él, 118 / 0 / 10, y con el río de lago de 20, 121 / 0 / 12; con el recinto de las ciudades en el núcleo, 98 / 0 / 6; sin minas (21-10-2026), 106 / 0 / 10; con las ciudades en mitad de su región (05-11-2026), 159 / 0 / 20, y el techo de mapas sube a 23 (el cruce de tres regiones ya no lleva ciudad); con los pueblos en un nodo (fase 3), los mismos 159 / 0 / 20; con #230 eran 174 / 14 / 14 y una perturbación neutra del azar movía hasta 21 tramos: si un cambio del azar lo pasa, se vuelve a medir con su fila en `TECHOS`). El guardia, en `test/rectitud.test.ts` (orden lenta) |
+| `enfrentamiento.ts` | ~2 s | si cambias cómo decide la IA de batalla: entra solo con el intervalo entero > 50 % en 5 000 parejas |
+| `tools/qa/navegador/neutro.ts` | ~10 s | si tocas una hoja de estilo: sin `data-tema`, 0 diferencias con HEAD |
+| `tools/qa/navegador/clima.ts [carpeta]` | ~15-30 min (con fps) | si tocas el clima: capturas de cada clima en el mapa, la batalla, la base, la morada y el espectador, lo inexplorado intacto, el rayo y los fps (`--sin-fps` para solo mirar) |
+| `tools/qa/navegador/temas-con-piezas.ts [carpeta]` | ~5 min | si tocas los temas o sus piezas: rótulos de sección sobre su pieza, el lienzo quieto en 7 ventanas, lo que tapan marco, remate y cartela, y las capturas lado a lado |
+| `npx tsx tools/qa/medidas/arena-ia.ts` | ~2 s | si tocas el movimiento de la batalla, salir del contacto, la carga, la rueda o la armadura: 100 peleas por variante con unidades del catálogo, IA contra IA (peleas sin terminar, rondas, tiempo, cargas, cruces y golpes parados) |
+
+- **Presupuesto de pruebas** (la máquina es compartida: varias sesiones prueban a la vez y
+  con carga 30+ vitest falla por timeouts y hay que repetir). Mientras se itera, solo el test de lo
+  que se toca (`pnpm vitest run test/x.test.ts`); la suite entera, nunca (la corre CI);
+  `capturas` y `banco`, **una vez al cerrar** y solo si el cambio toca lo que miran (y no se repiten si nada cambió
+  desde el último verde: se citan). Las medidas, en 1-40 o 1-100 semillas; 1-1000 solo si la
+  tarea lo pide (rectitud, raros de verdad). Las pruebas al azar del QA, en cientos, no en miles.
+  Un `verify:lento` que sale 1 solo por «Timeout calling onTaskUpdate» con todo en verde se dice
+  y se repite una vez, no en bucle.
+
+- **Bucle rápido y orden lenta** (`test/lento.ts`, #167): un guardia que recorre
+  muchas semillas o todo el arte corre en `verify` con una muestra que muerde
+  (las semillas donde pasa lo que vigila, una imagen de cada forma de derivar)
+  y en `verify:lento` (`HEROES_LENTO=1`) con todo; las medidas sobre muchas
+  semillas, con `itLento`. Antes de mover un test, se abarata. Un JSON de arte
+  retocado a mano fuera de la muestra lo caza solo la lenta; una imagen
+  sustituida sin rederivar, las dos (sha256).
+
+- **`pnpm banco`**: si el hash cambia a propósito, se re-ancla en
+  `tools/qa/medidas/banco.ts` y se juzga **la forma del diff** (qué semillas cambian y
+  cuál es el primer hecho distinto), no el hash; el historial de anclas, en `docs/banco.md`.
+
+- Medidas de equilibrio y duración: solo si la tarea es medir (ver «No se prueba la jugabilidad»,
+  arriba), y con **100 semillas**. Una cifra medida se escribe con su fecha.
+
+- Nada de puntuación de deuda ni pruebas de mutación.
