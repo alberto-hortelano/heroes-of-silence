@@ -27,7 +27,7 @@ import { deLaListaBlocker, esIdDeUnidad, esObjeto, problemasDeObjeto } from '../
 /**
  * El índice del banco, relativo a la raíz del repo. El núcleo no lo lee (es puro):
  * lo nombra en sus problemas, lo lee y lo escribe `tools/npcs/banco.ts` (el único,
- * lo vigila `invariantes.test.ts`) y lo vigila `pnpm dev` (`vite.config.ts`).
+ * lo vigila `invariantes.test.ts`) y lo vigila `pnpm dev` (`tools/vite/npcs.ts`).
  */
 export const RUTA_DEL_BANCO = 'data/npcs.json';
 /** El arte del banco, relativo a la raíz: fuera de `assets/unidades/`, que es la tropa de la arena. */

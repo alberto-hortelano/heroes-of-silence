@@ -1,5 +1,5 @@
 /**
- * Lo que la arena pide y manda al servidor de desarrollo (`vite.config.ts`, `/__arena/…`): el
+ * Lo que la arena pide y manda al servidor de desarrollo (`tools/vite/arena.ts`, `/__arena/…`): el
  * catálogo y las formas de muralla, con las mismas frases para decir por qué no se puede guardar.
  * Era parte de `arena/main.ts` hasta R8 de la reorganización (07-11-2026).
  */

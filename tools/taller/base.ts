@@ -27,7 +27,7 @@
  * (`recorte-base.ts`). La geometría no se impone: dónde quedó cada puerta se mide
  * sobre el cuadro y se escribe en `data/bases/<f>.json` («manda el cuadro»). Las
  * guías y las hojas de identidad se escriben en `fuentes/`, que se commitea y no
- * va al build (`tools/build/publico.ts`).
+ * va al build (`tools/vite/publico.ts`).
  *
  * Sin arte, la escena pinta un cielo, un muro bajo y cada edificio como un bloque
  * con su nombre (`render/base/pintar.ts`).

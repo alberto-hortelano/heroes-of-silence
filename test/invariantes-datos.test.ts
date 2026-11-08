@@ -244,12 +244,25 @@ describe('invariantes del proyecto', () => {
     ).toEqual([]);
     expect(infractoresDeCodigo([NOMBRE], rutaEscrita)).not.toEqual([]);
     const usaLaRuta = /\bRUTA_DEL_BANCO\b/;
+    // El plugin de vite del banco (`/__npcs`) la nombra para vigilarla, no la abre: la
+    // importa y la vuelve absoluta para saber si lo que cambió es el banco
+    // (`olvidaCon`), y nada más. Vivía en `vite.config.ts`, que este guardia no miraba,
+    // hasta H2 de la reorganización (08-11-2026).
+    const VIGIA = ruta('tools/vite/npcs.ts');
     expect(
       infractoresDeCodigo(
-        [...SERVIDOR, ...CLIENTE, ...HERRAMIENTAS].filter((r) => r !== PUERTA),
+        [...SERVIDOR, ...CLIENTE, ...HERRAMIENTAS].filter((r) => r !== PUERTA && r !== VIGIA),
         usaLaRuta,
       ),
     ).toEqual([]);
+    expect(
+      infractoresDeCodigo([VIGIA], usaLaRuta)
+        .map((x) => x.split(' → ')[1])
+        .sort(),
+    ).toEqual([
+      'const fichero = resolve(raiz, RUTA_DEL_BANCO);',
+      "import { CARPETA_DE_LAS_FIGURAS, RUTA_DEL_BANCO } from '../../src/core/gente/banco.js';",
+    ]);
     expect(infractoresDeCodigo([PUERTA], usaLaRuta)).not.toEqual([]);
   });
 

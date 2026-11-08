@@ -10,7 +10,7 @@
  * cola (pedida en otro clon, o la cola se borró) se vuelve a encolar con
  * `pnpm npcs encolar`.
  *
- * Lo lee también `pnpm dev` para servir `/__npcs` (`vite.config.ts`), así que el
+ * Lo lee también `pnpm dev` para servir `/__npcs` (`tools/vite/npcs.ts`), así que el
  * taller (pesado: Codex, sharp, el maniquí) se carga a demanda solo al encolar.
  */
 import { existsSync, readdirSync } from 'node:fs';

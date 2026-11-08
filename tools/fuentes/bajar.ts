@@ -4,7 +4,7 @@
  * en un commit fijo y servida tal cual desde `assets/letras/<carpeta>/`, con su
  * `OFL.txt` y su `procedencia.json` al lado. `assets/letras/` y no
  * `assets/fuentes/`: en el taller, `<x>/fuentes/` es lo que solo él lee, y el
- * build lo deja fuera (`tools/build/publico.ts`).
+ * build lo deja fuera (`tools/vite/publico.ts`).
  *
  * La tabla (`FUENTES`) es la única fuente: de ella sale también
  * `src/client/fuentes.css` (`cssDeLetras`), un `@font-face` por fichero, que

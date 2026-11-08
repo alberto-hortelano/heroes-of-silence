@@ -9,10 +9,12 @@
  * que el juego no pide nunca. No se borran del repo —son la procedencia que lee
  * la revisión de animaciones (`tools/taller/revision/`)—: se quedan fuera del build.
  *
- * Aparte de `vite.config.ts` para que los tests lo ejerzan sin arrancar vite.
+ * Con su plugin, `publico` (abajo): los tests lo ejercen sin arrancar vite, que aquí
+ * solo entra como tipo.
  */
 import { cpSync } from 'node:fs';
-import { relative, sep } from 'node:path';
+import { relative, resolve, sep } from 'node:path';
+import type { Plugin } from 'vite';
 
 /**
  * Lo que solo lee el taller, en estas reglas:
@@ -54,4 +56,21 @@ export function copiarPublico(origen: string, destino: string): void {
     recursive: true,
     filter: (ruta) => seCopiaAlBuild(relative(origen, ruta)),
   });
+}
+
+/**
+ * La carpeta pública en `dist/`, sin lo que solo lee el taller (#137): vite no
+ * sabe filtrarla, así que el build no la copia (`copyPublicDir: false`) y la
+ * copia esto, con `seCopiaAlBuild`. En `pnpm dev` se sirve entera.
+ */
+export function publico(raiz: string): Plugin {
+  const origen = resolve(raiz, 'assets');
+  return {
+    name: 'heroes-publico',
+    apply: 'build',
+    writeBundle(opciones) {
+      if (opciones.dir === undefined) this.error('el build no dice dónde escribe');
+      copiarPublico(origen, opciones.dir);
+    },
+  };
 }

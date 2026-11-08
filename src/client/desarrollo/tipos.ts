@@ -3,7 +3,7 @@
  *
  * Lo que hay en `desarrollo/` existe **solo en `pnpm dev`**: `main.ts` lo trae
  * con un `import()` detrás de `HERRAMIENTAS_DE_DESARROLLO`, que en `vite build`
- * vale `false`, y el plugin `sinDesarrollo` de `vite.config.ts` rompe el build
+ * vale `false`, y el plugin `sinDesarrollo` de `tools/vite/sin-desarrollo.ts` rompe el build
  * si algo se cuela. Este fichero se puede importar desde fuera, pero **solo con
  * `import type`**: un tipo no deja rastro en el bundle (lo vigila
  * `invariantes.test.ts`).

@@ -2,11 +2,11 @@
  * Las marcas de fallo en disco: `docs/revision/marcas/<id>.json` y su `<id>.png`.
  *
  * Las escribe el servidor de Vite de `pnpm dev` (plugin `marcas` de
- * `vite.config.ts`) cuando alguien marca un fallo en el mapa, y las leen y
+ * `tools/vite/marcas.ts`) cuando alguien marca un fallo en el mapa, y las leen y
  * resuelven `pnpm marcas` y el coordinador. La carpeta no se commitea: es una
  * bandeja de entrada, no documentación.
  *
- * Aparte de `vite.config.ts` para que los tests lo ejerzan contra una carpeta
+ * Aparte de `tools/vite/marcas.ts` para que los tests lo ejerzan contra una carpeta
  * temporal sin arrancar vite, como `tools/arena/borrador.ts`.
  */
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';

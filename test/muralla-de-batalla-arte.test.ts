@@ -15,8 +15,8 @@ import {
   PIEZAS_DE_LA_MURALLA,
   TODAS_LAS_PIEZAS_DE_LA_MURALLA,
 } from '../src/shared/muralla-de-batalla.js';
-import { seCopiaAlBuild } from '../tools/build/publico.js';
 import { medirLaMuralla } from '../tools/taller/muralla-de-batalla.js';
+import { seCopiaAlBuild } from '../tools/vite/publico.js';
 
 describe('el arte de la muralla de batalla', () => {
   it('el índice es el que sale de medir las imágenes en disco', async () => {

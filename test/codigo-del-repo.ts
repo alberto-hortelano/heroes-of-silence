@@ -448,7 +448,7 @@ export interface RutaEscrita {
  * Las rutas del repo que `r` escribe en cadenas de su código, comentarios aparte:
  * toda cadena entera que empieza por una carpeta del repo (`src/…`, `tools/…`,
  * `data/…`, `assets/…`, `docs/…`, `test/…`, con `./` delante o sin él, la de un
- * `ssrLoadModule` o un `import()` de `vite.config.ts`, el fichero que se lanza en
+ * `ssrLoadModule` o un `import()` de `tools/vite/`, el fichero que se lanza en
  * un `spawn`, la constante que lo nombra), y la de un `new URL('…',
  * import.meta.url)`, resuelta desde `r`. Es lo que `tsc` no comprueba: la mudanza
  * que se olvida de una deja una orden que no arranca. Una plantilla con huecos

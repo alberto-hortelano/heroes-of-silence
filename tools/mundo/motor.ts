@@ -10,7 +10,7 @@
  *
  * Una generación cada vez. El proceso del motor va en **su propio grupo**
  * (`detached`) y se cancela matando ese grupo, nunca por nombre: la máquina es
- * compartida (`CLAUDE.md`). Lo carga el plugin `mundos()` de `vite.config.ts`
+ * compartida (`CLAUDE.md`). Lo carga el plugin `mundos()` de `tools/vite/mundos.ts`
  * (`ssrLoadModule`), que solo existe en `pnpm dev`.
  */
 import { type ChildProcess, spawn } from 'node:child_process';
@@ -44,7 +44,7 @@ import {
 } from './disco.js';
 
 /**
- * La regla de un id de mundo, para la ruta del servidor de desarrollo: `vite.config.ts`
+ * La regla de un id de mundo, para la ruta del servidor de desarrollo: `tools/vite/mundos.ts`
  * no importa el núcleo al arrancar (`arranque.test.ts`), así que la lee de aquí, que
  * carga a demanda.
  */

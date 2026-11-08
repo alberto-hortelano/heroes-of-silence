@@ -4,7 +4,7 @@
  * Con la tecla `M` o el botón «Marcar», un clic en el mapa no mueve al héroe:
  * recorta la pantalla alrededor del punto, reúne qué hay ahí (`queHayEn`) y
  * abre un cuadro para la nota. Al guardar, el servidor de Vite lo escribe en
- * `docs/revision/marcas/` (plugin `marcas` de `vite.config.ts`). Con
+ * `docs/revision/marcas/` (plugin `marcas` de `tools/vite/marcas.ts`). Con
  * `?seed=N&marca=<id>` la página vuelve a mirar ese sitio a ese zoom.
  *
  * No aplica ninguna regla ni pasa por `sesion/partida.ts` más que para leer el estado y

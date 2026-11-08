@@ -18,7 +18,7 @@
  * mismo nodo corren en el orden en que se registraron) y porque lo que se lee al cargar —lo
  * plegado de la muralla en `localStorage`, la URL— decide qué se dice primero.
  * Las cifras se guardan en el catálogo de unidades del repo a través del servidor de
- * desarrollo (`vite.config.ts`); sin él la página lo dice y sigue sirviendo para
+ * desarrollo (`tools/vite/arena.ts`); sin él la página lo dice y sigue sirviendo para
  * pelear.
  */
 

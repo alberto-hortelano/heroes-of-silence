@@ -2,10 +2,10 @@
  * El lado de disco de la arena (`/arena/`): qué hojas hay, los catálogos de
  * unidades (`data/unidades.json`, el que lee `core/catalogo.ts`) y de equipo
  * (`data/equipo.json`, el que carga `core/data.ts`) y el borrador de las formas de
- * muralla. Lo sirve el servidor de desarrollo (`vite.config.ts`) y nada más: el
+ * muralla. Lo sirve el servidor de desarrollo (`tools/vite/arena.ts`) y nada más: el
  * navegador no puede escribir en el repo. La partida no lee el borrador.
  *
- * Aparte de `vite.config.ts` para que los tests lo ejerzan contra una carpeta
+ * Aparte de `tools/vite/arena.ts` para que los tests lo ejerzan contra una carpeta
  * temporal sin arrancar vite.
  */
 import { existsSync } from 'node:fs';
