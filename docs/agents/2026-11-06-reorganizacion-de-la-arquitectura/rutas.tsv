@@ -2533,3 +2533,4 @@ fichero	tools/qa/url-de-partida.ts	tools/qa/navegador/url-de-partida.ts
 fichero	tools/qa/capturas.ts	tools/qa/capturas/main.ts	
 fichero	tools/qa/escenas-de-capturas.ts	tools/qa/capturas/escenas.ts	
 fichero	tools/qa/cifras-de-la-ficha.ts	tools/qa/capturas/ficha.ts	
+texto	tools/qa/medidas/banco.ts	docs/banco.md	(H5b: el historial de anclas, líneas 72-1477 del comentario de ANCLA, tal cual sin « * »)

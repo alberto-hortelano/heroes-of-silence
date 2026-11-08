@@ -1596,7 +1596,7 @@ ocupado por algo ajeno no se libera: se reporta.**
   sustituida sin rederivar, las dos (sha256).
 - **`pnpm banco`**: si el hash cambia a propósito, se re-ancla en
   `tools/qa/medidas/banco.ts` y se juzga **la forma del diff** (qué semillas cambian y
-  cuál es el primer hecho distinto), no el hash.
+  cuál es el primer hecho distinto), no el hash; el historial de anclas, en `docs/banco.md`.
 - Medidas de equilibrio y duración: solo si la tarea es medir (ver «No se prueba la jugabilidad»,
   arriba), y con **100 semillas**. Una cifra medida se escribe con su fecha.
 - Nada de puntuación de deuda ni pruebas de mutación.
