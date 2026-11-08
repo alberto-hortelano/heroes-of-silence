@@ -9,9 +9,8 @@
  *   - `<semilla>.json`, el informe: suelo desnudo, murallas partidas, bases
  *     sobre una reserva, casillas de barrera sin formación y módulos que faltan.
  */
-import { copyFile, mkdir, readFile, writeFile } from 'node:fs/promises';
-import { createServer, type Server } from 'node:http';
-import type { AddressInfo } from 'node:net';
+import { copyFile, mkdir, writeFile } from 'node:fs/promises';
+import type { Server } from 'node:http';
 import { join, resolve } from 'node:path';
 import { chromium, type Page } from 'playwright';
 import type { Marca } from '../../../src/client/desarrollo/tipos.js';
@@ -21,7 +20,7 @@ import { cajaEnPixeles } from '../../../src/client/render/mapa/camara.js';
 import type { GameMap } from '../../../src/core/map/tipos.js';
 import { newGame } from '../../../src/core/state/setup.js';
 import { textoJson } from '../../comun/json.js';
-import { chromiumInstalado } from '../../comun/navegador.js';
+import { chromiumInstalado, servirFicheros } from '../../comun/navegador.js';
 import { RAIZ } from '../../comun/raiz.js';
 import { leerCatalogo } from './catalogo-disco.js';
 import { paginaDeEscena } from './pintor.js';
@@ -36,28 +35,14 @@ const TIPOS: Readonly<Record<string, string>> = {
 };
 
 /**
- * Un servidor de ficheros del repo, en un puerto que da el sistema y solo en
- * 127.0.0.1. Hace falta porque una imagen cargada desde \`file://\` contamina el
- * canvas y el pintor ya no puede leer sus píxeles para medir el suelo desnudo.
+ * Los ficheros del repo y nada fuera de él: la página del pintor lee el arte y mide el suelo
+ * desnudo en el lienzo, que una imagen de \`file://\` contaminaría.
  */
-async function servir(): Promise<{ servidor: Server; base: string }> {
-  const servidor = createServer(async (req, res) => {
-    const ruta = resolve(RAIZ, `.${decodeURIComponent((req.url ?? '/').split('?')[0] ?? '/')}`);
-    if (!ruta.startsWith(RAIZ)) {
-      res.writeHead(403).end();
-      return;
-    }
-    try {
-      const bytes = await readFile(ruta);
-      const ext = ruta.slice(ruta.lastIndexOf('.'));
-      res.writeHead(200, { 'content-type': TIPOS[ext] ?? 'application/octet-stream' }).end(bytes);
-    } catch {
-      res.writeHead(404).end();
-    }
-  });
-  await new Promise<void>((ok) => servidor.listen(0, '127.0.0.1', ok));
-  const { port } = servidor.address() as AddressInfo;
-  return { servidor, base: `http://127.0.0.1:${port}` };
+function servir(): Promise<{ servidor: Server; base: string }> {
+  return servirFicheros((pedida) => {
+    const ruta = resolve(RAIZ, `.${pedida}`);
+    return ruta.startsWith(RAIZ) ? ruta : null;
+  }, TIPOS);
 }
 
 export interface Resultado {

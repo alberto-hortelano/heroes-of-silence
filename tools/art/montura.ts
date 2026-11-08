@@ -20,9 +20,8 @@
  */
 import { existsSync } from 'node:fs';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
-import { createServer, type Server } from 'node:http';
-import type { AddressInfo } from 'node:net';
-import { extname, join, normalize, resolve, sep } from 'node:path';
+import type { Server } from 'node:http';
+import { join, normalize, resolve, sep } from 'node:path';
 import { chromium } from 'playwright';
 import sharp from 'sharp';
 import {
@@ -33,7 +32,7 @@ import {
   luzEnElMundo,
 } from '../../src/shared/arte.js';
 import { sha256 } from '../comun/hash.js';
-import { chromiumInstalado } from '../comun/navegador.js';
+import { chromiumInstalado, servirFicheros } from '../comun/navegador.js';
 import { RAIZ } from '../comun/raiz.js';
 import {
   clipDeDisparoDe,
@@ -103,14 +102,13 @@ const MIME: Record<string, string> = {
 };
 
 /** Sirve tres raíces y nada fuera de ellas. */
-function servir(): Promise<Server> {
+function servir(): Promise<{ servidor: Server; base: string }> {
   const raices: Record<string, string> = {
     '/three/': join(FORGE, 'node_modules/three/'),
     '/modelos/': `${MODELOS}/`,
     '/fbx/': `${FBX}/`,
   };
-  const servidor = createServer(async (req, res) => {
-    const url = decodeURIComponent((req.url ?? '/').split('?')[0] as string);
+  return servirFicheros((url) => {
     let ruta: string | null = null;
     if (url === '/') ruta = join(ESCENA, 'pagina.html');
     else if (url === '/escena.js') ruta = join(ESCENA, 'escena.js');
@@ -122,14 +120,8 @@ function servir(): Promise<Server> {
           ruta = r;
       }
     }
-    if (ruta === null || !existsSync(ruta)) {
-      res.writeHead(404).end(`no está: ${url}`);
-      return;
-    }
-    res.writeHead(200, { 'content-type': MIME[extname(ruta)] ?? 'application/octet-stream' });
-    res.end(await readFile(ruta));
-  });
-  return new Promise((ok) => servidor.listen(0, '127.0.0.1', () => ok(servidor)));
+    return ruta;
+  }, MIME);
 }
 
 export async function renderizarMontura(prueba: boolean): Promise<string> {
@@ -142,8 +134,7 @@ export async function renderizarMontura(prueba: boolean): Promise<string> {
   ] as const) {
     if (!existsSync(ruta)) throw new Error(`no encuentro ${que} en ${ruta}`);
   }
-  const servidor = await servir();
-  const puerto = (servidor.address() as AddressInfo).port;
+  const { servidor, base } = await servir();
   const exe = chromiumInstalado(console.log);
   const navegador = await chromium.launch({
     ...(exe === undefined ? {} : { executablePath: exe }),
@@ -153,7 +144,7 @@ export async function renderizarMontura(prueba: boolean): Promise<string> {
     const pagina = await navegador.newPage();
     const errores: string[] = [];
     pagina.on('pageerror', (e) => errores.push(e.message));
-    await pagina.goto(`http://127.0.0.1:${puerto}/`);
+    await pagina.goto(`${base}/`);
     await pagina.waitForFunction(
       () => (window as unknown as { __listo?: boolean }).__listo === true,
       null,
@@ -347,8 +338,7 @@ export async function renderizarMontura8d(
   arma: ArmaMontada = 'lanza',
 ): Promise<string> {
   const juego: JuegoMontado = `montado-${arma}`;
-  const servidor = await servir();
-  const puerto = (servidor.address() as AddressInfo).port;
+  const { servidor, base } = await servir();
   const exe = chromiumInstalado(console.log);
   const navegador = await chromium.launch({
     ...(exe === undefined ? {} : { executablePath: exe }),
@@ -358,7 +348,7 @@ export async function renderizarMontura8d(
     const pagina = await navegador.newPage();
     const errores: string[] = [];
     pagina.on('pageerror', (e) => errores.push(e.message));
-    await pagina.goto(`http://127.0.0.1:${puerto}/`);
+    await pagina.goto(`${base}/`);
     await pagina.waitForFunction(
       () => (window as unknown as { __listo?: boolean }).__listo === true,
       null,

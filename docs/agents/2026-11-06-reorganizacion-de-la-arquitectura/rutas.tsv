@@ -2380,3 +2380,4 @@ simbolo	tools/taller/{ajustes,empaquetar,vista-base}.ts, art/poses.ts, test/{tal
 fichero	tools/qa/vite-propio.ts	tools/comun/navegador.ts	
 simbolo	tools/art/montura.ts (ejecutable) y tools/taller/escenario/escenario.ts (chromiumInstalado)	tools/comun/navegador.ts	chromiumInstalado (la regla de vite-propio manda: el de Playwright si está; si no, el más nuevo de la caché por número, dicho por log)
 simbolo	tools/qa/clima.ts (vigilar) y tools/qa/temas-con-piezas.ts	tools/comun/navegador.ts	vigilarLaConsola (nueva: errores de consola y excepciones con quién delante)
+simbolo	tools/art/montura.ts y tools/taller/escenario/escenario.ts (servir)	tools/comun/navegador.ts	servirFicheros (nueva: el servidor de ficheros en 127.0.0.1; cada uno le dice qué fichero sirve cada ruta)

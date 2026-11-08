@@ -3,13 +3,15 @@
  * `qa/temas-con-piezas`) y el taller que abre un Chromium (`art/montura`,
  * `taller/escenario`): un vite propio, en un puerto que elige el sistema y en su propio grupo de
  * procesos, para matarlo entero sin tocar el vite de nadie más (la máquina es compartida); el
- * Chromium que haya; la espera del suelo del mapa, y la consola vigilada.
+ * Chromium que haya; la espera del suelo del mapa; la consola vigilada, y un servidor de ficheros.
  */
 import { type ChildProcess, spawn } from 'node:child_process';
 import { existsSync, readdirSync } from 'node:fs';
-import { createServer } from 'node:net';
+import { readFile } from 'node:fs/promises';
+import { createServer as createHttpServer, type Server } from 'node:http';
+import { type AddressInfo, createServer } from 'node:net';
 import { homedir } from 'node:os';
-import { join } from 'node:path';
+import { extname, join } from 'node:path';
 import { chromium, type Page } from 'playwright';
 
 /** Los códigos de color ANSI; escritos con `fromCharCode` porque Biome no deja un ESC literal en una regex. */
@@ -130,4 +132,34 @@ export function vigilarLaConsola(page: Page, quien: string, errores: string[]): 
     if (m.type() === 'error') errores.push(`${quien}: ${m.text()}`);
   });
   page.on('pageerror', (e) => errores.push(`${quien}: ${e.message}`));
+}
+
+/**
+ * Un servidor de ficheros en 127.0.0.1, en un puerto que da el sistema, para lo que el taller abre
+ * en Chromium (`art/montura`: three.js y los modelos; `taller/escenario`: la página del pintor y el
+ * arte). Hace falta un servidor porque una imagen cargada desde `file://` contamina el lienzo y la
+ * página ya no puede leer sus píxeles. `donde` dice qué fichero sirve cada ruta pedida (sin la
+ * consulta y descodificada), o `null` si ninguno; lo que no da o no se lee, 404 con la ruta. El
+ * tipo, por la extensión (`tipos`), o `application/octet-stream`.
+ */
+export async function servirFicheros(
+  donde: (pedida: string) => string | null,
+  tipos: Readonly<Record<string, string>>,
+): Promise<{ servidor: Server; base: string }> {
+  const servidor = createHttpServer(async (req, res) => {
+    const pedida = decodeURIComponent((req.url ?? '/').split('?')[0] ?? '/');
+    const ruta = donde(pedida);
+    // Un fichero que no está o es una carpeta no es un fallo del servidor: es un 404 para la página.
+    const bytes = ruta === null ? null : await readFile(ruta).catch(() => null);
+    if (ruta === null || bytes === null) {
+      res.writeHead(404).end(`no está: ${pedida}`);
+      return;
+    }
+    res
+      .writeHead(200, { 'content-type': tipos[extname(ruta)] ?? 'application/octet-stream' })
+      .end(bytes);
+  });
+  await new Promise<void>((ok) => servidor.listen(0, '127.0.0.1', ok));
+  const { port } = servidor.address() as AddressInfo;
+  return { servidor, base: `http://127.0.0.1:${port}` };
 }
