@@ -1,7 +1,7 @@
 /**
  * Matar un proceso lanzado en su propio grupo (`detached`) y solo ese: la máquina
  * es compartida, y nada se mata por nombre (`CLAUDE.md`). Lo comparten los arneses
- * de navegador (`vite-propio.ts`: su vite) y el motor de mundos
+ * de navegador (`comun/navegador.ts`: su vite) y el motor de mundos
  * (`tools/mundo/motor.ts`: el `claude` que escribe la historia). Sin dependencias
  * más allá de Node, para que el servidor de desarrollo lo cargue sin Playwright.
  */

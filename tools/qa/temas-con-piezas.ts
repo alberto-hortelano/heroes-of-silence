@@ -40,10 +40,10 @@ import sharp from 'sharp';
 import { FACTION_IDS, type FactionId } from '../../src/core/types.js';
 import { contrasteDeLuces } from '../comun/color.js';
 import { mediana } from '../comun/estadistica.js';
+import { arrancarVite, chromiumInstalado, esperarElSuelo } from '../comun/navegador.js';
 import { matarGrupo } from '../comun/procesos.js';
 import { RAIZ } from '../comun/raiz.js';
 import { urlDePartida } from './url-de-partida.js';
-import { arrancarVite, chromiumInstalado, esperarElSuelo } from './vite-propio.js';
 
 /**
  * La caja de `#canvas` [x, y, ancho, alto] que no se mueve, con tema y sin él: la

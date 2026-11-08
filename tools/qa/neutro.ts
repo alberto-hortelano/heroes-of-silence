@@ -5,7 +5,7 @@
  *
  *     npx tsx tools/qa/neutro.ts [ref]        # por defecto, HEAD
  *
- * Arranca su propio vite (`vite-propio.ts`) y un Chromium sin pantalla. En cada
+ * Arranca su propio vite (`comun/navegador.ts`) y un Chromium sin pantalla. En cada
  * página y escena (la partida con el mapa y, en la misma página, con la base; la
  * arena en el montaje, la edición y el equipo; el espectador) quita `data-tema`,
  * apaga las hojas que sirve vite y pone en su lugar las de ahora, leídas del
@@ -26,10 +26,10 @@ import type { AddressInfo } from 'node:net';
 import { dirname, join, normalize } from 'node:path';
 import { chromium, type Page } from 'playwright';
 import { WebSocketServer } from 'ws';
+import { arrancarVite, chromiumInstalado, esperarElSuelo } from '../comun/navegador.js';
 import { matarGrupo } from '../comun/procesos.js';
 import { RAIZ } from '../comun/raiz.js';
 import { urlDePartida } from './url-de-partida.js';
-import { arrancarVite, chromiumInstalado, esperarElSuelo } from './vite-propio.js';
 
 /** Lo que se compara de cada elemento: color, fondo, bordes, letra, sombras y medidas. */
 const PROPIEDADES = [

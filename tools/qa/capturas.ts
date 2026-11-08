@@ -141,6 +141,7 @@ import type {
 import { COMPRESION_SUELO, type Plano } from '../../src/shared/arte.js';
 import { type Disposicion, disposicionDe, FONDO_DE_LA_FRANJA } from '../../src/shared/base.js';
 import { FICHEROS_DEL_CATALOGO, hojasDelTaller, leerCatalogo } from '../arena/borrador.js';
+import { arrancarVite, chromiumInstalado, esperarElSuelo } from '../comun/navegador.js';
 import { matarGrupo } from '../comun/procesos.js';
 import { cifrasCortadas } from './cifras-de-la-ficha.js';
 import {
@@ -168,7 +169,6 @@ import { entornoDelArnes, semillaDelEspectador } from './partida-del-arnes.js';
 import { decidir } from './politica.js';
 import { arrancarServidor, type ServidorDePartida } from './servidor.js';
 import { urlDePartida } from './url-de-partida.js';
-import { arrancarVite, chromiumInstalado, esperarElSuelo } from './vite-propio.js';
 
 /**
  * Las capturas juegan con la complejidad de siempre (7 / 7): la rueda de la

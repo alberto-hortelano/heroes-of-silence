@@ -9,7 +9,7 @@
  * `mapa`, `batalla`, `base` y `mapa 4K`) y `--climas=` (separados por `;`) solo
  * esas; `--solo-espectador` y `--solo-rayo`, solo esa prueba. El cierre, entero.
  *
- * Arranca su propio vite (`vite-propio.ts`) y deja los PNG en `carpeta` (por
+ * Arranca su propio vite (`comun/navegador.ts`) y deja los PNG en `carpeta` (por
  * defecto `.cache/clima/`):
  *
  * - por cada `?clima=` de `CLIMAS`: la base (la partida abre en ella), la morada
@@ -38,12 +38,12 @@ import type {
 } from '../../src/server/protocol.js';
 import { mediana } from '../comun/estadistica.js';
 import { aRaster } from '../comun/imagen.js';
+import { arrancarVite, chromiumInstalado, esperarElSuelo } from '../comun/navegador.js';
 import { matarGrupo } from '../comun/procesos.js';
 import { RAIZ } from '../comun/raiz.js';
 import { entornoDelArnes } from './partida-del-arnes.js';
 import { decidir } from './politica.js';
 import { arrancarServidor, type ServidorDePartida } from './servidor.js';
-import { arrancarVite, chromiumInstalado, esperarElSuelo } from './vite-propio.js';
 
 const args = process.argv.slice(2);
 const CARPETA = resolve(args.find((a) => !a.startsWith('--')) ?? join(RAIZ, '.cache/clima'));
