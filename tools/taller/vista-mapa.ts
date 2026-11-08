@@ -12,7 +12,7 @@
  */
 import { existsSync, readFileSync } from 'node:fs';
 import { mkdir, writeFile } from 'node:fs/promises';
-import { join, resolve } from 'node:path';
+import { join } from 'node:path';
 import { HITOS, NODOS, nodoDePaso, pasoDeNodo } from '../../src/client/render/escenario/nodos.js';
 import { pigments } from '../../src/client/render/mapa/terreno.js';
 import {
@@ -23,10 +23,9 @@ import {
 } from '../../src/core/map/terrain.js';
 import type { MapObject } from '../../src/core/map/tipos.js';
 import { newGame } from '../../src/core/state/setup.js';
+import { RAIZ } from '../comun/raiz.js';
 import { familiasConIds, idsDe, LAMINAS, piezaDeCasilla, TEXTURAS } from './mapa-denso.js';
 import { DIR_VISTA } from './vista.js';
-
-const RAIZ = resolve(import.meta.dirname, '../..');
 
 /** Cuántas casillas de ancho ocupa cada clase de pieza en la composición. */
 const ANCHO_EN_CASILLAS = {

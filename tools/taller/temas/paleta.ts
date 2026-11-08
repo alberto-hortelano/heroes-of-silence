@@ -37,6 +37,7 @@ import { join, resolve } from 'node:path';
 import sharp, { type OverlayOptions } from 'sharp';
 import { conComa } from '../../../src/core/texto.js';
 import { esFaccion, FACTION_IDS, type FactionId } from '../../../src/core/types.js';
+import { RAIZ } from '../../comun/raiz.js';
 
 export interface Rect {
   readonly x: number;
@@ -589,7 +590,7 @@ function dosGrupos(t: Trozo, borde: Rgb): { fondo: number[]; letra: number[]; ce
     : { fondo: gb, letra: ga, centroFondo: b };
 }
 
-const LAMINAS = resolve(import.meta.dirname, '../../../assets/art/temas');
+const LAMINAS = join(RAIZ, 'assets/art/temas');
 
 /** Los píxeles RGB de la lámina de un tema (sin alfa). */
 async function pixeles(tema: FactionId): Promise<{ datos: Buffer; ancho: number; alto: number }> {

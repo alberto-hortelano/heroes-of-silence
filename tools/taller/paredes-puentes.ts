@@ -15,13 +15,13 @@
  *   pnpm taller encolar --paredes-puentes [--solo=puente-piedra-ns,puente-troncos-eo]
  */
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
-import { dirname, join, resolve } from 'node:path';
+import { dirname, join } from 'node:path';
 import sharp from 'sharp';
+import { RAIZ } from '../comun/raiz.js';
 import { derivarPieza } from './derivar.js';
 import type { Encargo } from './encargo.js';
 import { ESTILO_DEL_MAPA, REFERENCIA_DE_MAPAS } from './mapa-denso.js';
 
-const RAIZ = resolve(import.meta.dirname, '../..');
 export const DIR_GUIAS = 'assets/mapa/guias';
 
 /** Lo que mide en pantalla un nivel de altura, en casillas (`ALTO_DE_NIVEL` del escenógrafo). */

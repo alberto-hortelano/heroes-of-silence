@@ -7,7 +7,7 @@
  * lo que leerá el juego: un solo fichero en vez de setenta.
  */
 import { readdir, readFile, writeFile } from 'node:fs/promises';
-import { join, resolve } from 'node:path';
+import { join } from 'node:path';
 import {
   type Catalogo,
   type CatalogoEnBruto,
@@ -24,9 +24,9 @@ import {
   type Pieza,
   RUTA_DEL_CATALOGO,
 } from '../../../src/client/render/escenario/catalogo.js';
+import { RAIZ } from '../../comun/raiz.js';
 import { perfilDeModulo, siluetaDeModulo } from '../derivar.js';
 
-const RAIZ = resolve(import.meta.dirname, '../../..');
 const MAPA = join(RAIZ, 'assets/mapa');
 
 interface IndiceDeHoja {

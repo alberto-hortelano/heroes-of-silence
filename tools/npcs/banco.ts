@@ -15,7 +15,7 @@
  */
 import { existsSync, readdirSync } from 'node:fs';
 import { readFile, writeFile } from 'node:fs/promises';
-import { join, resolve } from 'node:path';
+import { join } from 'node:path';
 import {
   type Banco,
   CARPETA_DE_LAS_FIGURAS,
@@ -26,6 +26,7 @@ import {
   problemasDePeticiones,
   RUTA_DEL_BANCO,
 } from '../../src/core/gente/banco.js';
+import { RAIZ } from '../comun/raiz.js';
 import { comentarioDe, escribirAtomico, jsonDe } from '../json.js';
 import {
   arteEnOchoDirecciones,
@@ -33,8 +34,6 @@ import {
   direccionesDe,
 } from '../taller/arte-en-disco.js';
 import { type EnElTaller, fotoDelTaller, fraseDelTaller } from './en-el-taller.js';
-
-export const RAIZ = resolve(import.meta.dirname, '../..');
 
 /**
  * El arte de la figura `id` en disco, con lo que se dice si está a medias: lo que hace el

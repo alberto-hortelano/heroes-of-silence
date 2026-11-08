@@ -34,6 +34,7 @@ import {
   hojasDeFigura,
   luzEnElMundo,
 } from '../../src/shared/arte.js';
+import { RAIZ } from '../comun/raiz.js';
 import {
   clipDeDisparoDe,
   componerGiro,
@@ -44,7 +45,6 @@ import {
 } from './poses.js';
 import { DISPARO_EN_NODE } from './ybot-a-distancia.js';
 
-const RAIZ = resolve(import.meta.dirname, '../..');
 const FORGE = resolve(process.env.SPRITE_FORGE_DIR ?? join(RAIZ, '../sprite-forge'));
 const FBX = resolve(process.env.SPRITE_FORGE_ASSETS ?? join(RAIZ, '../ne-fan/assets/characters'));
 const ESCENA = join(RAIZ, 'tools/art/montura');

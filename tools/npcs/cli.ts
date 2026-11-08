@@ -30,6 +30,7 @@ import { CARPETA_DE_LAS_FIGURAS, figuraDelBanco } from '../../src/core/gente/ban
 import { personasDeLaFaccion } from '../../src/core/gente/voces.js';
 import { FACTION_IDS } from '../../src/core/types.js';
 import { bandera } from '../argumentos.js';
+import { RAIZ } from '../comun/raiz.js';
 import { colaDelTaller } from '../taller/cola.js';
 import { encolarLoQueSigue, rescatar } from '../taller/npcs.js';
 import {
@@ -38,7 +39,6 @@ import {
   type EstadoDeFigura,
   estadoDeFigura,
   leerBancoDeDisco,
-  RAIZ,
 } from './banco.js';
 import { esEncargoDeNpc, fotoDelTaller, prefijoDeLaFigura } from './en-el-taller.js';
 

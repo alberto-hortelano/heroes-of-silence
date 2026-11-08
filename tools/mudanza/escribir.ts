@@ -6,7 +6,8 @@
 import { execFileSync, spawnSync } from 'node:child_process';
 import { appendFileSync, existsSync, mkdirSync, renameSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-import { delRepo, type Proyecto, RAIZ } from './proyecto.js';
+import { RAIZ } from '../comun/raiz.js';
+import { delRepo, type Proyecto } from './proyecto.js';
 
 /**
  * Dónde queda apuntado qué fichero o símbolo fue a dónde: lo leen quienes lean

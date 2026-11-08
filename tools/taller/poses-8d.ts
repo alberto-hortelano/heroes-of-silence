@@ -21,7 +21,7 @@
 import { createHash } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
-import { join, resolve } from 'node:path';
+import { join } from 'node:path';
 import sharp, { type Sharp } from 'sharp';
 import {
   type ClipDeFigura,
@@ -45,6 +45,7 @@ import {
   type JuegoEn8d,
   OCHO_DIRECCIONES,
 } from '../art/poses.js';
+import { RAIZ } from '../comun/raiz.js';
 import { ajustesDe, aplicarAjustes } from './ajustes.js';
 import {
   type AtlasDerivado,
@@ -56,7 +57,6 @@ import {
 import type { Encargo } from './encargo.js';
 import { EN_OCHO_DIRECCIONES, JUEGOS_EN_8D, unidad } from './unidades.js';
 
-const RAIZ = resolve(import.meta.dirname, '../..');
 /** Donde se juntan las hojas de cada dirección para medirlas: no se versiona. */
 const DIR_JUNTAS = join(RAIZ, '.cache/taller/poses-8d');
 export const RUTA_DEL_ATLAS_8D = join(DIR_POSES, 'atlas-8d.json');

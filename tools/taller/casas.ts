@@ -29,13 +29,13 @@
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import sharp, { type OverlayOptions } from 'sharp';
+import { RAIZ } from '../comun/raiz.js';
 import { derivarPieza } from './derivar.js';
 import { ALFA_FIGURA } from './empaquetar.js';
 import type { Modulo } from './escenario/modulos.js';
 import { sha256 } from './poses-8d.js';
 import { aRaster, type Raster } from './recorte.js';
 
-const RAIZ = resolve(import.meta.dirname, '../..');
 const MODULOS = join(RAIZ, 'assets/mapa/modulos');
 
 /** Puntos de la imagen de un pueblo, en sus píxeles. */

@@ -41,13 +41,14 @@
  *   pnpm taller encolar --laderas [--solo=roca-este-1,roca-este-2]
  */
 import { readFile, writeFile } from 'node:fs/promises';
-import { join, resolve } from 'node:path';
+import { join } from 'node:path';
 import {
   esHojaDeLadera,
   type JuntasDeLadera,
   type PapelDeLadera,
 } from '../../src/client/render/escenario/catalogo.js';
 import { TALUD_DE_LADERA } from '../../src/client/render/escenario/relieve.js';
+import { RAIZ } from '../comun/raiz.js';
 import { mascaraDeGuia, registrarLadera } from './derivar.js';
 import type { Encargo } from './encargo.js';
 import { ESTILO_DEL_MAPA, REFERENCIA_DE_MAPAS } from './mapa-denso.js';
@@ -66,8 +67,6 @@ import {
   type P3,
   SOMBRA,
 } from './paredes-puentes.js';
-
-const RAIZ = resolve(import.meta.dirname, '../..');
 
 export type Niveles = 1 | 2 | 3;
 

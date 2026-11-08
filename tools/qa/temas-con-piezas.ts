@@ -38,10 +38,9 @@ import { join, resolve } from 'node:path';
 import { chromium, type Page } from 'playwright';
 import sharp from 'sharp';
 import { FACTION_IDS, type FactionId } from '../../src/core/types.js';
+import { RAIZ } from '../comun/raiz.js';
 import { urlDePartida } from './url-de-partida.js';
 import { arrancarVite, chromiumInstalado, esperarElSuelo, matarGrupo } from './vite-propio.js';
-
-const RAIZ = resolve(import.meta.dirname, '../..');
 
 /**
  * La caja de `#canvas` [x, y, ancho, alto] que no se mueve, con tema y sin él: la

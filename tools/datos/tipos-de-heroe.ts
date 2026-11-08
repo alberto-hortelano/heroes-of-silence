@@ -22,16 +22,16 @@
  * cada test y no solo cuando alguien regenera el fichero.
  */
 import { readFileSync, writeFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
+import { join, relative } from 'node:path';
 import type { TipoDeHeroe } from '../../src/core/hero/tipos-de-heroe.js';
 import { type FactionId, NOMBRE_DE_FACCION } from '../../src/core/types.js';
+import { RAIZ } from '../comun/raiz.js';
 import { seccionDelCuaderno } from './cuaderno.js';
 
-const RAIZ = fileURLToPath(new URL('../../', import.meta.url));
 // El cuaderno vive en la copia principal del repo, sin commitear: desde un
 // worktree se le pasa la ruta (`npx tsx tools/datos/tipos-de-heroe.ts <ruta>`).
-const ORIGEN = process.argv[2] ?? `${RAIZ}NuevaJugabilidad.md`;
-const DESTINO = `${RAIZ}data/tipos-de-heroe.json`;
+const ORIGEN = process.argv[2] ?? join(RAIZ, 'NuevaJugabilidad.md');
+const DESTINO = join(RAIZ, 'data/tipos-de-heroe.json');
 
 /** La sección del cuaderno de cada facción del motor. Lo único tecleado. */
 /** El título de la sección de cada facción en el cuaderno: su nombre en el juego. */
@@ -91,4 +91,4 @@ writeFileSync(DESTINO, `${JSON.stringify(json, null, 2)}\n`);
 const cuenta = Object.entries(tipos)
   .map(([f, l]) => `${f} ${l.length}`)
   .join(', ');
-console.log(`tipos de héroe (${cuenta}) → ${DESTINO.slice(RAIZ.length)}`);
+console.log(`tipos de héroe (${cuenta}) → ${relative(RAIZ, DESTINO)}`);

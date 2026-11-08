@@ -23,7 +23,7 @@
 
 import { createHash } from 'node:crypto';
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
-import { join, resolve } from 'node:path';
+import { join } from 'node:path';
 import sharp from 'sharp';
 import {
   formaDeHoja,
@@ -31,6 +31,7 @@ import {
   type PiezaDeRampa,
 } from '../../src/client/render/escenario/catalogo.js';
 import { TRAMO_DE_PIEZA_DE_RAMPA } from '../../src/client/render/escenario/celdas.js';
+import { RAIZ } from '../comun/raiz.js';
 import { registrarConEscala } from './derivar.js';
 import { ALFA_FIGURA } from './empaquetar.js';
 import type { Encargo } from './encargo.js';
@@ -47,8 +48,6 @@ import {
   type P3,
   SOMBRA,
 } from './paredes-puentes.js';
-
-const RAIZ = resolve(import.meta.dirname, '../..');
 
 /**
  * La geometría de la rampa en el mundo de la guía, en casillas desde el borde

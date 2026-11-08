@@ -30,12 +30,11 @@
  * lo vigila `test/piezas-de-tema.test.ts`.
  */
 import { existsSync, mkdirSync, readdirSync, writeFileSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { join } from 'node:path';
 import sharp from 'sharp';
 import { FACTION_IDS, type FactionId } from '../../../src/core/types.js';
+import { RAIZ } from '../../comun/raiz.js';
 import type { Rect } from './paleta.js';
-
-const RAIZ = resolve(import.meta.dirname, '../../..');
 
 /** La hoja que se genera, relativa a la raíz del repo. */
 export const HOJA_DE_PIEZAS = 'src/client/piezas-de-tema.css';

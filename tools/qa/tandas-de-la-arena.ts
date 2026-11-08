@@ -25,7 +25,6 @@
  * devuelve `peleaSinJugar`, y eso es de quien la mide.
  */
 
-import { resolve } from 'node:path';
 import { heroePorDefecto } from '../../src/core/arena/heroe.js';
 import type { Lado } from '../../src/core/arena/lados.js';
 import {
@@ -45,6 +44,7 @@ import { MURALLAS_DEL_MAPA } from '../../src/core/state/sitios.js';
 import { unidad } from '../../src/core/unidad/catalogo.js';
 import type { Hoja, Unidad } from '../../src/core/unidad/formato.js';
 import { hojasDelTaller } from '../arena/borrador.js';
+import { RAIZ } from '../comun/raiz.js';
 
 /** Un montaje de la medida: las unidades de cada bando. */
 export type Montaje = readonly [readonly Unidad[], readonly Unidad[]];
@@ -65,7 +65,7 @@ export interface Tanda {
   readonly conHeroes?: boolean;
 }
 
-const HOJAS = hojasDelTaller(resolve(import.meta.dirname, '../..'));
+const HOJAS = hojasDelTaller(RAIZ);
 // Solo la tropa: los héroes no tienen unidad en el catálogo, que es de donde salen las cifras.
 const TROPA = HOJAS.filter((h) => !h.heroe);
 const JINETES = TROPA.filter((h) => h.perfil.startsWith('montado-'));

@@ -851,6 +851,38 @@ describe('invariantes del proyecto', () => {
     expect(infractoresDeCodigo(CLIENTE, /FAL_KEY|process\.env/)).toEqual([]);
   });
 
+  it('la raíz del repositorio se calcula en dos sitios: `tools/comun/raiz.ts` y `test/comun.ts`', () => {
+    // Una raíz calculada desde dónde está el fichero (`resolve(import.meta.dirname,
+    // '../..')`) lleva escrita la profundidad de su carpeta: mover el fichero la
+    // rompe AL EJECUTARSE y `tsc` no lo ve, porque la ruta sale bien formada y apunta
+    // a otro sitio. Había 43 copias en `tools/` (y las 25 de `test/`, juntas en la
+    // fase T); la fase H las dejó en una antes de mover nada de `tools/`. Quien se
+    // mueve cambia su `import`, y eso sí lo comprueba el compilador.
+    //
+    // Dos formas, en el CÓDIGO (un comentario que las cite no cuenta): declarar un
+    // `RAIZ`, y subir de carpeta desde `import.meta` o `__dirname` (`'..'` junto a
+    // ellos, en cualquier orden: `new URL('../x', import.meta.url)` lo lleva
+    // delante). Bajar a un fichero de la misma carpeta (el `Worker` del pintor del
+    // suelo, la `pagina.ts` del pintor del taller) no lleva profundidad y vale.
+    // `tools/taller/revision/datos.py` lleva la suya: es Python y no puede importar
+    // la de TypeScript.
+    const SUS_SITIOS = new Set(['tools/comun/raiz.ts', 'test/comun.ts']);
+    const declara = /\b(?:const|let|var)\s+RAIZ\b/;
+    const sube =
+      /(?:import\.meta\.(?:dirname|url)|__dirname)[^;\n]*['"`]\.\.[/'"`]|['"`]\.\.[/'"`][^;\n]*(?:import\.meta\.(?:dirname|url)|__dirname)/;
+    const fuera = [
+      ruta('vite.config.ts'),
+      ...ficheros('src'),
+      ...HERRAMIENTAS,
+      ...ficheros('test'),
+    ].filter((f) => !SUS_SITIOS.has(f));
+    expect(infractoresDeCodigo(fuera, declara)).toEqual([]);
+    expect(infractoresDeCodigo(fuera, sube)).toEqual([]);
+    // Y que los dos sitios sigan siéndolo: si uno dejara de calcularla, la regla
+    // no vigilaría nada.
+    for (const f of SUS_SITIOS) expect(infractoresDeCodigo([f], declara)).toHaveLength(1);
+  });
+
   it('las rutas escritas en cadenas existen: las órdenes de `package.json` y `.mcp.json`, `vite.config.ts`, `src/` y `tools/`', () => {
     // Lo que `tsc` no ve (fase T de la reorganización, 06-11-2026): un fichero que
     // se lanza por su ruta (`tsx src/server/ws-server.ts`, el `spawn` del

@@ -14,11 +14,12 @@
  */
 import { existsSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { readFile, writeFile } from 'node:fs/promises';
-import { basename, dirname, join, relative, resolve } from 'node:path';
+import { basename, dirname, join, relative } from 'node:path';
 import { z } from 'zod';
 import { CARPETA_DE_LAS_FIGURAS } from '../../../src/core/gente/banco.js';
 import { HOJAS_DE_FIGURA, NOMBRES_DE_DIRECCION } from '../../../src/shared/arte.js';
 import { carpetaDeManiqui } from '../../art/poses.js';
+import { RAIZ } from '../../comun/raiz.js';
 import { juzgarConCodex } from '../codex.js';
 import { DIR_DEL_MANIQUI_CIVIL } from '../npcs.js';
 import { sha256 } from '../poses-8d.js';
@@ -27,7 +28,6 @@ import { hojasSobreOtroManiqui, leerHuesos } from './maniqui.js';
 import { avisosDelSalto, type Salto, saltosDeLaHoja, UMBRAL_DEL_SALTO } from './salto.js';
 import { paneles } from './vision.js';
 
-export const RAIZ = resolve(import.meta.dirname, '../../..');
 /** Donde deja la revisión todo lo suyo. */
 export const DIR_DE_LA_REVISION = '.cache/taller/revision';
 const JUEZ = join(RAIZ, 'tools/taller/revision/juez.md');

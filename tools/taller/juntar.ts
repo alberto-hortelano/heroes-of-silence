@@ -14,6 +14,7 @@ import {
   hojasDeLasAcciones,
 } from '../../src/shared/arte.js';
 import { clipDeDisparoDe } from '../art/poses.js';
+import { RAIZ } from '../comun/raiz.js';
 import { leerBancoDeDisco } from '../npcs/banco.js';
 import { escribirDerivado, type OpcionesDeDerivar } from './derivar.js';
 import {
@@ -111,5 +112,5 @@ export async function alAcabarUnaHoja(dir: string): Promise<string> {
   const junta = await juntarDireccion(dir);
   return junta === null
     ? 'media dirección: se junta con la otra hoja cuando esté'
-    : `dirección completa: ${relative(resolve(import.meta.dirname, '../..'), junta)}`;
+    : `dirección completa: ${relative(RAIZ, junta)}`;
 }

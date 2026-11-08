@@ -130,8 +130,8 @@
 
 import { execFileSync } from 'node:child_process';
 import { mkdirSync, writeFileSync } from 'node:fs';
-import { dirname, join, resolve } from 'node:path';
-import { fileURLToPath, pathToFileURL } from 'node:url';
+import { dirname, join } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { completarCruce } from '../../src/core/ai/rueda.js';
 import { chooseBattleAction } from '../../src/core/ai/tactics.js';
 import { applyAction, MAX_JUGADAS } from '../../src/core/battle/battle.js';
@@ -152,6 +152,7 @@ import { EXPERIENCIA_INICIAL_DE_HEROE } from '../../src/core/hero/rango.js';
 import { hechizosDelGremio } from '../../src/core/magia/catalogo.js';
 import { createRng, type Rng } from '../../src/core/rng.js';
 import { FACTION_IDS, type Stack, type UnitInfo } from '../../src/core/types.js';
+import { RAIZ } from '../comun/raiz.js';
 import { ejercitoDe, tropaDe } from './ejercitos.js';
 
 const args = process.argv.slice(2);
@@ -333,15 +334,14 @@ function batalla(
  * entera y la tanda lanza al primer nombre que falte: se dice, no se mide.
  */
 async function tacticaDe(ref: string): Promise<Tactica> {
-  const raiz = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
   const fuente = execFileSync('git', ['show', `${ref}:src/core/ai/tactics.ts`], {
-    cwd: raiz,
+    cwd: RAIZ,
     encoding: 'utf8',
   });
-  const core = pathToFileURL(join(raiz, 'src/core/')).href;
+  const core = pathToFileURL(join(RAIZ, 'src/core/')).href;
   const apuntada = fuente.replaceAll("from '../", `from '${core}`);
   if (apuntada === fuente) throw new Error(`la táctica de ${ref} no importa nada de src/core`);
-  const fichero = join(raiz, '.cache/enfrentamiento', `tactics-${ref.replace(/[^\w.-]/g, '_')}.ts`);
+  const fichero = join(RAIZ, '.cache/enfrentamiento', `tactics-${ref.replace(/[^\w.-]/g, '_')}.ts`);
   mkdirSync(dirname(fichero), { recursive: true });
   writeFileSync(fichero, apuntada);
   const modulo = (await import(pathToFileURL(fichero).href)) as { chooseBattleAction?: Tactica };

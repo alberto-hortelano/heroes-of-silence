@@ -14,7 +14,7 @@
  *     ese estilo (decisión del usuario, 01-10-2026); el atlas de Liora ya no es
  *     referencia de nada.
  */
-import { relative, resolve } from 'node:path';
+import { relative } from 'node:path';
 import type { FactionId } from '../../src/core/types.js';
 import type { PerfilDeUnidad } from '../../src/core/unidad/formato.js';
 import {
@@ -39,6 +39,7 @@ import {
   type Tramo,
   UNA_MANO,
 } from '../art/poses.js';
+import { RAIZ } from '../comun/raiz.js';
 import { arteEnOchoDirecciones } from './arte-en-disco.js';
 import type { RitmoDeUnidad } from './derivar.js';
 import { type Encargo, figuraDelGiro } from './encargo.js';
@@ -1227,8 +1228,6 @@ export const JUEGOS_EN_8D: readonly JuegoEn8d[] = [
   'montado-pistola',
   'montado-arco',
 ];
-
-const RAIZ = resolve(import.meta.dirname, '../..');
 
 /**
  * ¿Tiene la unidad su arte propio en las ocho direcciones? `true` con las ocho

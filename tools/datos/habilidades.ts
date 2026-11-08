@@ -20,11 +20,11 @@
  * vacío que dejaría a `data/experiencia.json` sin un solo nombre válido.
  */
 import { readFileSync, writeFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
+import { join, relative } from 'node:path';
+import { RAIZ } from '../comun/raiz.js';
 
-const RAIZ = fileURLToPath(new URL('../../', import.meta.url));
-const ORIGEN = `${RAIZ}NuevaJugabilidad.md`;
-const DESTINO = `${RAIZ}data/habilidades.json`;
+const ORIGEN = join(RAIZ, 'NuevaJugabilidad.md');
+const DESTINO = join(RAIZ, 'data/habilidades.json');
 
 const texto = readFileSync(ORIGEN, 'utf8');
 
@@ -79,4 +79,4 @@ const json = {
   habilidades,
 };
 writeFileSync(DESTINO, `${JSON.stringify(json, null, 2)}\n`);
-console.log(`${habilidades.length} habilidades → ${DESTINO.slice(RAIZ.length)}`);
+console.log(`${habilidades.length} habilidades → ${relative(RAIZ, DESTINO)}`);

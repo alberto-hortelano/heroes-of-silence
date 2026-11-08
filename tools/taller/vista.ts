@@ -13,10 +13,10 @@
  */
 import { existsSync } from 'node:fs';
 import { mkdir, writeFile } from 'node:fs/promises';
-import { join, resolve } from 'node:path';
+import { join } from 'node:path';
 import { NOMBRE_DE_FACCION } from '../../src/core/types.js';
+import { RAIZ } from '../comun/raiz.js';
 
-const RAIZ = resolve(import.meta.dirname, '../..');
 export const DIR_VISTA = join(RAIZ, '.cache/taller/vista');
 
 /** La lámina de identidad de una unidad, si la tiene: es lo que la presenta. */

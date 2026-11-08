@@ -21,6 +21,7 @@ import { readFile, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { z } from 'zod';
 import { HOJAS_DE_FIGURA } from '../../../src/shared/arte.js';
+import { RAIZ } from '../../comun/raiz.js';
 import { juzgarConCodex } from '../codex.js';
 import {
   type Arbitraje,
@@ -46,7 +47,6 @@ import {
   idDelClip,
   imagenesDe,
   juicioVigente,
-  RAIZ,
 } from './revisar.js';
 
 export const JUECES = ['gpt', 'claude'] as const;

@@ -15,8 +15,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join, relative, resolve } from 'node:path';
 import ts from 'typescript';
-
-export const RAIZ = resolve(import.meta.dirname, '../..');
+import { RAIZ } from '../comun/raiz.js';
 
 /** La ruta del repo (con `/`) de una absoluta: lo que se escribe en los mensajes y en `rutas.tsv`. */
 export const delRepo = (absoluta: string): string => relative(RAIZ, absoluta).split('\\').join('/');

@@ -24,6 +24,7 @@ import {
   type HojaDeFigura,
   NOMBRES_DE_DIRECCION,
 } from '../../../src/shared/arte.js';
+import { RAIZ } from '../../comun/raiz.js';
 import { leerBancoDeDisco } from '../../npcs/banco.js';
 import { juzgarConCodex } from '../codex.js';
 import { RELOJ } from '../derivar.js';
@@ -41,7 +42,7 @@ import {
   leerHuesos,
   seMiraElArma,
 } from './maniqui.js';
-import { apuntarHuella, type Figura, juicioVigente, RAIZ } from './revisar.js';
+import { apuntarHuella, type Figura, juicioVigente } from './revisar.js';
 import { avisosDelSalto, mayorSalto, saltosDeLaHoja, UMBRAL_DEL_SALTO } from './salto.js';
 import { type CasoDelVisor, comparacion } from './vision.js';
 

@@ -9,12 +9,11 @@
  * Sale 1 con una orden desconocida o un id que no existe, diciéndolo.
  */
 import { existsSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { join } from 'node:path';
 import { mensajeDe } from '../../src/client/comun/errores.js';
+import { RAIZ } from '../comun/raiz.js';
 import { urlDePartida } from '../qa/url-de-partida.js';
 import { CARPETA_DE_MARCAS, leerMarca, listarMarcas, resolverMarca } from './almacen.js';
-
-const RAIZ = resolve(import.meta.dirname, '../..');
 
 /**
  * Lo que se pega en la barra de direcciones de `pnpm dev` para volver a mirar la

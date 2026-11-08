@@ -26,6 +26,7 @@ import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import type { FactionId } from '../../src/core/types.js';
+import { RAIZ } from '../comun/raiz.js';
 
 /** El commit de `google/fonts` del que salen todas (`git ls-remote`, 13-10-2026). */
 export const COMMIT = '66928797f271fed5ee428544e7229685e2d90127';
@@ -153,7 +154,6 @@ export const FUENTES: readonly Fuente[] = [
   },
 ];
 
-const RAIZ = resolve(import.meta.dirname, '../..');
 export const CARPETA_DE_LETRAS = join(RAIZ, 'assets/letras');
 /** La hoja de los `@font-face`, generada de `FUENTES`, relativa a la raíz. */
 export const HOJA_DE_LETRAS = 'src/client/fuentes.css';

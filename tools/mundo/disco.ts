@@ -9,7 +9,7 @@
  */
 import { existsSync } from 'node:fs';
 import { mkdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
-import { join, relative, resolve } from 'node:path';
+import { join, relative } from 'node:path';
 import { buildMap } from '../../src/core/map/generar/construir.js';
 import type { MapPlan } from '../../src/core/map/generar/plan.js';
 import {
@@ -21,9 +21,9 @@ import {
 import { type LecturaParaElMotor, lecturaParaElMotor } from '../../src/core/mundo/lectura.js';
 import { mundoNuevo, type PedidoDeMundo } from '../../src/core/mundo/partida.js';
 import { type CrudosDelMundo, leerMundo, problemasDelMundo } from '../../src/core/mundo/validar.js';
+import { RAIZ } from '../comun/raiz.js';
 import { leerBancoDeDisco } from '../npcs/banco.js';
 
-export const RAIZ = resolve(import.meta.dirname, '../..');
 export const DIR_MUNDOS = join(RAIZ, 'assets/mundos');
 export const DIR_LECTURAS = join(RAIZ, '.cache/mundos');
 

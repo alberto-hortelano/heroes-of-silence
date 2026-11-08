@@ -17,7 +17,6 @@ import {
   PALABRAS_MINIMAS_DE_LA_BIBLIA,
   problemaDeLaBiblia,
   problemaDeLaLinea,
-  RAIZ,
   validarEnDisco,
 } from '../tools/mundo/disco.js';
 import { describirMedida, medirMundo } from '../tools/mundo/medida.js';
@@ -38,6 +37,7 @@ import {
   respuestaDelValidador,
   sinRutas,
 } from '../tools/mundo/motor.js';
+import { RAIZ } from './comun.js';
 
 describe('el motor de mundos', () => {
   it('solo puede escribir la biblia y la historia de su mundo y validar ese mundo, sin preguntar a nadie', () => {

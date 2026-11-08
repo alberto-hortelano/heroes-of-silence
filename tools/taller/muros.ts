@@ -33,6 +33,7 @@ import {
   GRUESO_DEL_MURO,
 } from '../../src/client/render/escenario/recinto/octogono.js';
 import { FONDO_DEL_ADARVE } from '../../src/client/render/escenario/tirada.js';
+import { RAIZ } from '../comun/raiz.js';
 import { derivarPieza, type PiezaDerivada } from './derivar.js';
 import type { Encargo } from './encargo.js';
 import { ESTILO_DEL_MAPA, REFERENCIA_DE_MAPAS } from './mapa-denso.js';
@@ -46,8 +47,6 @@ import {
   type P3,
   SOMBRA,
 } from './paredes-puentes.js';
-
-const RAIZ = join(import.meta.dirname, '../..');
 
 /** Las piezas de norte a sur, las que llevan su paso. */
 export const MUROS_NORTE_SUR = ['muro-ns-1', 'muro-ns-2'] as const;

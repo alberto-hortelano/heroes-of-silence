@@ -34,7 +34,7 @@
  *   pnpm taller derivar-recinto
  */
 import { readFile, writeFile } from 'node:fs/promises';
-import { join, resolve } from 'node:path';
+import { join } from 'node:path';
 import {
   ALTO_DE_LA_PUERTA_DEL_RECINTO,
   ALTO_DEL_MURO_DEL_RECINTO,
@@ -52,6 +52,7 @@ import {
   puertaDelEje,
   tramoDelEje,
 } from '../../src/client/render/escenario/recinto/octogono.js';
+import { RAIZ } from '../comun/raiz.js';
 import { registrarConEscala } from './derivar.js';
 import type { Encargo } from './encargo.js';
 import { ESTILO_DEL_MAPA, REFERENCIA_DE_MAPAS } from './mapa-denso.js';
@@ -65,8 +66,6 @@ import {
   type P3,
   SOMBRA,
 } from './paredes-puentes.js';
-
-const RAIZ = resolve(import.meta.dirname, '../..');
 
 /**
  * Las medidas del muro en la guía, en casillas, a la escala del recinto: el

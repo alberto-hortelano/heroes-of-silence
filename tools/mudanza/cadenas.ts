@@ -25,7 +25,8 @@ import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { dirname, extname, join, relative, resolve } from 'node:path';
 import ts from 'typescript';
-import { delRepo, type Proyecto, RAIZ } from './proyecto.js';
+import { RAIZ } from '../comun/raiz.js';
+import { delRepo, type Proyecto } from './proyecto.js';
 
 /** Una cadena reescrita: dónde, de qué a qué. Lo dice la mudanza al acabar. */
 export interface CadenaReescrita {

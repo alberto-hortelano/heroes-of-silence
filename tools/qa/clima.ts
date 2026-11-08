@@ -36,13 +36,13 @@ import type {
   AgentResponseMsg,
   ServerToAgentMsg,
 } from '../../src/server/protocol.js';
+import { RAIZ } from '../comun/raiz.js';
 import { mediana } from './estadistica.js';
 import { entornoDelArnes } from './partida-del-arnes.js';
 import { decidir } from './politica.js';
 import { arrancarServidor, type ServidorDePartida } from './servidor.js';
 import { arrancarVite, chromiumInstalado, esperarElSuelo, matarGrupo } from './vite-propio.js';
 
-const RAIZ = resolve(import.meta.dirname, '../..');
 const args = process.argv.slice(2);
 const CARPETA = resolve(args.find((a) => !a.startsWith('--')) ?? join(RAIZ, '.cache/clima'));
 const SIN_FPS = args.includes('--sin-fps');

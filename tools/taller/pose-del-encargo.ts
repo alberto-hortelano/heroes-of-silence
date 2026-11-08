@@ -4,17 +4,16 @@
  * esqueleto (C1). Aparte de `trabajador.ts`, que arranca la cola al importarse,
  * para que lo use quien empaqueta fuera de la cola (una medida, una prueba).
  */
-import { join, resolve } from 'node:path';
+import { join } from 'node:path';
 import sharp from 'sharp';
 import { type ClipDeFigura, FIGURA, HOJAS_DE_FIGURA } from '../../src/shared/arte.js';
 import { OCHO_DIRECCIONES } from '../art/poses.js';
+import { RAIZ } from '../comun/raiz.js';
 import { ELEVACION_DEL_CADAVER } from './derivar.js';
 import { apoyoEn, type EscalaDePose } from './empaquetar.js';
 import type { Encargo } from './encargo.js';
 import { hojaDelReposo } from './poses-8d.js';
 import { hojaDePose, huesosVigentes, poseDelEncargo, troncoDe } from './revision/maniqui.js';
-
-const RAIZ = resolve(import.meta.dirname, '../..');
 
 /**
  * Las siluetas del maniquí en cada celda de la hoja de pose de un encargo de 8

@@ -19,13 +19,14 @@
  *   pnpm taller encolar --relieve [--solo=bajadas-roca-1]
  */
 import { readFile, writeFile } from 'node:fs/promises';
-import { join, resolve } from 'node:path';
+import { join } from 'node:path';
 import type { RumboDeBajada } from '../../src/client/render/escenario/catalogo.js';
 import {
   DIRECCION_DE_BAJADA,
   largoDeBajada,
   taludDeBajada,
 } from '../../src/client/render/escenario/celdas.js';
+import { RAIZ } from '../comun/raiz.js';
 import { mascaraDeGuia, registrarPieza } from './derivar.js';
 import type { Encargo } from './encargo.js';
 import { azarDe, bloque, MATERIAL, MESETA, mata, type Niveles } from './laderas.js';
@@ -42,8 +43,6 @@ import {
   type P3,
   SOMBRA,
 } from './paredes-puentes.js';
-
-const RAIZ = resolve(import.meta.dirname, '../..');
 
 /** Los rumbos de la hoja, en su orden de lectura: cuatro en la primera fila y el oeste debajo. */
 export const RUMBOS: readonly RumboDeBajada[] = ['s', 'se', 'so', 'e', 'o'];

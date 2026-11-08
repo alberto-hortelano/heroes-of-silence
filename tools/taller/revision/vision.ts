@@ -12,10 +12,10 @@ import { execFileSync, spawn } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join, relative, resolve } from 'node:path';
+import { join, relative } from 'node:path';
 import sharp from 'sharp';
+import { RAIZ } from '../../comun/raiz.js';
 
-const RAIZ = resolve(import.meta.dirname, '../../..');
 export const ENTORNO = join(RAIZ, '.cache/vision/.venv');
 const PYTHON = join(ENTORNO, 'bin/python');
 const VISION = join(RAIZ, 'tools/taller/revision/vision.py');

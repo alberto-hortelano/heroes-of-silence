@@ -40,7 +40,7 @@
  */
 import { existsSync } from 'node:fs';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
-import { dirname, join, resolve } from 'node:path';
+import { dirname, join } from 'node:path';
 import sharp, { type OverlayOptions } from 'sharp';
 import {
   SITIOS,
@@ -58,12 +58,11 @@ import {
   filaDelPanorama,
   TRAMO,
 } from '../../src/shared/base.js';
+import { RAIZ } from '../comun/raiz.js';
 import { IMAGENES } from './codex.js';
 import type { Encargo } from './encargo.js';
 import { MUESTRA_ELEGIDA } from './mapa.js';
 import { ESTILO_DE_FACCION } from './unidades.js';
-
-const RAIZ = resolve(import.meta.dirname, '../..');
 
 /** Dónde va el arte de la base de una facción (servido en `/bases/<facción>/`). */
 export const dirDeLaBase = (f: FactionId): string => `assets/bases/${f}`;

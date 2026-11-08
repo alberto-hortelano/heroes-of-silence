@@ -112,14 +112,13 @@ import { destinoDeHoy, sesionContraMonstruo } from '../../test/batalla-de-client
 import { agresiva } from '../../test/batalla-de-prueba.js';
 import { PESADA, TROPA_BARATA } from '../../test/comun.js';
 import { ejercito, guarnecer, pegadoA } from '../../test/partida-de-prueba.js';
+import { RAIZ } from '../comun/raiz.js';
 import { leerMundoDeDisco } from '../mundo/disco.js';
 import { leerBancoDeDisco } from '../npcs/banco.js';
 import { contestaElArnes, DIAS_DEL_ARNES, sinTorcidos } from './partida-del-arnes.js';
 import { DIAS_POR_DEFECTO, partidaDeSemilla, volcadoDeLaPartida } from './partidas.js';
 import { montajeDeLaSemilla, peleaSinJugar, TANDAS } from './tandas-de-la-arena.js';
 import { prepararPartidaDelArnes } from './veterano-en-la-base.js';
-
-const RAIZ = resolve(import.meta.dirname, '../..');
 
 /** Lo que mide cada sección (las cifras, escritas una vez: la cabecera las cuenta). */
 const SEMILLAS_DE_MAPAS = 200;

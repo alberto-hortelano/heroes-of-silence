@@ -24,9 +24,10 @@
  *   pnpm taller encolar --relieve [--solo=diagonales-roca-se-1,…]
  */
 import { readFile, writeFile } from 'node:fs/promises';
-import { join, resolve } from 'node:path';
+import { join } from 'node:path';
 import type { PapelDeDiagonal } from '../../src/client/render/escenario/catalogo.js';
 import { JUNTAS, type TipoVisto, taludDeJunta } from '../../src/client/render/escenario/celdas.js';
+import { RAIZ } from '../comun/raiz.js';
 import { mascaraDeGuia, registrarPieza } from './derivar.js';
 import type { Encargo } from './encargo.js';
 import {
@@ -55,7 +56,6 @@ import {
   SOMBRA,
 } from './paredes-puentes.js';
 
-const RAIZ = resolve(import.meta.dirname, '../..');
 const PI = Math.PI;
 /** El gris de los trozos del labio: el de la roca, no el claro de lo alto (`ARRIBA`). */
 const LABIO_ROTO = '#bcbcbc';

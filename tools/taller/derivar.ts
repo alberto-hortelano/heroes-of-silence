@@ -19,7 +19,7 @@
  */
 import { createHash } from 'node:crypto';
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
-import { basename, dirname, join, resolve } from 'node:path';
+import { basename, dirname, join } from 'node:path';
 import sharp from 'sharp';
 import type { JuntasDeLadera } from '../../src/client/render/escenario/catalogo.js';
 import {
@@ -30,11 +30,10 @@ import {
   FILAS_DEL_ATLAS,
   type HojaDeFigura,
 } from '../../src/shared/arte.js';
+import { RAIZ } from '../comun/raiz.js';
 import { ALFA_FIGURA, apoyoEn } from './empaquetar.js';
 import type { GeometriaDeLadera } from './laderas.js';
 import { esFondoDeGuia, type P2 } from './paredes-puentes.js';
-
-const RAIZ = resolve(import.meta.dirname, '../..');
 
 /** Las filas de una hoja del taller, en orden, con su reloj. El reloj no sale de la imagen. */
 export const RELOJ = {

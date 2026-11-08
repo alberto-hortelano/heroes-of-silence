@@ -24,7 +24,8 @@
 import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import ts from 'typescript';
-import { absoluta, RAIZ } from './proyecto.js';
+import { RAIZ } from '../comun/raiz.js';
+import { absoluta } from './proyecto.js';
 
 const CARPETAS = ['src', 'tools', 'test', 'vite.config.ts'] as const;
 

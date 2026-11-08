@@ -24,7 +24,7 @@
  */
 import { existsSync } from 'node:fs';
 import { mkdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
-import { join, resolve } from 'node:path';
+import { join } from 'node:path';
 import sharp from 'sharp';
 import { sitioDeEdificio } from '../../src/core/town/sitios.js';
 import type { FactionId } from '../../src/core/types.js';
@@ -40,6 +40,7 @@ import {
   SOLAPE,
   TRAMO,
 } from '../../src/shared/base.js';
+import { RAIZ } from '../comun/raiz.js';
 import {
   abiertaDelJuego,
   abiertaPintada,
@@ -54,8 +55,6 @@ import {
   tramoDelJuego,
 } from './base.js';
 import { sha256 } from './poses-8d.js';
-
-const RAIZ = resolve(import.meta.dirname, '../..');
 
 /**
  * Píxeles de `ancho × alto`, fila a fila, con sus canales intercalados: uno en

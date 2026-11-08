@@ -19,7 +19,7 @@
  */
 import { existsSync } from 'node:fs';
 import { mkdir, readdir, writeFile } from 'node:fs/promises';
-import { join, resolve } from 'node:path';
+import { join } from 'node:path';
 import sharp from 'sharp';
 import type { MaterialDeMuralla } from '../../src/core/battle/types.js';
 import {
@@ -36,10 +36,9 @@ import {
   RODAJAS_DE_LA_CARA,
   TODAS_LAS_PIEZAS_DE_LA_MURALLA,
 } from '../../src/shared/muralla-de-batalla.js';
+import { RAIZ } from '../comun/raiz.js';
 import type { Encargo } from './encargo.js';
 import { ARRIBA, FONDO, FRENTE, SOMBRA } from './paredes-puentes.js';
-
-const RAIZ = resolve(import.meta.dirname, '../..');
 
 /** Dónde van las piezas, dentro del repo. */
 export const DIR_DE_LA_MURALLA = `assets/${CARPETA_DE_LA_MURALLA}`;

@@ -11,6 +11,7 @@ import { basename, join } from 'node:path';
 import sharp from 'sharp';
 import { MEDIDAS_DEL_PUESTO, PIEZA_DEL_PUESTO } from '../../src/client/render/escenario/puestos.js';
 import { MEJORAS_DEL_PUESTO, type MejoraDelPuesto } from '../../src/core/map/tipos.js';
+import { RAIZ } from '../comun/raiz.js';
 import { derivarPieza } from './derivar.js';
 import type { Encargo } from './encargo.js';
 import { ESTILO_DEL_MAPA, REFERENCIA_DE_MAPAS } from './mapa-denso.js';
@@ -26,8 +27,6 @@ import {
   type P3,
   SOMBRA,
 } from './paredes-puentes.js';
-
-const RAIZ = join(import.meta.dirname, '../..');
 
 /** Lo que tiene que existir en el mapa nuevo, según `NuevaJugabilidad.md`. */
 export const PIEZAS_DE_MAPA = [

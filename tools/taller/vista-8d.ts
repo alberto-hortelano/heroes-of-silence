@@ -20,7 +20,7 @@
  */
 import { existsSync } from 'node:fs';
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
-import { join, relative, resolve } from 'node:path';
+import { join, relative } from 'node:path';
 import { NOMBRE_DE_FACCION } from '../../src/core/types.js';
 import {
   type ClipDeFigura,
@@ -35,6 +35,7 @@ import {
   JUEGOS_DE_ARMAS,
   type JuegoDeArmas,
 } from '../art/poses.js';
+import { RAIZ } from '../comun/raiz.js';
 import { type AtlasDerivado, ELEVACION_DEL_CADAVER, RELOJ } from './derivar.js';
 import { derivarDireccionDePoses, rutaJunta } from './poses-8d.js';
 import {
@@ -47,8 +48,6 @@ import {
   unidad,
 } from './unidades.js';
 import { DIR_VISTA } from './vista.js';
-
-const RAIZ = resolve(import.meta.dirname, '../..');
 
 /** La cabecera de cada columna del visor: una por fila del atlas. */
 const NOMBRE_DE_ACCION: Readonly<Record<ClipDeFigura, string>> = {

@@ -23,13 +23,12 @@ import { execFileSync } from 'node:child_process';
 import { once } from 'node:events';
 import { readFileSync } from 'node:fs';
 import type { AddressInfo } from 'node:net';
-import { dirname, join, normalize, resolve } from 'node:path';
+import { dirname, join, normalize } from 'node:path';
 import { chromium, type Page } from 'playwright';
 import { WebSocketServer } from 'ws';
+import { RAIZ } from '../comun/raiz.js';
 import { urlDePartida } from './url-de-partida.js';
 import { arrancarVite, chromiumInstalado, esperarElSuelo, matarGrupo } from './vite-propio.js';
-
-const RAIZ = resolve(import.meta.dirname, '../..');
 
 /** Lo que se compara de cada elemento: color, fondo, bordes, letra, sombras y medidas. */
 const PROPIEDADES = [

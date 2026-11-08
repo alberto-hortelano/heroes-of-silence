@@ -15,15 +15,15 @@
  * sin rasgo.
  */
 import { readFileSync, writeFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
+import { join, relative } from 'node:path';
 import { FACTION_IDS, NOMBRE_DE_FACCION } from '../../src/core/types.js';
+import { RAIZ } from '../comun/raiz.js';
 import { seccionDelCuaderno } from './cuaderno.js';
 
-const RAIZ = fileURLToPath(new URL('../../', import.meta.url));
 // El cuaderno vive en la copia principal del repo, sin commitear: desde un
 // worktree se le pasa la ruta (`npx tsx tools/datos/facciones.ts <ruta>`).
-const ORIGEN = process.argv[2] ?? `${RAIZ}NuevaJugabilidad.md`;
-const DESTINO = `${RAIZ}data/facciones.json`;
+const ORIGEN = process.argv[2] ?? join(RAIZ, 'NuevaJugabilidad.md');
+const DESTINO = join(RAIZ, 'data/facciones.json');
 
 const texto = readFileSync(ORIGEN, 'utf8');
 
@@ -46,4 +46,4 @@ const json = {
   rasgos,
 };
 writeFileSync(DESTINO, `${JSON.stringify(json, null, 2)}\n`);
-console.log(`rasgos de ${FACTION_IDS.length} facciones → ${DESTINO.slice(RAIZ.length)}`);
+console.log(`rasgos de ${FACTION_IDS.length} facciones → ${relative(RAIZ, DESTINO)}`);

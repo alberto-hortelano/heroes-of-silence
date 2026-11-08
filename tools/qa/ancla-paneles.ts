@@ -16,10 +16,11 @@
  * pintado: el ancla se generó con el código de ANTES de tocarlo.
  */
 import { writeFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
+import { join } from 'node:path';
 import { volcado } from '../../test/escenas-paneles.js';
+import { RAIZ } from '../comun/raiz.js';
 
-const destino = fileURLToPath(new URL('../../test/fixtures/paneles.txt', import.meta.url));
+const destino = join(RAIZ, 'test/fixtures/paneles.txt');
 const texto = await volcado();
 writeFileSync(destino, texto, 'utf8');
 console.log(`ancla escrita: ${texto.split('\n').length - 1} líneas, ${texto.length} bytes`);

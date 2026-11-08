@@ -34,6 +34,7 @@ import {
   SOLAPE,
   TRAMO,
 } from '../../src/shared/base.js';
+import { RAIZ } from '../comun/raiz.js';
 import {
   ADULTO_EN_EL_CUADRO,
   APARTE,
@@ -46,7 +47,6 @@ import {
 } from './base.js';
 import { indiceEscrito, pieDelTramo } from './recorte-base.js';
 
-const RAIZ = resolve(import.meta.dirname, '../..');
 /** Dónde van los PNG si no se dice: fuera del repo (`.cache/` no se commitea). */
 const POR_DEFECTO = '.cache/vista-base';
 

@@ -43,10 +43,11 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import ts from 'typescript';
+import { RAIZ } from '../comun/raiz.js';
 import { especificadorNuevo } from './cadenas.js';
 import { apuntarRutas, biomeSobre, escribirMudanza, testsQueLosLeen } from './escribir.js';
 import { ciclosDeValor } from './grafo.js';
-import { absoluta, delRepo, FORMATO, PREFERENCIAS, Proyecto, RAIZ } from './proyecto.js';
+import { absoluta, delRepo, FORMATO, PREFERENCIAS, Proyecto } from './proyecto.js';
 
 /** Lo que el mapa dice de un destino. */
 interface Destino {

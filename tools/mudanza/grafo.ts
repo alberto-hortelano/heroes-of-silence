@@ -9,7 +9,8 @@
  * cargan cuando se llaman, no al evaluar el módulo.
  */
 import ts from 'typescript';
-import { type Proyecto, RAIZ } from './proyecto.js';
+import { RAIZ } from '../comun/raiz.js';
+import type { Proyecto } from './proyecto.js';
 
 /** Los módulos del proyecto que `f` importa por valor, resueltos (absolutos). */
 export function importacionesDeValor(

@@ -118,6 +118,7 @@ import {
   renderizarMuestrario,
   renderizarOchoDirecciones,
 } from '../art/poses.js';
+import { RAIZ } from '../comun/raiz.js';
 import { leerBancoDeDisco } from '../npcs/banco.js';
 import { esEncargoDeNpc, REINTENTOS_DE_NPC, reintentarSiQueda } from '../npcs/en-el-taller.js';
 import {
@@ -227,8 +228,6 @@ import { vistaEjercitos } from './vista.js';
 import { vista8d } from './vista-8d.js';
 import { vistaBase } from './vista-base.js';
 import { vistaMapa } from './vista-mapa.js';
-
-const RAIZ = resolve(import.meta.dirname, '../..');
 
 /** La facción de un argumento de la línea de órdenes, o lanza con el uso. */
 function faccionDe(arg: string | undefined, uso: string): FactionId {

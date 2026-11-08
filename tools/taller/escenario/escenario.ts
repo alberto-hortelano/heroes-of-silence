@@ -22,10 +22,10 @@ import { MARGEN } from '../../../src/client/render/escenario/pintar.js';
 import { cajaEnPixeles } from '../../../src/client/render/mapa/camara.js';
 import type { GameMap } from '../../../src/core/map/tipos.js';
 import { newGame } from '../../../src/core/state/setup.js';
+import { RAIZ } from '../../comun/raiz.js';
 import { leerCatalogo } from './catalogo-disco.js';
 import { paginaDeEscena } from './pintor.js';
 
-const RAIZ = resolve(import.meta.dirname, '../../..');
 export const DIR_ESCENARIO = join(RAIZ, '.cache/taller/escenario');
 
 /** El Chromium que instaló Playwright, o el suyo por defecto si no se encuentra. */
