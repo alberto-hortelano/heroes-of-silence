@@ -915,6 +915,7 @@ describe('invariantes del proyecto', () => {
       /(?:import\.meta\.(?:dirname|url)|__dirname)[^;\n]*['"`]\.\.[/'"`]|['"`]\.\.[/'"`][^;\n]*(?:import\.meta\.(?:dirname|url)|__dirname)/;
     const fuera = [
       ruta('vite.config.ts'),
+      ruta('vitest.config.ts'),
       ...ficheros('src'),
       ...HERRAMIENTAS,
       ...ficheros('test'),

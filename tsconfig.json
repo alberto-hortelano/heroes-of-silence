@@ -22,5 +22,5 @@
 
     "paths": { "@core/*": ["./src/core/*"] }
   },
-  "include": ["src", "tools", "test", "vite.config.ts"]
+  "include": ["src", "tools", "test", "vite.config.ts", "vitest.config.ts"]
 }
