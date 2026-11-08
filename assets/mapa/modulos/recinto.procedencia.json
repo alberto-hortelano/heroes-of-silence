@@ -25,7 +25,7 @@
       "sha256": "bc9d4be0abc575405759923612795b667363e7eaf580c8ae979703836a24f8ed"
     },
     {
-      "ruta": "assets/mapa/guias/recinto.png",
+      "ruta": "assets/mapa/_guias/recinto.png",
       "papel": "guia",
       "sha256": "001d8ac5f424b237b3ff8c7cc350cce1ac58067f68ce045eff88c8bd69ee6fff"
     }

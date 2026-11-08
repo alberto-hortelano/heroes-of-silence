@@ -26,9 +26,9 @@ import type { Plugin } from 'vite';
  *   poses del Y Bot (`_poses/`) no viven en carpetas `dN/` y van enteras.
  * - Toda carpeta `fuentes/` o `_guias/`, a cualquier altura: las fuentes de las
  *   que el taller saca lo que la página pide (maestros, ediciones e identidades
- *   de la base, `bases/<f>/fuentes/`) y las guías de corte de las piezas de los
- *   temas (`temas/_guias/`). Por eso las letras viven en `letras/` y no en
- *   `fuentes/`.
+ *   de la base, `bases/<f>/fuentes/`), las guías de corte de las piezas de los
+ *   temas (`temas/_guias/`) y las de geometría del mapa (`mapa/_guias/`). Por eso
+ *   las letras viven en `letras/` y no en `fuentes/`.
  * - `art/` entero (134 MB): las láminas y referencias de estilo de las que se
  *   pinta y se mide (la paleta de los temas sale de `art/temas/`). Ni el
  *   cliente ni el build lo leen (comprobado con grep y con `vite build`,

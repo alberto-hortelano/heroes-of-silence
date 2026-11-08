@@ -106,6 +106,15 @@ describe('la carpeta pública en el build', () => {
     }
   });
 
+  it('deja fuera las guías de geometría del mapa: solo las lee el taller al encargar y derivar', () => {
+    // Estaban en `mapa/guias/` y se copiaban al build (3,6 MB) hasta que pasaron a
+    // la carpeta de toda guía, `_guias/` (H3 de la reorganización, 08-11-2026).
+    for (const f of ['mapa/_guias/laderas-este-1.png', 'mapa/_guias/puente-piedra-ns.json']) {
+      expect(seCopiaAlBuild(f), f).toBe(false);
+    }
+    expect(seCopiaAlBuild('mapa/puente-piedra-ns.json')).toBe(true);
+  });
+
   it('deja fuera las hojas, sus procedencias y los JSON del corte de cada dirección', () => {
     for (const f of [
       'hoja-a.webp',

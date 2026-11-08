@@ -8,7 +8,7 @@
  * (`papel: 'guia'`): un volumen gris dibujado con la proyección del mapa —el
  * suelo en casillas cuadradas y lo alto hacia arriba de pantalla, un nivel
  * (`ALTO_DE_NIVEL`) = 0,6 casillas—, que dice dónde va cada cosa. Las guías se
- * escriben aquí (SVG → PNG con sharp), en `assets/mapa/guias/`, y la geometría
+ * escriben aquí (SVG → PNG con sharp), en `assets/mapa/_guias/`, y la geometría
  * de cada una se guarda en su `.json`: de ahí sale el ancla del puente (el
  * centro del tablero) y cuántos píxeles mide una casilla en la pieza pintada.
  *
@@ -24,7 +24,7 @@ import { derivarPieza } from './derivar.js';
 import type { Encargo } from './encargo.js';
 import { ESTILO_DEL_MAPA, REFERENCIA_DE_MAPAS } from './mapa-denso.js';
 
-export const DIR_GUIAS = 'assets/mapa/guias';
+export const DIR_GUIAS = 'assets/mapa/_guias';
 
 /** Lo que mide en pantalla un nivel de altura, en casillas (`ALTO_DE_NIVEL` del escenógrafo). */
 export const NIVEL = 0.6;
@@ -111,7 +111,7 @@ export function encajar(
 }
 
 /**
- * Escribe la guía `nombre` en `assets/mapa/guias/` (`<nombre>.png`) y su
+ * Escribe la guía `nombre` en `assets/mapa/_guias/` (`<nombre>.png`) y su
  * geometría al lado (`<nombre>.json`: el lienzo y lo que se registre sobre ella),
  * y devuelve la ruta de la imagen. La de las laderas, las diagonales, las
  * bajadas, el muro de norte a sur, el recinto y los puestos; los puentes llevan

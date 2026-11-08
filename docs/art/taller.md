@@ -198,7 +198,7 @@ semilla 3 roza el objetivo por los claros de prado, que son a propósito.
 ## Paredes laterales y puentes (§16-§17 de `peticiones.md`, 06-10-2026)
 
 ```bash
-pnpm taller guias                                   # las guías de geometría, en assets/mapa/guias/
+pnpm taller guias                                   # las guías de geometría, en assets/mapa/_guias/
 pnpm taller encolar --paredes-puentes [--solo=…]    # puentes y hojas de paredes laterales
 pnpm taller derivar-puentes assets/mapa/puente-*.webp
 ```

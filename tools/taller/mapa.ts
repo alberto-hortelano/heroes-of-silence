@@ -574,7 +574,7 @@ function cajaDeLaObraEnLaGuia(g: Guia, mejora: MejoraDelPuesto): [number, number
 const nombreDeLaGuia = (m: MejoraDelPuesto) => PIEZA_DEL_PUESTO[m];
 
 /**
- * Escribe las tres guías en `assets/mapa/guias/`, con su casilla, las medidas
+ * Escribe las tres guías en `assets/mapa/_guias/`, con su casilla, las medidas
  * de su obra y la caja de la obra sola (`cajaDeLaObraEnLaGuia`) en el `.json`.
  */
 export async function escribirGuiasDePuestos(): Promise<string[]> {

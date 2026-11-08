@@ -50,6 +50,7 @@ import {
   PIEZAS,
   papelDe,
 } from '../tools/taller/laderas.js';
+import { DIR_GUIAS } from '../tools/taller/paredes-puentes.js';
 import { RAIZ } from './comun.js';
 import { catalogoDelDisco } from './escena-de-prueba.js';
 
@@ -394,7 +395,7 @@ describe('las juntas de cada ladera salen de su guía (`pnpm taller derivar-reli
       string,
       ModuloDeLadera,
     ];
-    const guia = join(RAIZ, 'assets/mapa/guias', guiaDeHoja(hoja));
+    const guia = join(RAIZ, DIR_GUIAS, guiaDeHoja(hoja));
     const pieza = (
       JSON.parse(readFileSync(`${guia}.json`, 'utf8')) as { piezas: GeometriaDeLadera[] }
     ).piezas.find((p) => p.nombre === m.nombre) as GeometriaDeLadera;

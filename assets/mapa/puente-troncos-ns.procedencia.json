@@ -20,7 +20,7 @@
       "sha256": "c7b583d94651d86257322993318b5a539559af1e2e96a451c57bbab425b113c7"
     },
     {
-      "ruta": "assets/mapa/guias/puente-troncos-ns.png",
+      "ruta": "assets/mapa/_guias/puente-troncos-ns.png",
       "papel": "guia",
       "sha256": "64671c5714835f0521d9e790d1da21b051b8ecb3e82b675e8bbd3ce9670f8c1c"
     }

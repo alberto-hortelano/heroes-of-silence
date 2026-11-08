@@ -25,7 +25,7 @@
       "sha256": "b4ad88735462352c84b45b4ee2814acf2a095b356b31a589ea0a5e0c87e46d54"
     },
     {
-      "ruta": "assets/mapa/guias/laderas-este-1.png",
+      "ruta": "assets/mapa/_guias/laderas-este-1.png",
       "papel": "guia",
       "sha256": "37df1c0f5297ca1a50d82b6631dc70950e9a384ff2515afb00885e0906024afc"
     }

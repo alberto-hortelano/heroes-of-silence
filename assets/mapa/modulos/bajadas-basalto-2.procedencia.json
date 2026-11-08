@@ -30,7 +30,7 @@
       "sha256": "fe2efe1c411b5c697e2a39a220d302cd33dc6cb572d0a7c93f07caabd3bc3e90"
     },
     {
-      "ruta": "assets/mapa/guias/bajadas-2.png",
+      "ruta": "assets/mapa/_guias/bajadas-2.png",
       "papel": "guia",
       "sha256": "72ca16045d1e3f0ee5f5ce2880d5edee418e08b1b5790397d824a8d5bc520ab8"
     }

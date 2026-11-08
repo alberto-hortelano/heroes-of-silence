@@ -20,7 +20,7 @@
       "sha256": "b3436de156ba7506bccf1f9ceaf6cf721b424beab724f65944388846076bcbf4"
     },
     {
-      "ruta": "assets/mapa/guias/puente-piedra-ne-so.png",
+      "ruta": "assets/mapa/_guias/puente-piedra-ne-so.png",
       "papel": "guia",
       "sha256": "ab69f98183067e66ccad02299dd914766e4fd074df7f635eca6e0f9a59c4a411"
     }

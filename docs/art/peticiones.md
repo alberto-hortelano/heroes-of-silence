@@ -604,7 +604,7 @@ escenógrafo: nada está enganchado (#156, #157).
 referencia, una **guía de geometría** (`papel: 'guia'`, nuevo en
 `encargo.ts`): un volumen gris dibujado con la proyección del mapa (suelo en
 casillas cuadradas, un nivel = 0,6 casillas hacia arriba). La escribe
-`tools/taller/paredes-puentes.ts` en `assets/mapa/guias/` (`pnpm taller guias`).
+`tools/taller/paredes-puentes.ts` en `assets/mapa/_guias/` (`pnpm taller guias`).
 Con ella los puentes salen rectos a la primera; sin ella salían torcidos.
 
 ```bash
@@ -771,7 +771,7 @@ No es el escenógrafo: nada está enganchado.
 ### Guías y prompts (`tools/taller/laderas.ts`)
 
 `pnpm taller encolar --laderas [--solo=roca-este-1,…] [--rehacer]`. La
-orden `pnpm taller guias` también escribe `assets/mapa/guias/laderas-{este,oeste}-{1,2,3}.{png,json}`.
+orden `pnpm taller guias` también escribe `assets/mapa/_guias/laderas-{este,oeste}-{1,2,3}.{png,json}`.
 La §18 sigue intacta en `paredes-puentes.ts`, que ahora exporta `Guia`, `NIVEL` y los
 colores de la guía.
 
@@ -1539,7 +1539,7 @@ rectos; la cuesta más clara que la roca, con estrías, y su sombra al pie.
 
 **Lo que se pide.** Por material y caída, UNA imagen del conjunto
 (`assets/mapa/modulos/rampa-<material>-<caída>.webp`) sobre la guía
-`assets/mapa/guias/rampas-<caída>.png`, que el taller corta por ella en tres piezas
+`assets/mapa/_guias/rampas-<caída>.png`, que el taller corta por ella en tres piezas
 (`rampa-<material>-<caída>/s-costado-izq|s-cuerpo|s-costado-der.webp`, con sus
 juntas en `rampa-….json`). Pedidas por separado, las juntas entre el costado y el
 cuerpo no casarían. Los cortes caen en el filo, en `TRAMO_DE_PIEZA_DE_RAMPA`
@@ -1627,7 +1627,7 @@ bajo delante de las dos (`HHH/HlH/lll`). Ahí iban cuatro diagonales (los rincon
 esquinas SE y SO de delante) y la bajada vieja encima.
 
 **Lo que se pide.** Por material y caída, UNA pieza entera (`assets/mapa/modulos/rampa-muesca-<material>-<caída>.webp`,
-su módulo `rampa-muesca-…/s-muesca.webp`) sobre la guía `assets/mapa/guias/rampas-muesca-<caída>.png`. Sustituye
+su módulo `rampa-muesca-…/s-muesca.webp`) sobre la guía `assets/mapa/_guias/rampas-muesca-<caída>.png`. Sustituye
 las cuatro diagonales y casa con lo de fuera por sus dos juntas S, las de las esquinas (`TRAMO_DE_PIEZA_DE_RAMPA.muesca`,
 de `x − 0,5` a `x + 1,5` en la línea de delante, `FILA_DEL_FILO`). La cuesta baja de la meseta de detrás a la
 línea de delante. A cada lado, una ladera en triángulo: entera delante y a nada arriba, donde la cuesta llega a lo alto

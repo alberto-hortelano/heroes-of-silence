@@ -20,7 +20,7 @@
       "sha256": "c7b583d94651d86257322993318b5a539559af1e2e96a451c57bbab425b113c7"
     },
     {
-      "ruta": "assets/mapa/guias/puente-troncos-eo.png",
+      "ruta": "assets/mapa/_guias/puente-troncos-eo.png",
       "papel": "guia",
       "sha256": "bc839d23938b24b9a4e9cae36df5869352033ba5aa585df9407c730e496e539e"
     }

@@ -20,7 +20,7 @@
       "sha256": "02199c7c866dd6fd088369a5c3b2045ddf17f09d4d3af0cc4ce55568d4f7e1be"
     },
     {
-      "ruta": "assets/mapa/guias/laterales-oeste.png",
+      "ruta": "assets/mapa/_guias/laterales-oeste.png",
       "papel": "guia",
       "sha256": "d8e935f9111197e5d295d0ae6d16d7838c5808b04874203d559001abf115fc89"
     }

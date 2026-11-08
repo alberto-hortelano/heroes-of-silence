@@ -2390,3 +2390,4 @@ simbolo	vite.config.ts	tools/vite/mundos.ts	mundos
 simbolo	vite.config.ts	tools/vite/sin-desarrollo.ts	sinDesarrollo
 simbolo	vite.config.ts	tools/vite/publico.ts	publico (junto a seCopiaAlBuild y copiarPublico)
 simbolo	vite.config.ts (motivoDe)	src/client/comun/errores.ts	mensajeDe (H2a: la copia local se va)
+carpeta	assets/mapa/guias/	assets/mapa/_guias/	(H3a: las guías de geometría del mapa, con la convención de toda guía; 89 JSON reescritos)
