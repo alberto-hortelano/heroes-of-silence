@@ -2,7 +2,7 @@
  * Las capas: `core` es puro (sin `node:`, sin DOM, sin conocer al servidor), sin
  * azar suelto ni coma flotante de la plataforma; `src/` entero, sin ciclos de
  * importación en ejecución (ni donde se mide el nivel) ni de tipos entre dos
- * carpetas; las herramientas de desarrollo no llegan al build, el cliente no lee
+ * carpetas, y `tools/`, sin ciclos en ejecución; las herramientas de desarrollo no llegan al build, el cliente no lee
  * el entorno, ningún fichero que lee una máquina lleva la ruta de esta, y las
  * rutas que se escriben en cadenas (las que `tsc` no ve) existen.
  *
@@ -22,6 +22,7 @@ import {
   aDemandaDe,
   CLIENTE,
   CORE,
+  ciclosDe,
   codigoDe,
   existeLaRuta,
   ficheros,
@@ -412,34 +413,9 @@ describe('invariantes del proyecto', () => {
         ),
       ]),
     );
-    // Un ciclo por fichero que vuelve a sí mismo, girado para empezar por el
-    // menor: cada ciclo sale una vez, con todos sus pasos (`fichero:línea` del
-    // `import` que lleva al siguiente).
-    const ciclos = new Set<string>();
-    for (const inicio of SRC) {
-      const visto = new Set<string>();
-      type Paso = { readonly ruta: string; readonly linea: number };
-      const buscar = (desde: string, camino: readonly Paso[]): readonly Paso[] | null => {
-        for (const { ruta: siguiente, linea } of aristas.get(desde) ?? []) {
-          const conLinea = [...camino.slice(0, -1), { ruta: desde, linea }];
-          if (siguiente === inicio) return conLinea;
-          if (visto.has(siguiente)) continue;
-          visto.add(siguiente);
-          const hallado = buscar(siguiente, [...conLinea, { ruta: siguiente, linea: 0 }]);
-          if (hallado !== null) return hallado;
-        }
-        return null;
-      };
-      const hallado = buscar(inicio, [{ ruta: inicio, linea: 0 }]);
-      if (hallado === null) continue;
-      const rutas = hallado.map((p) => p.ruta);
-      const menor = rutas.indexOf([...rutas].sort()[0] as string);
-      const girado = [...hallado.slice(menor), ...hallado.slice(0, menor)];
-      ciclos.add(
-        [...girado.map((p) => `${p.ruta}:${p.linea}`), (girado[0] as Paso).ruta].join(' → '),
-      );
-    }
-    expect([...ciclos]).toEqual([]);
+    // Cada ciclo, una vez y con sus pasos (`ciclosDe`, el detector que comparte con
+    // el de `tools/`).
+    expect(ciclosDe(SRC, aristas)).toEqual([]);
     // Y que mire algo: las importaciones que quedan de aquellos ciclos, en un solo
     // sentido, las ve el resolutor (la del vestido, desde que se repartió por
     // `map/vestir/`, la hace el engorde, `fronteras.ts`; de la del pintor y los
@@ -518,6 +494,34 @@ describe('invariantes del proyecto', () => {
     expect(nombra(FIGURA)).toContain(TABLERO);
     expect(importa(FIGURA)).not.toContain(TABLERO);
     expect(importa(TABLERO)).toContain(FIGURA);
+  });
+
+  it('`tools/` no tiene ciclos de importación en ejecución', () => {
+    // Lo mismo que en `src/` y por lo mismo: una constante leída al cargarse del otro
+    // lado del ciclo da un `ReferenceError` según quién se cargue antes, y `tsc` no lo
+    // ve. Había dos, los dos en el taller (H3 de la reorganización, 08-11-2026):
+    // `taller/derivar.ts` ↔ `taller/paredes-puentes.ts` (por la guía, hoy en
+    // `taller/guias.ts`) y `taller/empaquetar.ts` ↔ `taller/encuadre.ts` (por el
+    // cuerpo de una figura, hoy en `taller/cuerpo.ts`). Roto a mano: `import {
+    // MATERIALES } from './paredes-puentes.js'` en `derivar.ts` (con un uso) sale
+    // rojo con el ciclo entero, cada paso con la línea de su `import`. Solo las
+    // importaciones dentro de `tools/`: `src/` no importa `tools/`.
+    const aristas = new Map<string, { ruta: string; linea: number }[]>(
+      HERRAMIENTAS.map((r) => [
+        r,
+        importacionesConLineaDe(r).filter(
+          (x) => x.ruta.startsWith('tools/') && x.ruta.endsWith('.ts'),
+        ),
+      ]),
+    );
+    expect(ciclosDe(HERRAMIENTAS, aristas)).toEqual([]);
+    // Y que mire algo: las importaciones que quedan de aquellos ciclos, en un solo
+    // sentido.
+    const importa = (de: string): string[] => (aristas.get(de) ?? []).map((x) => x.ruta);
+    expect(importa(ruta('tools/taller/paredes-puentes.ts'))).toContain(
+      ruta('tools/taller/derivar.ts'),
+    );
+    expect(importa(ruta('tools/taller/empaquetar.ts'))).toContain(ruta('tools/taller/encuadre.ts'));
   });
 
   it('las capas de `core`: la IA y el contrato solo los importan ellos mismos, y el mapa no conoce la partida', () => {

@@ -278,6 +278,47 @@ function entreParentesisDe(r: string): { ruta: string; linea: number; deUnTipo: 
   return out;
 }
 
+/**
+ * Los ciclos de importación de `aristas` (de cada fichero, lo que importa con la
+ * línea de su `import`) que pasan por alguno de `rutas`: uno por fichero que vuelve
+ * a sí mismo, girado para empezar por el menor, así que cada ciclo sale una vez,
+ * con todos sus pasos (`fichero:línea` del `import` que lleva al siguiente).
+ *
+ * Es el detector de los guardias de ciclos en ejecución: el de `src/` y el de
+ * `tools/` (`invariantes-capas.test.ts`). Vivía dentro del de `src/` hasta que el
+ * de `tools/` lo necesitó (H3 de la reorganización, 08-11-2026).
+ */
+export function ciclosDe(
+  rutas: readonly string[],
+  aristas: ReadonlyMap<string, readonly { ruta: string; linea: number }[]>,
+): string[] {
+  const ciclos = new Set<string>();
+  for (const inicio of rutas) {
+    const visto = new Set<string>();
+    type Paso = { readonly ruta: string; readonly linea: number };
+    const buscar = (desde: string, camino: readonly Paso[]): readonly Paso[] | null => {
+      for (const { ruta: siguiente, linea } of aristas.get(desde) ?? []) {
+        const conLinea = [...camino.slice(0, -1), { ruta: desde, linea }];
+        if (siguiente === inicio) return conLinea;
+        if (visto.has(siguiente)) continue;
+        visto.add(siguiente);
+        const hallado = buscar(siguiente, [...conLinea, { ruta: siguiente, linea: 0 }]);
+        if (hallado !== null) return hallado;
+      }
+      return null;
+    };
+    const hallado = buscar(inicio, [{ ruta: inicio, linea: 0 }]);
+    if (hallado === null) continue;
+    const rutasDelCiclo = hallado.map((p) => p.ruta);
+    const menor = rutasDelCiclo.indexOf([...rutasDelCiclo].sort()[0] as string);
+    const girado = [...hallado.slice(menor), ...hallado.slice(0, menor)];
+    ciclos.add(
+      [...girado.map((p) => `${p.ruta}:${p.linea}`), (girado[0] as Paso).ruta].join(' → '),
+    );
+  }
+  return [...ciclos];
+}
+
 /** Lo que `r` carga a demanda, con un `import()`: lo que se evalúa cuando se llama. */
 export function aDemandaDe(r: string): { ruta: string; linea: number }[] {
   return entreParentesisDe(r).flatMap((i) =>
