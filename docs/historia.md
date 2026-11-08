@@ -5940,3 +5940,38 @@ Lo que decía `CLAUDE.md`, tal como estaba:
 | Qué | Dónde |
 |---|---|
 | El editor de piezas (arena) | `conPiezas` (la única superposición de piezas sobre un catálogo: cambiar una, abrir un enlace), `cambioDePiezas` (el catálogo nuevo, hecho una vez, o el motivo: nadie de los catálogos deja de valer, dos piezas no se llaman igual, el equipo base del héroe; un retoque a media pelea, `retocarEnBatalla` con `kind: 'piezas'`, pregunta `equipoQueNoVale`), `enElHueco` (lo que exige el hueco; lo que no suma, a 0; el peso se queda), `piezaNueva` (en blanco o copia; ni id ni nombre de otra) y `piezaSobre` (sobre otra, extras a 0), `idsLlevados`/`piezasDelMontaje` (`core/arena.ts`). Las lecturas de una pieza atadas a un catálogo, `equipoCon` (`hero/equipo.ts`): la arena no importa las sueltas (`pieza`, `piezasPuestas`, `sumaDeEquipo`, `conEquipo`, `manosBlocker`, `equipoBlocker`, `ponerPieza`, `heroUnit`), que leen las del juego; al héroe lo viste con `cuerpoDelHeroe`. La batalla no lleva catálogo de piezas: quien cambia una a media pelea le da el suyo; el equipo puesto de cada stack, en `UnitInfo.equipo` (lo escribe `conEquipo` y viaja al espectador). Lo vigila `invariantes.test.ts`, por importación |
+
+## La mudanza: el codemod de la reorganización (08-11-2026)
+
+La reorganización de la arquitectura movió ≈2 700 ficheros y declaraciones (la lista entera,
+`docs/agents/2026-11-06-reorganizacion-de-la-arquitectura/rutas.tsv`) con una herramienta propia,
+`tools/mudanza/`, que se borró al acabar (fase D, 08-11-2026). Era un codemod sobre el servicio de
+lenguaje de TypeScript (el `tsconfig.json` del repo, con un disco en memoria que solo se escribía si
+todo salía bien), con tres órdenes:
+
+- `mover <viejo> <nuevo>…`: ficheros enteros con `git mv`, reescribiendo todo lo que los importaba
+  (también `import()`, `typeof import()`, `vi.mock` y las rutas de `new URL(…, import.meta.url)` y
+  del `RAIZ` de `tools/`), y listando sin tocar las rutas que solo son un dato (guardias, `*.html`,
+  `package.json`, documentación).
+- `partir <fichero> <mapa.json>`: declaraciones de nivel superior a ficheros nuevos, sin fachadas,
+  con el texto de cada una letra a letra; rechazaba sin tocar nada lo que cambiaría el programa (un
+  `let` separado de sus asignaciones, lo que usa una sentencia de efecto que se queda, un módulo
+  importado con `import * as`, un ciclo de importación de valor, un error de compilación, un
+  comentario perdido).
+- `comprobar <ref>`: que lo cambiado desde `<ref>` era solo una mudanza (las mismas sentencias,
+  normalizadas, en otro sitio).
+
+Sus pegas conocidas, que se arreglaban a mano tras cada pasada (fases H3-H5): escribía las
+importaciones de Node sin `node:` y a veces de otro módulo (`path/posix`, `fs/promises`,
+`child_process`, `os`, `timers/promises`; `path/posix` no es `node:path` fuera de Linux); no movía
+una sentencia de efecto ni lo que usa; con varios tramos sueltos para un mismo destino, el refactor
+importaba en él los tipos que ya tenía (se juntaban antes los tramos de cada destino); y no
+importaba lo que se nombra en una propiedad abreviada (`{ unir, arbitrar }`), así que ese fichero se
+partió a mano. Lo que el refactor importaba como tipo y lo movido usaba como valor se arregló en la
+propia herramienta (`e502dcd8`).
+
+La última pasada (fase D) quitó, con el mismo servicio de lenguaje, 670 `export` que solo leía su
+propio fichero (test 12, tools 256, servidor 17, cliente y `shared` 178, core 207) y lo que después
+no usaba nadie (`detectBackgroundColor` y `transparencyRatio` del recorte del fondo, `MATERIAL` de
+los temas y `esInstantaneo` de la magia). Que no vuelvan lo vigila `tools/qa/exportaciones.ts`, en
+CI.
