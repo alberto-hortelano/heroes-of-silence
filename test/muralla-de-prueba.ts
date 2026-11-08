@@ -44,7 +44,7 @@ export const lado = (army: readonly Stack[]): BattleSide => ({ army, hero: null 
 export const VAMPIRO = aMano(NO_MUERTO, { name: 'Vampiro', traits: ['undead', 'flying'] });
 
 /** Un bando de uno: `cuantos` (3) de una unidad del catálogo, o uno hecho a mano. */
-export const deUno = (quien: string | UnitInfo, cuantos = 3): BattleSide =>
+const deUno = (quien: string | UnitInfo, cuantos = 3): BattleSide =>
   typeof quien === 'string' ? lado([{ creature: quien, count: cuantos }]) : bandoAMano([quien]);
 
 /** Les da escalera a los atacantes de esos puestos, como la casilla del montaje. */

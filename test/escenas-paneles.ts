@@ -42,7 +42,7 @@ function hoja(id: string, experiencia: number): Veterania {
   return { id, experiencia, batallas: 2, bajas: 1, heroes: [] };
 }
 
-export interface Escena {
+interface Escena {
   readonly nombre: string;
   readonly session: Session;
 }
@@ -90,7 +90,7 @@ export function meAtacan(semilla: number, ejercitoMio?: Army): Session {
   return s;
 }
 
-export async function escenas(): Promise<readonly Escena[]> {
+async function escenas(): Promise<readonly Escena[]> {
   const out: Escena[] = [];
 
   // 1 · Aventura, con dos días jugados para que la crónica tenga qué contar.

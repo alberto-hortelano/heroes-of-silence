@@ -73,7 +73,7 @@ const RESPIRO_MS = 250;
 let ultimoRespiro = ahora();
 
 /** Una vuelta entera al bucle de eventos del trabajador: lo que le haya contestado vitest se lee en ella. */
-export async function respirar(): Promise<void> {
+async function respirar(): Promise<void> {
   await new Promise<void>((seguir) => ceder(seguir));
   ultimoRespiro = ahora();
 }

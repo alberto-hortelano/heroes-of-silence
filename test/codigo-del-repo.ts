@@ -364,7 +364,7 @@ export function infractores(rutas: string[], patron: RegExp): string[] {
  * Se conservan los saltos de línea uno a uno para que el número de línea del
  * mensaje siga señalando el sitio real del fichero.
  */
-export function sinComentarios(texto: string): string {
+function sinComentarios(texto: string): string {
   let estado: 'codigo' | 'linea' | 'bloque' | 'cadena' = 'codigo';
   let comilla = '';
   let out = '';
@@ -479,7 +479,7 @@ export function lineasDeImport(r: string): Set<number> {
 const ES_RUTA_DEL_REPO = /^(?:\.\/)?(?:src|tools|test|data|assets|docs)\/[^\s'"`$]*$/;
 
 /** Una ruta del repo escrita en una cadena del código de un fichero, con su línea. */
-export interface RutaEscrita {
+interface RutaEscrita {
   /** Relativa a la raíz, sin el `./` de delante. */
   readonly ruta: string;
   readonly linea: number;

@@ -100,7 +100,7 @@ export function bando(
 }
 
 /** Unas cifras hechas a mano, con el id que las nombra y, si se dice, la hoja con que se pintan. */
-export interface CifrasAMano {
+interface CifrasAMano {
   readonly id: string;
   readonly unit: UnitInfo;
   /** La hoja de su cuerpo (`body`); sin ella, su id. */
@@ -122,7 +122,7 @@ export interface CifrasAMano {
  * orden de la primera ronda como las de cualquier tropa. Lo que cambia frente al
  * personaje es el origen (`catalogo`, con su precio: la rendición los cuenta).
  */
-export function catalogoDeCifras(cifras: readonly CifrasAMano[]): CatalogoDeUnidades {
+function catalogoDeCifras(cifras: readonly CifrasAMano[]): CatalogoDeUnidades {
   const porId = new Map<string, CifrasAMano>();
   for (const c of cifras) {
     if (porId.has(c.id)) throw new Error(`dos cifras a mano con el id «${c.id}»`);

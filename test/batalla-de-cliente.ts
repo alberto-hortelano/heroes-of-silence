@@ -99,7 +99,7 @@ export function sesionAntesDelMonstruo(): { readonly s: Session; readonly at: Po
  * Todas las batallas de ese tipo, en orden de semilla: para el test que busca
  * una situación concreta dentro de la batalla y no la encuentra en la primera.
  */
-export function* sesionesContraMonstruo(): Generator<{
+function* sesionesContraMonstruo(): Generator<{
   readonly semilla: number;
   readonly at: Point;
   readonly s: Session;

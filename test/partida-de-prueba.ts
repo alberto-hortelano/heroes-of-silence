@@ -62,7 +62,7 @@ export function conSuEquipo(creature: string, equipo: Equipo, id = `v-${creature
   };
 }
 
-export type Monstruo = Extract<MapObject, { kind: 'monster' }>;
+type Monstruo = Extract<MapObject, { kind: 'monster' }>;
 
 /**
  * El primer monstruo en pie del mapa. Existe para que ningún test se invente un

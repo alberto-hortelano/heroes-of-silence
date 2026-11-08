@@ -44,7 +44,7 @@ export function sinComentariosCss(css: string): string {
 }
 
 /** Las fichas de un bloque, por nombre: `--x: valor;`. */
-export function fichasDe(cuerpo: string): Map<string, string> {
+function fichasDe(cuerpo: string): Map<string, string> {
   const fichas = new Map<string, string>();
   for (const decl of cuerpo.split(';')) {
     const m = /^\s*(--[a-z0-9-]+)\s*:\s*([\s\S]+?)\s*$/.exec(decl);
@@ -125,7 +125,7 @@ export interface Declaracion {
 }
 
 /** Un bloque de una hoja: su selector, los de fuera (`@media`…), su línea y lo que declara. */
-export interface BloqueCss {
+interface BloqueCss {
   readonly selector: string;
   readonly padres: readonly string[];
   readonly linea: number;
