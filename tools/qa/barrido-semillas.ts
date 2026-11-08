@@ -28,7 +28,7 @@
  */
 import { MAX_ROUNDS } from '../../src/core/battle/types.js';
 import { COMBATE_COMPLETO, parseRueda, parseTope } from '../../src/core/combate.js';
-import { duracion } from './estadistica.js';
+import { duracion } from '../comun/estadistica.js';
 import {
   batallaDeSemilla,
   DIAS_POR_DEFECTO,

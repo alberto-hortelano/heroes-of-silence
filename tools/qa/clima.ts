@@ -36,8 +36,8 @@ import type {
   AgentResponseMsg,
   ServerToAgentMsg,
 } from '../../src/server/protocol.js';
+import { mediana } from '../comun/estadistica.js';
 import { RAIZ } from '../comun/raiz.js';
-import { mediana } from './estadistica.js';
 import { entornoDelArnes } from './partida-del-arnes.js';
 import { decidir } from './politica.js';
 import { arrancarServidor, type ServidorDePartida } from './servidor.js';

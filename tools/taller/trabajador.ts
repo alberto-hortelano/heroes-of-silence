@@ -106,7 +106,6 @@ import { figuraDelBanco } from '../../src/core/gente/banco.js';
 import { FACTION_IDS, type FactionId } from '../../src/core/types.js';
 import { FIGURA, MARGEN_DEL_RECORTE, NOMBRES_DE_DIRECCION } from '../../src/shared/arte.js';
 import { disposicionDe } from '../../src/shared/base.js';
-import { bandera } from '../argumentos.js';
 import {
   CANDIDATOS_DEL_MUESTRARIO,
   carpetaDeFotogramas,
@@ -118,6 +117,7 @@ import {
   renderizarMuestrario,
   renderizarOchoDirecciones,
 } from '../art/poses.js';
+import { bandera } from '../comun/argumentos.js';
 import { RAIZ } from '../comun/raiz.js';
 import { leerBancoDeDisco } from '../npcs/banco.js';
 import { esEncargoDeNpc, REINTENTOS_DE_NPC, reintentarSiQueda } from '../npcs/en-el-taller.js';

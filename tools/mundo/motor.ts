@@ -24,9 +24,9 @@ import { type PedidoDelMenu, pedidoBlocker } from '../../src/core/mundo/partida.
 import { parseSeed } from '../../src/core/rng.js';
 import { parseFaccion } from '../../src/core/types.js';
 import { textoDelEntorno } from '../../src/server/entorno.js';
+import { matarGrupo } from '../comun/procesos.js';
 import { RAIZ } from '../comun/raiz.js';
 import { aceptarElMundo } from '../npcs/banco.js';
-import { matarGrupo } from '../qa/grupo.js';
 import {
   borrarMundoGenerado,
   borrarSiElMotorNoEscribio,

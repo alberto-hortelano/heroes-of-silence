@@ -19,7 +19,7 @@
 import { REGIONES_POR_BANDO } from '../../src/core/map/generar/plan.js';
 import { parseSeed } from '../../src/core/rng.js';
 import { parseFaccion } from '../../src/core/types.js';
-import { bandera } from '../argumentos.js';
+import { bandera } from '../comun/argumentos.js';
 import {
   escribirLectura,
   escribirMundoNuevo,

@@ -40,7 +40,7 @@ import { settleBattle } from '../../src/core/state/cierre.js';
 import { baseOf } from '../../src/core/state/consultas.js';
 import { newGame } from '../../src/core/state/setup.js';
 import type { GameContext, GameState } from '../../src/core/state/tipos.js';
-import { duracion, mediana } from './estadistica.js';
+import { duracion, mediana } from '../comun/estadistica.js';
 
 const REGIONES = (process.argv[2] ?? '3,4,5,6').split(',').map(Number);
 const SEMILLAS = Number(process.argv[3] ?? 1000);

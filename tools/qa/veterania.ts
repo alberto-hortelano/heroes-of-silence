@@ -28,7 +28,7 @@ import { guarnicionDeLaCiudad } from '../../src/core/state/sitios.js';
 import type { GameState } from '../../src/core/state/tipos.js';
 import type { Army } from '../../src/core/types.js';
 import { nivelDeUnidad } from '../../src/core/unidad/nivel.js';
-import { duracion } from './estadistica.js';
+import { duracion } from '../comun/estadistica.js';
 import { DIAS_POR_DEFECTO, partidaDeSemilla, SEMILLAS_DEL_BANCO } from './partidas.js';
 
 const SEMILLAS = Number(process.argv[2] ?? SEMILLAS_DEL_BANCO);

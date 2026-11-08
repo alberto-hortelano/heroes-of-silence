@@ -26,8 +26,8 @@ import {
   problemasDePeticiones,
   RUTA_DEL_BANCO,
 } from '../../src/core/gente/banco.js';
+import { comentarioDe, escribirAtomico, jsonDe } from '../comun/json.js';
 import { RAIZ } from '../comun/raiz.js';
-import { comentarioDe, escribirAtomico, jsonDe } from '../json.js';
 import {
   arteEnOchoDirecciones,
   type CarpetaDeArte,

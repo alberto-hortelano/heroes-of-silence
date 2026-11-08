@@ -54,7 +54,7 @@ import {
   validarCatalogo,
   validarHojas,
 } from '../../src/core/unidad/formato.js';
-import { type AEscribir, comentarioDe, escribirAtomico, jsonDe } from '../json.js';
+import { type AEscribir, comentarioDe, escribirAtomico, jsonDe } from '../comun/json.js';
 import { direccionesDe } from '../taller/arte-en-disco.js';
 import { HEROES, juegoDelYBot, perfilDeUnidad, UNIDADES } from '../taller/unidades.js';
 import { AGILIDAD_DEL_CUERPO } from './velocidades.js';

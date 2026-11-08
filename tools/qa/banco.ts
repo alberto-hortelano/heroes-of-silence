@@ -36,7 +36,7 @@
  */
 import { createHash } from 'node:crypto';
 import { writeFileSync } from 'node:fs';
-import { duracion, mediana } from './estadistica.js';
+import { duracion, mediana } from '../comun/estadistica.js';
 import {
   batallaDeSemilla,
   DIAS_POR_DEFECTO,
