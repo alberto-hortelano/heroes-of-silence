@@ -26,7 +26,7 @@ import {
   problemasDePeticiones,
   RUTA_DEL_BANCO,
 } from '../../src/core/gente/banco.js';
-import { comentarioDe, escribirAtomico, jsonDe } from '../comun/json.js';
+import { comentarioDe, escribirAtomico, jsonDe, textoJson } from '../comun/json.js';
 import { RAIZ } from '../comun/raiz.js';
 import {
   arteEnOchoDirecciones,
@@ -193,7 +193,7 @@ export async function aceptarElMundo(
   const hecho = await aceptarPeticiones(historia.figuras ?? {}, id, raiz, FIGURAS_NUEVAS_POR_MUNDO);
   if (historia.figuras !== undefined) {
     const { figuras: _ya, ...sin } = historia;
-    await writeFile(ruta, `${JSON.stringify(sin, null, 2)}\n`);
+    await writeFile(ruta, textoJson(sin, 2));
   }
   return hecho;
 }

@@ -20,6 +20,7 @@ import { join } from 'node:path';
 import sharp, { type OverlayOptions } from 'sharp';
 import type { FactionId } from '../../src/core/types.js';
 import { disposicionDe, TRAMO } from '../../src/shared/base.js';
+import { textoJson } from '../comun/json.js';
 import { RAIZ } from '../comun/raiz.js';
 import {
   ARTE_DE_LA_BASE,
@@ -56,7 +57,7 @@ export async function encogerElTramo(f: FactionId, n: number): Promise<string> {
       const pr = JSON.parse(await readFile(proc, 'utf8'));
       await writeFile(
         join(RAIZ, `${pintadoDelTramo(f, n)}.procedencia.json`),
-        `${JSON.stringify({ ...pr, salida: { ...pr.salida, ruta: pintado } }, null, 2)}\n`,
+        textoJson({ ...pr, salida: { ...pr.salida, ruta: pintado } }, 2),
       );
     }
   }

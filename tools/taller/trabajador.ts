@@ -118,6 +118,7 @@ import {
   renderizarOchoDirecciones,
 } from '../art/poses.js';
 import { bandera, soloDe } from '../comun/argumentos.js';
+import { textoJson } from '../comun/json.js';
 import { RAIZ } from '../comun/raiz.js';
 import { leerBancoDeDisco } from '../npcs/banco.js';
 import { esEncargoDeNpc, REINTENTOS_DE_NPC, reintentarSiQueda } from '../npcs/en-el-taller.js';
@@ -456,7 +457,7 @@ async function postprocesar(
     if (encargo.tipo === 'modulos') {
       await writeFile(
         join(RAIZ, `${encargo.salida}.json`),
-        `${JSON.stringify({ hoja: basename(rutaSalida), modulos: extra.indiceDeModulos }, null, 2)}\n`,
+        textoJson({ hoja: basename(rutaSalida), modulos: extra.indiceDeModulos }, 2),
       );
       // Una hoja del relieve se coloca y encadena por sus juntas, llevadas desde la guía.
       // Las puertas del recinto (§37) van de vértice a vértice por sus juntas.
@@ -526,10 +527,7 @@ async function postprocesar(
       ...(extra.porRejilla === undefined ? {} : { porRejilla: extra.porRejilla }),
       salida: { ruta: relative(RAIZ, rutaSalida), sha256: sha256(webp) },
     };
-    await writeFile(
-      join(RAIZ, `${encargo.salida}.procedencia.json`),
-      `${JSON.stringify(procedencia, null, 2)}\n`,
-    );
+    await writeFile(join(RAIZ, `${encargo.salida}.procedencia.json`), textoJson(procedencia, 2));
     // Una figura del banco de NPC se encadena sola (decisión del usuario, «se
     // encadena sola»): la identidad pide el giro, el giro las hojas, y cada hoja
     // nada más (las otras ya están en la cola). Sin revisión humana: una mala se

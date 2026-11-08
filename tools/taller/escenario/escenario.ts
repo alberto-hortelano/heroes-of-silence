@@ -22,6 +22,7 @@ import { MARGEN } from '../../../src/client/render/escenario/pintar.js';
 import { cajaEnPixeles } from '../../../src/client/render/mapa/camara.js';
 import type { GameMap } from '../../../src/core/map/tipos.js';
 import { newGame } from '../../../src/core/state/setup.js';
+import { textoJson } from '../../comun/json.js';
 import { RAIZ } from '../../comun/raiz.js';
 import { leerCatalogo } from './catalogo-disco.js';
 import { paginaDeEscena } from './pintor.js';
@@ -192,7 +193,7 @@ async function pintarUnMapa(
   const png = join(DIR_ESCENARIO, `${nombre}.png`);
   await pagina.locator('#lienzo').screenshot({ path: png });
   await pagina.close();
-  await writeFile(join(DIR_ESCENARIO, `${nombre}.json`), `${JSON.stringify(informe, null, 2)}\n`);
+  await writeFile(join(DIR_ESCENARIO, `${nombre}.json`), textoJson(informe, 2));
   return { html, png, informe };
 }
 

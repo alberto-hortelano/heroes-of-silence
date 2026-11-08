@@ -26,6 +26,7 @@ import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import type { FactionId } from '../../src/core/types.js';
+import { textoJson } from '../comun/json.js';
 import { RAIZ } from '../comun/raiz.js';
 
 /** El commit de `google/fonts` del que salen todas (`git ls-remote`, 13-10-2026). */
@@ -206,7 +207,7 @@ export async function bajarFuentes(): Promise<string[]> {
     };
     listas.push({
       ruta: join(carpeta, 'procedencia.json'),
-      datos: `${JSON.stringify(procedencia, null, 2)}\n`,
+      datos: textoJson(procedencia, 2),
     });
   }
   listas.push({ ruta: join(RAIZ, HOJA_DE_LETRAS), datos: cssDeLetras() });

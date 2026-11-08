@@ -40,6 +40,7 @@ import {
   SOLAPE,
   TRAMO,
 } from '../../src/shared/base.js';
+import { textoJson } from '../comun/json.js';
 import { RAIZ } from '../comun/raiz.js';
 import {
   abiertaDelJuego,
@@ -996,7 +997,7 @@ export async function recortarLaBase(
     abiertas,
     derivadoPor: 'tools/taller/recorte-base.ts',
   };
-  await writeFile(join(dir, 'indice.json'), `${JSON.stringify(indice, null, 2)}\n`);
+  await writeFile(join(dir, 'indice.json'), textoJson(indice, 2));
   return { indice, avisos };
 }
 

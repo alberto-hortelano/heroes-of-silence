@@ -24,6 +24,7 @@ import {
   type HojaDeFigura,
   NOMBRES_DE_DIRECCION,
 } from '../../../src/shared/arte.js';
+import { textoJson } from '../../comun/json.js';
 import { RAIZ } from '../../comun/raiz.js';
 import { leerBancoDeDisco } from '../../npcs/banco.js';
 import { juzgarConCodex } from '../codex.js';
@@ -578,10 +579,7 @@ export async function elegir(f: Figura, d: number, h: string): Promise<Eleccion>
       ...eleccion,
       motivo: `${eleccion.motivo}; ojo: ${ganadora} salta ${saltos[ganadora]} px de un fotograma a otro (más de ${UMBRAL_DEL_SALTO}): ¿reprocesarla?`,
     };
-  await writeFile(
-    rutaDeLaEleccion(f, d, h),
-    `${JSON.stringify({ ...eleccion, saltos, detalle }, null, 1)}\n`,
-  );
+  await writeFile(rutaDeLaEleccion(f, d, h), textoJson({ ...eleccion, saltos, detalle }, 1));
   return eleccion;
 }
 
@@ -861,7 +859,7 @@ export async function rechazadas(f: Figura): Promise<{ d: number; h: string }[]>
   }
   for (const { d, h } of fuera) await rm(rutaDeLaEleccion(f, d, h), { force: true });
   await mkdir(dirname(rutaDeLasRechazadas(f)), { recursive: true });
-  await writeFile(rutaDeLasRechazadas(f), `${JSON.stringify([...hechas], null, 1)}\n`);
+  await writeFile(rutaDeLasRechazadas(f), textoJson([...hechas], 1));
   return fuera;
 }
 
@@ -1007,7 +1005,7 @@ export async function escribirClave(
   const ruta = rutaDeLaClave(f);
   const antes = existsSync(ruta) ? validarCon(claveSchema, readFileSync(ruta, 'utf8'), ruta) : {};
   await mkdir(dirname(ruta), { recursive: true });
-  await writeFile(ruta, `${JSON.stringify({ ...antes, ...clave }, null, 1)}\n`);
+  await writeFile(ruta, textoJson({ ...antes, ...clave }, 1));
 }
 
 /**

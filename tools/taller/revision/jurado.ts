@@ -21,6 +21,7 @@ import { readFile, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { z } from 'zod';
 import { HOJAS_DE_FIGURA } from '../../../src/shared/arte.js';
+import { textoJson } from '../../comun/json.js';
 import { RAIZ } from '../../comun/raiz.js';
 import { juzgarConCodex } from '../codex.js';
 import {
@@ -311,7 +312,7 @@ export async function unir(
         juicios[juez] = j;
       }
       const union = unirHallazgos(juicios);
-      await writeFile(join(dir, 'union.json'), `${JSON.stringify(union, null, 1)}\n`);
+      await writeFile(join(dir, 'union.json'), textoJson(union, 1));
       console.log(
         `d${d} ${clip.padEnd(7)} ${union.length} hallazgos (${union.filter((u) => u.fuentes.length > 1).length} de los dos)`,
       );
@@ -446,7 +447,7 @@ export async function cruzar(
           ).clips.filter((c) => !soloClips.includes(c.clip))
         : [];
     const v: Veredicto = { direccion: d, clips: [...antes, ...clips] };
-    await writeFile(join(base, 'veredicto.json'), `${JSON.stringify(v, null, 1)}\n`);
+    await writeFile(join(base, 'veredicto.json'), textoJson(v, 1));
     // Las de cada hoja con algo que corregir; las de antes de una hoja que ya no tiene
     // nada se borran, para que no se cuelen en la versión `todo` (QA, H2).
     const instrucciones = instruccionesPorHoja(v.clips);

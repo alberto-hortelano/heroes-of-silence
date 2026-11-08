@@ -11,6 +11,7 @@ import { basename, join } from 'node:path';
 import sharp from 'sharp';
 import { MEDIDAS_DEL_PUESTO, PIEZA_DEL_PUESTO } from '../../src/client/render/escenario/puestos.js';
 import { MEJORAS_DEL_PUESTO, type MejoraDelPuesto } from '../../src/core/map/tipos.js';
+import { textoJson } from '../comun/json.js';
 import { RAIZ } from '../comun/raiz.js';
 import { derivarPieza } from './derivar.js';
 import type { Encargo } from './encargo.js';
@@ -642,7 +643,7 @@ export async function puestoDerivado(rutaImagen: string): Promise<Record<string,
 export async function escribirPuestoDerivado(rutaImagen: string): Promise<void> {
   await writeFile(
     rutaImagen.replace(/\.webp$/, '.json'),
-    `${JSON.stringify(await puestoDerivado(rutaImagen), null, 2)}\n`,
+    textoJson(await puestoDerivado(rutaImagen), 2),
   );
 }
 

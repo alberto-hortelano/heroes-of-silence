@@ -48,6 +48,7 @@ import {
   type PapelDeLadera,
 } from '../../src/client/render/escenario/catalogo.js';
 import { TALUD_DE_LADERA } from '../../src/client/render/escenario/relieve.js';
+import { textoJson } from '../comun/json.js';
 import { RAIZ } from '../comun/raiz.js';
 import { mascaraDeGuia, registrarLadera } from './derivar.js';
 import type { Encargo } from './encargo.js';
@@ -805,7 +806,7 @@ export async function escribirLaderasDerivadas(hojas?: readonly string[]): Promi
       const { filo, pie } = await registrarLadera(join(dir, hoja, mod.imagen), mascara, geometria);
       mod.ladera = { filo, pie, largo: p.largo, papel: papelDe(p) };
     }
-    await writeFile(ruta, `${JSON.stringify(indice, null, 2)}\n`);
+    await writeFile(ruta, textoJson(indice, 2));
     escritas.push(ruta.replace(`${RAIZ}/`, ''));
   }
   return escritas;

@@ -45,6 +45,7 @@ import {
   type JuegoEn8d,
   OCHO_DIRECCIONES,
 } from '../art/poses.js';
+import { textoJson } from '../comun/json.js';
 import { RAIZ } from '../comun/raiz.js';
 import { ajustesDe, aplicarAjustes } from './ajustes.js';
 import {
@@ -385,7 +386,7 @@ export async function escribirAtlasDePoses(): Promise<AtlasDePoses> {
     derivadoPor: 'tools/taller/poses-8d.ts',
     juegos,
   };
-  await writeFile(RUTA_DEL_ATLAS_8D, `${JSON.stringify(atlas, null, 2)}\n`);
+  await writeFile(RUTA_DEL_ATLAS_8D, textoJson(atlas, 2));
   return atlas;
 }
 

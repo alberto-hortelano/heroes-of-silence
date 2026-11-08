@@ -29,6 +29,7 @@
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import sharp, { type OverlayOptions } from 'sharp';
+import { textoJson } from '../comun/json.js';
 import { RAIZ } from '../comun/raiz.js';
 import { derivarPieza } from './derivar.js';
 import { ALFA_FIGURA } from './empaquetar.js';
@@ -409,10 +410,7 @@ export async function escribirCasas(): Promise<string> {
       });
     }
   }
-  await writeFile(
-    join(MODULOS, 'casas.json'),
-    `${JSON.stringify({ hoja: 'pueblos', modulos }, null, 2)}\n`,
-  );
+  await writeFile(join(MODULOS, 'casas.json'), textoJson({ hoja: 'pueblos', modulos }, 2));
   await writeFile(
     join(MODULOS, 'casas.procedencia.json'),
     `${JSON.stringify(

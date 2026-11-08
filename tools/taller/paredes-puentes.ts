@@ -17,6 +17,7 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import sharp from 'sharp';
+import { textoJson } from '../comun/json.js';
 import { RAIZ } from '../comun/raiz.js';
 import { derivarPieza } from './derivar.js';
 import type { Encargo } from './encargo.js';
@@ -122,7 +123,7 @@ export async function escribirGuia(nombre: string, guia: Guia, geometria: object
   );
   await writeFile(
     join(RAIZ, DIR_GUIAS, `${nombre}.json`),
-    `${JSON.stringify({ ancho: guia.ancho, alto: guia.alto, ...geometria }, null, 1)}\n`,
+    textoJson({ ancho: guia.ancho, alto: guia.alto, ...geometria }, 1),
   );
   return `${DIR_GUIAS}/${nombre}.png`;
 }
@@ -697,10 +698,7 @@ export async function escribirGuias(): Promise<string[]> {
     await writeFile(join(dir, `${nombre}.png`), png);
     if (geo !== undefined) {
       const caja = await cajaDeGuia(png);
-      await writeFile(
-        join(dir, `${nombre}.json`),
-        `${JSON.stringify({ ...geo, caja }, null, 2)}\n`,
-      );
+      await writeFile(join(dir, `${nombre}.json`), textoJson({ ...geo, caja }, 2));
     }
     escritas.push(`${DIR_GUIAS}/${nombre}.png`);
   };
@@ -808,5 +806,5 @@ export async function puenteDerivado(rutaImagen: string): Promise<Record<string,
 export async function escribirPuenteDerivado(rutaImagen: string): Promise<void> {
   const json = rutaImagen.replace(/\.webp$/, '.json');
   await mkdir(dirname(json), { recursive: true });
-  await writeFile(json, `${JSON.stringify(await puenteDerivado(rutaImagen), null, 2)}\n`);
+  await writeFile(json, textoJson(await puenteDerivado(rutaImagen), 2));
 }

@@ -17,6 +17,7 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { FACTION_IDS, NOMBRE_DE_FACCION } from '../../src/core/types.js';
+import { textoJson } from '../comun/json.js';
 import { RAIZ } from '../comun/raiz.js';
 import { seccionDelCuaderno } from './cuaderno.js';
 
@@ -45,5 +46,5 @@ const json = {
     'GENERADO por tools/datos/facciones.ts a partir de las secciones «Templarios», «No muertos», «Imperio», «Elfos» y «Orkos» de NuevaJugabilidad.md (el cuaderno de diseño del usuario, que no se commitea): el rasgo de cada facción es la primera línea con texto bajo su título, tal cual, con una expresión regular y sin teclear nada. No se edita a mano: se regenera. Lo enseña la elección de facción del menú.',
   rasgos,
 };
-writeFileSync(DESTINO, `${JSON.stringify(json, null, 2)}\n`);
+writeFileSync(DESTINO, textoJson(json, 2));
 console.log(`rasgos de ${FACTION_IDS.length} facciones → ${relative(RAIZ, DESTINO)}`);

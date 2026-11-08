@@ -14,6 +14,7 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, relative } from 'node:path';
 import sharp from 'sharp';
+import { textoJson } from '../../comun/json.js';
 import { RAIZ } from '../../comun/raiz.js';
 
 export const ENTORNO = join(RAIZ, '.cache/vision/.venv');
@@ -106,7 +107,7 @@ export const comparacion = (t: TrabajoDeComparacion): Promise<void> => correr('c
 export async function visor(carpeta: string, casos: readonly CasoDelVisor[]): Promise<never> {
   comprobarEntorno();
   await mkdir(carpeta, { recursive: true });
-  await writeFile(join(carpeta, 'casos.json'), `${JSON.stringify(casos, null, 1)}\n`);
+  await writeFile(join(carpeta, 'casos.json'), textoJson(casos, 1));
   const hijo = spawn(PYTHON, ['-I', VISION, 'visor', carpeta, '0'], {
     cwd: RAIZ,
     stdio: 'inherit',

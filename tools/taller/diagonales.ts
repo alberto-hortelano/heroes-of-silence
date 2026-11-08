@@ -27,6 +27,7 @@ import { readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { PapelDeDiagonal } from '../../src/client/render/escenario/catalogo.js';
 import { JUNTAS, type TipoVisto, taludDeJunta } from '../../src/client/render/escenario/celdas.js';
+import { textoJson } from '../comun/json.js';
 import { RAIZ } from '../comun/raiz.js';
 import { mascaraDeGuia, registrarPieza } from './derivar.js';
 import type { Encargo } from './encargo.js';
@@ -482,6 +483,6 @@ export async function escribirDiagonalesDerivadas(hoja: string): Promise<string>
     const enElModulo = await registrarPieza(join(dir, hoja, mod.imagen), mascara, g);
     mod.diagonal = { filo: [enElModulo(g.filo[0]), enElModulo(g.filo[1])], papel: g.papel };
   }
-  await writeFile(ruta, `${JSON.stringify(indice, null, 2)}\n`);
+  await writeFile(ruta, textoJson(indice, 2));
   return ruta.replace(`${RAIZ}/`, '');
 }

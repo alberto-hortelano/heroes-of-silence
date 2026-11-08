@@ -36,6 +36,7 @@ import {
   RODAJAS_DE_LA_CARA,
   TODAS_LAS_PIEZAS_DE_LA_MURALLA,
 } from '../../src/shared/muralla-de-batalla.js';
+import { textoJson } from '../comun/json.js';
 import { RAIZ } from '../comun/raiz.js';
 import type { Encargo } from './encargo.js';
 import { ARRIBA, FONDO, FRENTE, SOMBRA } from './paredes-puentes.js';
@@ -473,10 +474,7 @@ export async function medirLaMuralla(): Promise<IndiceDeLaMuralla> {
 
 /** Escribe el índice que lee el lienzo (`INDICE_DE_LA_MURALLA`) con lo que mide `medirLaMuralla`. */
 export async function escribirIndiceDeLaMuralla(): Promise<string> {
-  await writeFile(
-    join(RAIZ, INDICE_DE_LA_MURALLA),
-    `${JSON.stringify(await medirLaMuralla(), null, 1)}\n`,
-  );
+  await writeFile(join(RAIZ, INDICE_DE_LA_MURALLA), textoJson(await medirLaMuralla(), 1));
   return INDICE_DE_LA_MURALLA;
 }
 

@@ -33,6 +33,7 @@ import {
   GRUESO_DEL_MURO,
 } from '../../src/client/render/escenario/recinto/octogono.js';
 import { FONDO_DEL_ADARVE } from '../../src/client/render/escenario/tirada.js';
+import { textoJson } from '../comun/json.js';
 import { RAIZ } from '../comun/raiz.js';
 import { derivarPieza, type PiezaDerivada } from './derivar.js';
 import type { Encargo } from './encargo.js';
@@ -510,7 +511,7 @@ export async function escribirMurosDerivados(
     const ruta = join(RAIZ, 'assets/mapa', `${id}.webp`);
     const json = ruta.replace(/\.webp$/, '.json');
     await mkdir(dirname(json), { recursive: true });
-    await writeFile(json, `${JSON.stringify(await muroDerivado(ruta), null, 2)}\n`);
+    await writeFile(json, textoJson(await muroDerivado(ruta), 2));
     hechos.push(json);
   }
   return hechos;

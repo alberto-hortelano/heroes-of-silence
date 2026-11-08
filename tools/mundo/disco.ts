@@ -21,6 +21,7 @@ import {
 import { type LecturaParaElMotor, lecturaParaElMotor } from '../../src/core/mundo/lectura.js';
 import { mundoNuevo, type PedidoDeMundo } from '../../src/core/mundo/partida.js';
 import { type CrudosDelMundo, leerMundo, problemasDelMundo } from '../../src/core/mundo/validar.js';
+import { textoJson } from '../comun/json.js';
 import { RAIZ } from '../comun/raiz.js';
 import { leerBancoDeDisco } from '../npcs/banco.js';
 
@@ -333,7 +334,7 @@ export async function escribirMundoNuevo(pedido: PedidoDeMundo): Promise<Mundo> 
   }
   const { mundo, plan } = mundoNuevo(pedido);
   await mkdir(dir, { recursive: true });
-  await writeFile(rutaDelFichero(pedido.id, 'mundo.json'), `${JSON.stringify(mundo, null, 2)}\n`);
+  await writeFile(rutaDelFichero(pedido.id, 'mundo.json'), textoJson(mundo, 2));
   await writeFile(rutaDelFichero(pedido.id, 'plan.json'), `${JSON.stringify(plan)}\n`);
   return mundo;
 }
@@ -355,7 +356,7 @@ export async function escribirLectura(
   const lectura = lecturaParaElMotor(mundo, plan, leerBancoDeDisco(), hecho);
   const salida = lecturaDe(id);
   await mkdir(salida, { recursive: true });
-  await writeFile(join(salida, 'lectura.json'), `${JSON.stringify(lectura, null, 2)}\n`);
+  await writeFile(join(salida, 'lectura.json'), textoJson(lectura, 2));
   if (conPng) {
     alPintar?.();
     // A demanda: Playwright y el escenógrafo solo hacen falta para el PNG.

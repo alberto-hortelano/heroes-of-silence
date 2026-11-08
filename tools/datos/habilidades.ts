@@ -21,6 +21,7 @@
  */
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join, relative } from 'node:path';
+import { textoJson } from '../comun/json.js';
 import { RAIZ } from '../comun/raiz.js';
 
 const ORIGEN = join(RAIZ, 'NuevaJugabilidad.md');
@@ -78,5 +79,5 @@ const json = {
     'GENERADO por tools/datos/habilidades.ts a partir de la sección «Habilidades» de NuevaJugabilidad.md (el cuaderno de diseño del usuario, que no se commitea), con una expresión regular y sin teclear ningún nombre. No se edita a mano: se regenera. disparador = la palabra «Es pasivo/automático/activo» de la descripción, o null si no la dice. Es el catálogo contra el que data.ts comprueba los nombres de data/experiencia.json; las habilidades todavía NO tienen efecto (no hay motor de habilidades).',
   habilidades,
 };
-writeFileSync(DESTINO, `${JSON.stringify(json, null, 2)}\n`);
+writeFileSync(DESTINO, textoJson(json, 2));
 console.log(`${habilidades.length} habilidades → ${relative(RAIZ, DESTINO)}`);

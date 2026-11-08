@@ -30,6 +30,7 @@ import {
   FILAS_DEL_ATLAS,
   type HojaDeFigura,
 } from '../../src/shared/arte.js';
+import { textoJson } from '../comun/json.js';
 import { RAIZ } from '../comun/raiz.js';
 import { ALFA_FIGURA, apoyoEn } from './empaquetar.js';
 import type { GeometriaDeLadera } from './laderas.js';
@@ -391,7 +392,7 @@ export async function escribirDerivado(
   opciones: OpcionesDeDerivar = {},
 ): Promise<AtlasDerivado<'idle' | 'walk'>> {
   const derivado = await derivarAtlas(rutaImagen, opciones);
-  await writeFile(rutaDelJson(rutaImagen), `${JSON.stringify(derivado, null, 2)}\n`);
+  await writeFile(rutaDelJson(rutaImagen), textoJson(derivado, 2));
   return derivado;
 }
 
@@ -707,7 +708,7 @@ export async function registrarPieza(
 
 export async function escribirPiezaDerivada(rutaImagen: string): Promise<PiezaDerivada> {
   const d = await derivarPieza(rutaImagen);
-  await writeFile(rutaDelJson(rutaImagen), `${JSON.stringify(d, null, 2)}\n`);
+  await writeFile(rutaDelJson(rutaImagen), textoJson(d, 2));
   return d;
 }
 

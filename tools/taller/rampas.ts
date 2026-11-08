@@ -31,6 +31,7 @@ import {
   type PiezaDeRampa,
 } from '../../src/client/render/escenario/catalogo.js';
 import { TRAMO_DE_PIEZA_DE_RAMPA } from '../../src/client/render/escenario/celdas.js';
+import { textoJson } from '../comun/json.js';
 import { RAIZ } from '../comun/raiz.js';
 import { registrarConEscala } from './derivar.js';
 import { ALFA_FIGURA } from './empaquetar.js';
@@ -493,7 +494,7 @@ export async function escribirGuiasDeRampas(): Promise<string[]> {
     );
     await writeFile(
       join(RAIZ, DIR_GUIAS, `${nombre}.json`),
-      `${JSON.stringify({ ancho: guia.ancho, alto: guia.alto, casilla, ...geometria }, null, 1)}\n`,
+      textoJson({ ancho: guia.ancho, alto: guia.alto, casilla, ...geometria }, 1),
     );
     escritas.push(`${DIR_GUIAS}/${nombre}.png`);
     const muesca = guiaDeMuesca(n);
@@ -504,7 +505,15 @@ export async function escribirGuiasDeRampas(): Promise<string[]> {
     );
     await writeFile(
       join(RAIZ, DIR_GUIAS, `${deMuesca}.json`),
-      `${JSON.stringify({ ancho: muesca.guia.ancho, alto: muesca.guia.alto, casilla: muesca.casilla, ...muesca.geometria }, null, 1)}\n`,
+      textoJson(
+        {
+          ancho: muesca.guia.ancho,
+          alto: muesca.guia.alto,
+          casilla: muesca.casilla,
+          ...muesca.geometria,
+        },
+        1,
+      ),
     );
     escritas.push(`${DIR_GUIAS}/${deMuesca}.png`);
   }
@@ -598,6 +607,6 @@ export async function escribirRampasDerivadas(hoja: string): Promise<string> {
     });
   }
   const ruta = join(dir, `${hoja}.json`);
-  await writeFile(ruta, `${JSON.stringify({ hoja: `${hoja}.webp`, modulos }, null, 2)}\n`);
+  await writeFile(ruta, textoJson({ hoja: `${hoja}.webp`, modulos }, 2));
   return ruta.replace(`${RAIZ}/`, '');
 }

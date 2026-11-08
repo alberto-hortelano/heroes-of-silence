@@ -2355,3 +2355,4 @@ fichero	tools/argumentos.ts	tools/comun/argumentos.ts
 fichero	tools/qa/estadistica.ts	tools/comun/estadistica.ts	
 simbolo	tools/taller/trabajador.ts (8 copias)	tools/comun/argumentos.ts	soloDe (nueva: los nombres de --solo=, que el taller leía a mano en ocho órdenes de encolar)
 simbolo	tools/qa/vite-propio.ts	tools/comun/procesos.ts	matarGrupo (se va su reexportación: capturas, clima, neutro y temas-con-piezas la piden al módulo real)
+simbolo	tools/**/*.ts (40 escrituras)	tools/comun/json.ts	textoJson (nueva: `${JSON.stringify(v, null, n)}\n` con la sangría de cada fichero, 12 a 1 y 28 a 2; marcas/cli y escenario/catalogo-disco se quedan, no son esa forma)

@@ -26,6 +26,7 @@ import {
   largoDeBajada,
   taludDeBajada,
 } from '../../src/client/render/escenario/celdas.js';
+import { textoJson } from '../comun/json.js';
 import { RAIZ } from '../comun/raiz.js';
 import { mascaraDeGuia, registrarPieza } from './derivar.js';
 import type { Encargo } from './encargo.js';
@@ -329,6 +330,6 @@ export async function escribirBajadasDerivadas(hoja: string): Promise<string> {
     const enElModulo = await registrarPieza(join(dir, hoja, mod.imagen), mascara, g);
     mod.bajada = { arriba: enElModulo(g.arriba), abajo: enElModulo(g.abajo), rumbo: g.nombre };
   }
-  await writeFile(ruta, `${JSON.stringify(indice, null, 2)}\n`);
+  await writeFile(ruta, textoJson(indice, 2));
   return ruta.replace(`${RAIZ}/`, '');
 }

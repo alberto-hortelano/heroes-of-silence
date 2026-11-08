@@ -52,6 +52,7 @@ import {
   puertaDelEje,
   tramoDelEje,
 } from '../../src/client/render/escenario/recinto/octogono.js';
+import { textoJson } from '../comun/json.js';
 import { RAIZ } from '../comun/raiz.js';
 import { registrarConEscala } from './derivar.js';
 import type { Encargo } from './encargo.js';
@@ -482,6 +483,6 @@ export async function escribirRecintoDerivado(): Promise<string> {
       );
     mod.junta = [r(g.junta[0]), r(g.junta[1])];
   }
-  await writeFile(ruta, `${JSON.stringify(indice, null, 2)}\n`);
+  await writeFile(ruta, textoJson(indice, 2));
   return ruta.replace(`${RAIZ}/`, '');
 }

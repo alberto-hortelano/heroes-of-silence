@@ -112,6 +112,7 @@ import { destinoDeHoy, sesionContraMonstruo } from '../../test/batalla-de-client
 import { agresiva } from '../../test/batalla-de-prueba.js';
 import { PESADA, TROPA_BARATA } from '../../test/comun.js';
 import { ejercito, guarnecer, pegadoA } from '../../test/partida-de-prueba.js';
+import { textoJson } from '../comun/json.js';
 import { RAIZ } from '../comun/raiz.js';
 import { leerMundoDeDisco } from '../mundo/disco.js';
 import { leerBancoDeDisco } from '../npcs/banco.js';
@@ -1201,7 +1202,7 @@ async function main(): Promise<void> {
     console.error(`no se guarda en ${orden.guardar}: es la que se compara y ha salido distinta`);
   } else if (orden.guardar !== null) {
     const h: HuellaGuardada = { version: VERSION, commit: commitDeAhora(), secciones };
-    writeFileSync(orden.guardar, `${JSON.stringify(h, null, 1)}\n`);
+    writeFileSync(orden.guardar, textoJson(h, 1));
     console.log(`guardada en ${orden.guardar}`);
   }
   if (distintas.length > 0) {

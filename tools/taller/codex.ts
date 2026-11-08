@@ -16,6 +16,7 @@ import { mkdir, mkdtemp, readdir, readFile, rm, stat, writeFile } from 'node:fs/
 import { homedir, tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import type { z } from 'zod';
+import { textoJson } from '../comun/json.js';
 
 export const CODEX = process.env.CODEX_BIN ?? '/usr/lib/chatgpt/resources/codex';
 /** Donde Codex deja las imágenes que genera, una carpeta por hilo. */
@@ -222,7 +223,7 @@ export async function juzgarConCodex<T>(
     }
     const juicio = validarCon(esquema, texto, `el juicio de Codex para ${salida}`);
     await mkdir(dirname(salida), { recursive: true });
-    await writeFile(salida, `${JSON.stringify(juicio, null, 1)}\n`);
+    await writeFile(salida, textoJson(juicio, 1));
     return juicio;
   } finally {
     soltar();

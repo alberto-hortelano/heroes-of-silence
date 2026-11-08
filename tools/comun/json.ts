@@ -1,10 +1,21 @@
 /**
- * Los ficheros JSON del repo que escriben las herramientas —los catálogos de la
- * arena (`tools/arena/borrador.ts`) y el banco de NPC (`tools/npcs/banco.ts`)—:
- * leerlos sin pisar lo ilegible, conservar su `_comment` y escribirlos de golpe.
+ * Los ficheros JSON del repo que escriben las herramientas: el texto de cada uno
+ * (`textoJson`, con su sangría) y, para los catálogos de la arena
+ * (`tools/arena/borrador.ts`) y el banco de NPC (`tools/npcs/banco.ts`), leerlos sin
+ * pisar lo ilegible, conservar su `_comment` y escribirlos de golpe.
  */
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
+
+/**
+ * El texto de un fichero JSON: `valor` con la sangría de su fichero y un salto de
+ * línea al final. **Cada fichero conserva la suya** (1 los índices y juicios que solo
+ * lee una máquina, 2 los que se leen o se editan a mano): reescribir uno que no
+ * cambió no puede mover ni un byte, o cada derivado saldría distinto en `git status`.
+ */
+export function textoJson(valor: unknown, sangria: 1 | 2): string {
+  return `${JSON.stringify(valor, null, sangria)}\n`;
+}
 
 /**
  * El JSON de `ruta` (relativa a `raiz`), o `undefined` si el archivo no existe.
@@ -45,7 +56,7 @@ export function escribirAtomico(listos: readonly AEscribir[]): void {
   const temporales = listos.map(({ ruta, contenido }) => {
     mkdirSync(dirname(ruta), { recursive: true });
     const temporal = `${ruta}.${process.pid}.tmp`;
-    writeFileSync(temporal, `${JSON.stringify(contenido, null, 2)}\n`);
+    writeFileSync(temporal, textoJson(contenido, 2));
     return { temporal, ruta };
   });
   for (const { temporal, ruta } of temporales) renameSync(temporal, ruta);

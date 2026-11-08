@@ -18,6 +18,7 @@ import {
   fraseDe,
 } from '../../src/client/desarrollo/esquema.js';
 import type { Marca } from '../../src/client/desarrollo/tipos.js';
+import { textoJson } from '../comun/json.js';
 
 /** Dónde viven las marcas, relativo a la raíz del repo (ignorado por git). */
 export const CARPETA_DE_MARCAS = 'docs/revision/marcas';
@@ -75,7 +76,7 @@ export function guardarMarca(
   };
   // El PNG primero: un JSON sin su recorte sería una marca rota en la lista.
   escribirNuevo(rutaPng, Buffer.from(png, 'base64'));
-  escribirNuevo(json, `${JSON.stringify(marca, null, 2)}\n`);
+  escribirNuevo(json, textoJson(marca, 2));
   return { id, json, png: rutaPng };
 }
 
@@ -121,6 +122,6 @@ export function resolverMarca(raiz: string, id: string, ref: string, ahora = new
     ...marca,
     resuelta: { ref: limpia, fecha: ahora.toISOString() },
   };
-  writeFileSync(rutaDe(raiz, id, '.json'), `${JSON.stringify(resuelta, null, 2)}\n`);
+  writeFileSync(rutaDe(raiz, id, '.json'), textoJson(resuelta, 2));
   return resuelta;
 }
