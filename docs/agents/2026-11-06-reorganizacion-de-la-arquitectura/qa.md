@@ -158,3 +158,27 @@ huella y los tres flujos en el navegador sin un error). Las reservas no bloquean
 - los comentarios con rutas viejas (H2), que deja la propia reorganización;
 - `minimoDe` repetido en el núcleo (H3);
 - los ~300 MB de entradas del taller en `dist` (H1), de antes, pero es lo muerto más grande que queda.
+
+## Corrección de los hallazgos
+
+Del 08-11-2026, sobre `19b88a24`, un commit por hallazgo. H4 y H6 no son de la reorganización y
+se proponen aparte. En cada commit: `pnpm typecheck` 0, `pnpm lint` 0 («Found 10 infos»), los
+siete guardias, `tools/qa/exportaciones.ts` («ninguna exportación sin lector») y `pnpm banco`
+(`3ea9e845…`, «ancla: igual»).
+
+| Hallazgo | Commit | Qué se hizo |
+|---|---|---|
+| H1 | `f8c1897d` | `SOLO_DEL_TALLER` deja fuera `unidades/_poses/unidades/` y `_poses/gente/`, con su carpeta. Antes se comprobó que el cliente no los pide: nadie en `src/` construye esas URL (del Y Bot, solo `_poses/<juego>-8d/dN-{a,b,c}.png`, `YBOT`; la gente sin figura va con el juego `civil`), y las peticiones de red en `pnpm dev` de las pasadas arranque, escritorio (con una batalla del mapa), morada, espectador y arena, 1 013 URL distintas, no tocan ninguna de las dos. `dist`: 765 MB / 4 476 ficheros → 466 MB / 2 783. Un caso nuevo en `test/publico.test.ts`, visto morder; la regla, en `docs/calidad.md` y `docs/art/taller.md`. |
+| H2 | `426e6c11` | Las 74 citas de `invariantes.test.ts`, cada una al guardia de los cinco que lo tiene (dos se quedan como historia), y ~45 rutas más que se citaban como de hoy y ya no existen (`core/catalogo.ts`, `core/data.ts`, `ai/fuerza.ts`, `npcs.ts`, `core/arena.ts`, `render/personajes.ts`, también en el `_comment` de `atlas-8d.json`, rederivado…). Un guardia en `test/documentacion.test.ts`: toda ruta `src/…`, `tools/…`, `test/…` o `x.test.ts` de un comentario del código o de un `_comment` de `data/` existe, salvo ocho mudanzas citadas como lo que fueron, en una línea que lo dice. Las relativas no las mira: con ellas nacía con 351 sospechosas, casi todas historia, otras ramas o ficheros de salida; se repasaron a mano. Visto morder. |
+| H3 | `fb7ac86d` | `casillasMinimasDe` (`map/vestir/fronteras.ts`) para el engorde y el vestido; `derivar.ts` y `empaquetar.ts` con la `mediana` de `tools/comun/estadistica.ts` (iguales con una lista no vacía; con la vacía, `undefined` frente a `NaN`, que en sus usos valen lo mismo y no se da); `enLienzo` a `render/lienzo.ts`; `marcadoDe` a `comun/campos.ts` como `estaMarcado`. Huella: las siete secciones «igual»; `pnpm taller derivar` sobre cuatro atlas, `git status` limpio. |
+| H5 | `8312aad4` | Las diez rutas (catorce citas), desde `src/core/` o `src/client/`; la cabecera dice que lo que empieza por `core/`, `client/`, `server/` o `shared/` va desde `src/`, y `test/documentacion.test.ts` lo exige. Con el `CLAUDE.md` de antes, rojo con las catorce. |
+| H7 | `6759c110` | `ARTE_RPG` → `ARTE_FIJO`, `asset('fijo', 'campo')`. El fichero se queda en `assets/rpg/campo.webp`: lo citan las procedencias de las ocho piezas de la muralla de batalla y el taller. |
+| H8 | `dc8b2e69` | Sin perfil, y `--giro`/`--8d` sin juego, dicen qué falta y qué hay. |
+
+Al cerrar: `vite build` contra `19b88a24` (`build-compara.sh`, y sin minificar para leerlo):
+cambian solo `enLienzo`, `estaMarcado` y `casillasMinimasDe` de sitio, `ARTE_FIJO` y su grupo
+`fijo/`, los comentarios que el CSS conserva y los alias de exportación entre trozos; el arte
+copiado, solo lo de H1. El build servido estático: las tres páginas sin un 404.
+`CAPTURAS_SOLO=arranque,escritorio,arena pnpm capturas`: «sin errores en consola», 299,6 s,
+con el fondo de la batalla pintado. `huella.ts --comparar huella-c4c.json`: las siete secciones
+«igual». `pnpm banco`: `3ea9e845…`, «ancla: igual».
