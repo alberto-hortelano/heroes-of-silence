@@ -44,13 +44,6 @@ import {
 } from './disco.js';
 
 /**
- * La regla de un id de mundo, para la ruta del servidor de desarrollo: `tools/vite/mundos.ts`
- * no importa el núcleo al arrancar (`arranque.test.ts`), así que la lee de aquí, que
- * carga a demanda.
- */
-export { idDeMundoBlocker } from '../../src/core/mundo/formato.js';
-
-/**
  * Lo más que se espera al motor: un mundo se genera una vez y despacio, pero no sin
  * fin. Medido con la biblia, Opus a `xhigh` (fase B de la trama de los mundos,
  * 23-10-2026): 19 min (orkos, mediano, 6 lugares), 24 min (`ejemplo`, 6) y 28 min

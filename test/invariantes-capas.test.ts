@@ -647,7 +647,7 @@ describe('invariantes del proyecto', () => {
     ).toContain(ruta('src/core/map/vestir/base.ts'));
   });
 
-  it('`src/` no reexporta: cada importador pide el nombre al módulo que lo declara', () => {
+  it('`src/` y `tools/` no reexportan: cada importador pide el nombre al módulo que lo declara', () => {
     // Una fachada es un segundo sitio donde está un nombre: quien lee el importador
     // cree que vive allí, y un guardia que mira quién importa algo de un módulo no
     // ve a quien lo trae por la fachada. Hasta el paso N13 de la reorganización
@@ -658,7 +658,11 @@ describe('invariantes del proyecto', () => {
     // `render/proyeccion.ts`, `render/batalla.ts`, `render/mapa.ts`,
     // `escenario/colocar.ts`, `espectador/paneles.ts`) y una de `shared/base.ts`;
     // desde entonces el guardia mira todo `src/`: el núcleo, el cliente, `shared` y
-    // el servidor, que no tenía ninguna.
+    // el servidor, que no tenía ninguna. Y desde el paso H6 (fase H, 08-11-2026),
+    // `tools/`, donde había cuatro: `mundo/motor.ts` (`idDeMundoBlocker`, para la ruta
+    // de `vite/mundos.ts`, que ahora carga `core/mundo/formato.ts` a demanda),
+    // `revision/salto.ts` (`Salto` y `saltoDelClip`, de `encuadre.ts`) y
+    // `medidas/rectitud.ts` (`largoALaEscala`, que no leía nadie).
     // Con el parser de TypeScript: `export … from` (también `export *`, `export type`
     // y el que va en varias líneas); `export { x }` o `export default x` de un nombre
     // importado; y `export const X = x` o `export type X = x` de un importado que se
@@ -717,16 +721,16 @@ describe('invariantes del proyecto', () => {
       }
       return out;
     };
-    const todo = ficheros('src');
+    const todo = [...ficheros('src'), ...HERRAMIENTAS];
     const reexportan = todo.flatMap((r) =>
       reexportacionesDe(ts.createSourceFile(r, leer(r), ts.ScriptTarget.Latest, true)),
     );
     expect(reexportan).toEqual([]);
-    // Y que mire algo: todo `src/`, cada una de sus cuatro carpetas, y cada forma,
+    // Y que mire algo: cada una de las cuatro carpetas de `src/` y `tools/`, y cada forma,
     // sobre una sonda escrita aquí (lo que vale, al final, no sale).
     expect(CORE.length).toBeGreaterThan(100);
     expect(CLIENTE.length).toBeGreaterThan(100);
-    for (const carpeta of ['src/core/', 'src/client/', 'src/shared/', 'src/server/'])
+    for (const carpeta of ['src/core/', 'src/client/', 'src/shared/', 'src/server/', 'tools/'])
       expect(
         todo.some((r) => r.startsWith(ruta(carpeta))),
         carpeta,

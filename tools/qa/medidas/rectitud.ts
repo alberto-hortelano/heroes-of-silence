@@ -116,7 +116,6 @@ export function carasEnFila(map: GameMap, minimo: number): number {
  * Con la ondulación del reparto (#229, `ONDULACION` en `map/generate.ts`), 64
  * tramos de ≥ 10, 5 filas de caras y 2 mapas.
  */
-export { largoALaEscala };
 
 /**
  * Los techos de #169, sobre **1-3000** (#230, 09-10-2026). Con #229 eran de

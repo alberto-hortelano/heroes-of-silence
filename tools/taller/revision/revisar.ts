@@ -22,10 +22,11 @@ import { carpetaDeManiqui } from '../../art/poses/juegos.js';
 import { sha256 } from '../../comun/hash.js';
 import { RAIZ } from '../../comun/raiz.js';
 import { juzgarConCodex } from '../codex.js';
+import type { Salto } from '../encuadre.js';
 import { DIR_DEL_MANIQUI_CIVIL } from '../npcs.js';
 import { juicioSchema, leerCon } from './esquemas.js';
 import { hojasSobreOtroManiqui, leerHuesos } from './maniqui.js';
-import { avisosDelSalto, type Salto, saltosDeLaHoja, UMBRAL_DEL_SALTO } from './salto.js';
+import { avisosDelSalto, saltosDeLaHoja, UMBRAL_DEL_SALTO } from './salto.js';
 import { paneles } from './vision.js';
 
 /** Donde deja la revisión todo lo suyo. */

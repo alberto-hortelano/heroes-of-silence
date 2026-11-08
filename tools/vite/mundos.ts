@@ -17,20 +17,27 @@ export function mundos(raiz: string): Plugin {
     name: 'heroes-mundos',
     apply: 'serve',
     configureServer(server) {
-      // Una vez: las generaciones en marcha viven en el estado del módulo.
+      // Una vez: las generaciones en marcha viven en el estado del módulo. El motor y la
+      // regla del id, a demanda: este plugin no importa el núcleo al arrancar
+      // (`arranque.test.ts`), y `pnpm dev` arranca con él roto.
       let motor: Promise<typeof import('../mundo/motor.js')> | null = null;
       const cargar = () =>
         (motor ??= server.ssrLoadModule(resolve(raiz, 'tools/mundo/motor.ts')) as Promise<
           typeof import('../mundo/motor.js')
         >);
+      const formatoDelMundo = () =>
+        server.ssrLoadModule(resolve(raiz, 'src/core/mundo/formato.ts')) as Promise<
+          typeof import('../../src/core/mundo/formato.js')
+        >;
       const atender = async (req: IncomingMessage, res: ServerResponse): Promise<void> => {
         const m = await cargar();
+        const { idDeMundoBlocker } = await formatoDelMundo();
         const ruta = (req.url ?? '/').split('?')[0] ?? '/';
         const progreso = /^\/([^/]+)\/progreso$/.exec(ruta)?.[1];
         const uno = /^\/([^/]+)$/.exec(ruta)?.[1];
         // El id de la ruta, con la regla de un id de mundo (`idDeMundoBlocker`): 400 con su frase.
         const id = progreso ?? uno;
-        const malId = id === undefined ? null : m.idDeMundoBlocker(decodeURIComponent(id));
+        const malId = id === undefined ? null : idDeMundoBlocker(decodeURIComponent(id));
         if (malId !== null) {
           responder(res, 400, { error: malId });
           return;

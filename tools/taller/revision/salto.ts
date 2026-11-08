@@ -17,9 +17,6 @@ import { type HuesosDeHoja, troncoDe } from './maniqui.js';
 /** Desde cuántos píxeles un salto del cuerpo se nota jugando (a ojo, en la celda de 384). */
 export const UMBRAL_DEL_SALTO = 6;
 
-export type { Salto } from '../encuadre.js';
-export { saltoDelClip };
-
 /** Cómo se dice un salto: «el cuerpo salta 14 px en el 5→6». */
 export const dichoDelSalto = (s: Salto): string =>
   `el cuerpo salta ${s.px} px en el ${s.de}→${s.a}`;
