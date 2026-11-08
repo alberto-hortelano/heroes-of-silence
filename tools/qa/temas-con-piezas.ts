@@ -38,6 +38,7 @@ import { join, resolve } from 'node:path';
 import { chromium, type Page } from 'playwright';
 import sharp from 'sharp';
 import { FACTION_IDS, type FactionId } from '../../src/core/types.js';
+import { mediana } from '../comun/estadistica.js';
 import { matarGrupo } from '../comun/procesos.js';
 import { RAIZ } from '../comun/raiz.js';
 import { urlDePartida } from './url-de-partida.js';
@@ -89,10 +90,6 @@ const luminancia = (r: number, g: number, b: number): number =>
   0.2126 * lineal(r) + 0.7152 * lineal(g) + 0.0722 * lineal(b);
 const contraste = (a: number, b: number): number =>
   (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
-const mediana = (xs: number[]): number => {
-  const s = [...xs].sort((a, b) => a - b);
-  return s[Math.floor(s.length / 2)] ?? Number.NaN;
-};
 const percentil = (xs: number[], p: number): number => {
   const s = [...xs].sort((a, b) => a - b);
   return s[Math.floor(s.length * p)] ?? Number.NaN;

@@ -22,6 +22,7 @@ import { SPEED_TO_HEXES, type UnitInfo } from '../../src/core/types.js';
 import { costeDeUnaUnidad, unidadesDelJuego } from '../../src/core/unidad/catalogo.js';
 import { agilidadDe, restaDelPesoDe } from '../../src/core/unidad/cuerpo.js';
 import { indiceDePoder, nivelDelIndice, poderBruto } from '../../src/core/unidad/nivel.js';
+import { mediana } from '../../src/shared/base.js';
 
 const horquilla = ([a, b]: readonly [number, number]): string => `${a}–${b}`;
 
@@ -70,11 +71,6 @@ console.log('|---|---|---|---|---|---|---|---|---|---|---|---|---|');
 for (const f of filas) console.log(`| ${f} |`);
 
 if (process.argv.includes('--medianas')) {
-  const mediana = (xs: number[]): number => {
-    const o = [...xs].sort((a, b) => a - b);
-    const m = Math.floor(o.length / 2);
-    return o.length % 2 === 1 ? (o[m] as number) : ((o[m - 1] as number) + (o[m] as number)) / 2;
-  };
   const poderes = unidadesDelJuego().map(poderBruto);
   const indices = unidadesDelJuego().map(indiceDePoder);
   const precios = unidadesDelJuego().map(costeDeUnaUnidad);
