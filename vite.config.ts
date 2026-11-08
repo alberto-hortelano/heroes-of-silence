@@ -2,11 +2,13 @@ import { readFileSync } from 'node:fs';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { resolve } from 'node:path';
 import { defineConfig, type Plugin, type Rollup, type ViteDevServer } from 'vite';
+import { mensajeDe } from './src/client/comun/errores.js';
 import { RUTA_DE_MURALLAS } from './src/core/arena/murallas.js';
 import { CARPETA_DE_LAS_FIGURAS, RUTA_DEL_BANCO } from './src/core/gente/banco.js';
 import { RUTA_DEL_CATALOGO_DE_UNIDADES } from './src/core/unidad/formato.js';
 import { puertoEspectadores } from './src/server/entorno.js';
 import { copiarPublico } from './tools/build/publico.js';
+import { RAIZ } from './tools/comun/raiz.js';
 
 /** Lo más que se acepta en un guardado: medio centenar de unidades caben de sobra. */
 const CUERPO_MAXIMO = 1_000_000;
@@ -37,9 +39,6 @@ function responder(res: ServerResponse, estado: number, cuerpo: unknown): void {
   res.setHeader('content-type', 'application/json');
   res.end(JSON.stringify(cuerpo));
 }
-
-/** La frase de un fallo, para la respuesta. */
-const motivoDe = (err: unknown): string => (err instanceof Error ? err.message : String(err));
 
 /**
  * Una lista leída del disco que sirve `pnpm dev` y emite `vite build`: la de hojas
@@ -123,7 +122,7 @@ function servirBorrador(b: {
             guardado: true,
             ruta: b.ruta,
             ...b.vacio,
-            ilegible: motivoDe(err),
+            ilegible: mensajeDe(err),
           }),
         );
       return;
@@ -138,7 +137,7 @@ function servirBorrador(b: {
       .then(async (cuerpo) => responder(res, 200, { ruta: b.ruta, ...(await b.escribir(cuerpo)) }))
       .catch((err: unknown) => {
         // Lo que no valida no se escribe: 400 con la frase de la regla.
-        responder(res, 400, { error: motivoDe(err) });
+        responder(res, 400, { error: mensajeDe(err) });
       });
   };
 }
@@ -171,8 +170,7 @@ function servirBorrador(b: {
  * `pnpm dev` lo carga vite (`ssrLoadModule`, como las marcas): un fallo se vuelve a
  * intentar en la siguiente petición, ya con el fichero arreglado.
  */
-function arena(): Plugin {
-  const raiz = __dirname;
+function arena(raiz: string): Plugin {
   /** El lado de disco: en el build, con un `import()`; en `pnpm dev`, por vite. */
   let borrador = (): Promise<Borrador> => import('./tools/arena/borrador.js');
   /** Lo que escribió «Guardar» en cada fichero, por su ruta absoluta. */
@@ -284,8 +282,7 @@ function arena(): Plugin {
  * de la página, así que escribirlo no recarga nada. El lado de disco se carga a
  * demanda (`ssrLoadModule`), por la misma razón que el de la arena.
  */
-function npcs(): Plugin {
-  const raiz = __dirname;
+function npcs(raiz: string): Plugin {
   let banco = (): Promise<typeof import('./tools/npcs/banco.js')> =>
     import('./tools/npcs/banco.js');
   const arte = resolve(raiz, CARPETA_DE_LAS_FIGURAS);
@@ -339,8 +336,7 @@ const MARCA_MAXIMA = 25_000_000;
  * `apply: 'serve'`: en `vite build` este plugin no existe, y el cliente no
  * llega a pedirlo porque su módulo no se emite (`sinDesarrollo` lo comprueba).
  */
-function marcas(): Plugin {
-  const raiz = __dirname;
+function marcas(raiz: string): Plugin {
   return {
     name: 'heroes-marcas',
     apply: 'serve',
@@ -364,7 +360,7 @@ function marcas(): Plugin {
           try {
             responder(res, 200, leerMarca(raiz, id));
           } catch (err) {
-            responder(res, 404, { error: motivoDe(err) });
+            responder(res, 404, { error: mensajeDe(err) });
           }
           return;
         }
@@ -378,7 +374,7 @@ function marcas(): Plugin {
           responder(res, 200, guardarMarca(raiz, await leerCuerpo(req, MARCA_MAXIMA, 'la marca')));
         } catch (err) {
           // Lo que no valida no se escribe: 400 con la frase del esquema.
-          responder(res, 400, { error: motivoDe(err) });
+          responder(res, 400, { error: mensajeDe(err) });
         }
       };
       // Si el almacén no carga, el error va a Vite, que responde 500 y lo escribe.
@@ -397,8 +393,7 @@ function marcas(): Plugin {
  * motor). Solo en `pnpm dev`: el motor es Claude Code con la suscripción, en esta
  * máquina, y el mundo queda en `assets/mundos/<id>/`.
  */
-function mundos(): Plugin {
-  const raiz = __dirname;
+function mundos(raiz: string): Plugin {
   return {
     name: 'heroes-mundos',
     apply: 'serve',
@@ -427,7 +422,7 @@ function mundos(): Plugin {
               id: m.empezar(m.leerPedido(await leerCuerpo(req, 10_000, 'el pedido'))),
             });
           } catch (err) {
-            responder(res, err instanceof m.Conflicto ? 409 : 400, { error: motivoDe(err) });
+            responder(res, err instanceof m.Conflicto ? 409 : 400, { error: mensajeDe(err) });
           }
           return;
         }
@@ -494,8 +489,8 @@ function sinDesarrollo(): Plugin {
  * sabe filtrarla, así que el build no la copia (`copyPublicDir: false`) y la
  * copia esto, con `seCopiaAlBuild`. En `pnpm dev` se sirve entera.
  */
-function publico(): Plugin {
-  const origen = resolve(__dirname, 'assets');
+function publico(raiz: string): Plugin {
+  const origen = resolve(raiz, 'assets');
   return {
     name: 'heroes-publico',
     apply: 'build',
@@ -508,10 +503,10 @@ function publico(): Plugin {
 
 export default defineConfig(({ command }) => ({
   root: 'src/client',
-  plugins: [arena(), npcs(), marcas(), mundos(), sinDesarrollo(), publico()],
-  publicDir: resolve(__dirname, 'assets'),
+  plugins: [arena(RAIZ), npcs(RAIZ), marcas(RAIZ), mundos(RAIZ), sinDesarrollo(), publico(RAIZ)],
+  publicDir: resolve(RAIZ, 'assets'),
   resolve: {
-    alias: { '@core': resolve(__dirname, 'src/core') },
+    alias: { '@core': resolve(RAIZ, 'src/core') },
   },
   define: {
     // El puerto del canal de espectadores, de UNA fuente: `src/server/entorno.ts`,
@@ -533,7 +528,7 @@ export default defineConfig(({ command }) => ({
     hmr: false,
   },
   build: {
-    outDir: resolve(__dirname, 'dist'),
+    outDir: resolve(RAIZ, 'dist'),
     emptyOutDir: true,
     copyPublicDir: false,
     rollupOptions: {
@@ -543,9 +538,9 @@ export default defineConfig(({ command }) => ({
       // eso el criterio de aceptación no es que `pnpm build` pase, es
       // `ls dist/espectador/index.html`.
       input: {
-        juego: resolve(__dirname, 'src/client/index.html'),
-        espectador: resolve(__dirname, 'src/client/espectador/index.html'),
-        arena: resolve(__dirname, 'src/client/arena/index.html'),
+        juego: resolve(RAIZ, 'src/client/index.html'),
+        espectador: resolve(RAIZ, 'src/client/espectador/index.html'),
+        arena: resolve(RAIZ, 'src/client/arena/index.html'),
       },
     },
   },
