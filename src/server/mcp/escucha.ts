@@ -44,9 +44,9 @@ export const PREFIJO_RELEVO = 'ESCUCHA RELEVADA';
 /** Por dónde empieza el bloque de acuses de lo anterior. */
 export const CABECERA_VEREDICTOS = 'CÓMO FUE LO ANTERIOR:';
 /** Coló. */
-export const MARCA_OK = '✓';
+const MARCA_OK = '✓';
 /** No coló, y debajo va el motivo de cada descarte. */
-export const MARCA_FALLO = '⚠';
+const MARCA_FALLO = '⚠';
 /** Con lo que se sangra cada problema bajo su veredicto. */
 export const SANGRIA_PROBLEMA = '    - ';
 
@@ -170,7 +170,7 @@ export function textoDeFin(nota: string): string {
  * Otra escucha ha relevado a esta. No es un corte, y no hay que decírselo como si
  * lo fuera: lo único que ha pasado es que sobraba una llamada.
  */
-export function textoDeRelevo(): string {
+function textoDeRelevo(): string {
   return (
     `${PREFIJO_RELEVO} · otra llamada a heroes_listen ha tomado el relevo de esta.\n\n` +
     'El canal con la partida sigue vivo y la partida sigue: no se ha perdido nada y no ' +
@@ -209,7 +209,7 @@ export type Aviso =
   | { readonly clase: 'corte'; readonly motivo: string };
 
 /** Lo que `heroes_listen` le acaba entregando al agente. */
-export interface TextoDeEscucha {
+interface TextoDeEscucha {
   readonly texto: string;
   readonly esError: boolean;
 }

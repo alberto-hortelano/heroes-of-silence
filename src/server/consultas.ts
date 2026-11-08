@@ -23,7 +23,7 @@ import type { PlayerId } from '@core/types.js';
  * que nadie importe a nadie, y un test puede preguntar con un objeto de dos
  * campos.
  */
-export interface PartidaConsultable {
+interface PartidaConsultable {
   readonly state: GameState;
   readonly agentPlayers: ReadonlySet<PlayerId>;
 }

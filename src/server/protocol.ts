@@ -29,7 +29,7 @@ export interface AgentResultMsg {
   readonly note?: string;
 }
 
-export interface QueryResultMsg {
+interface QueryResultMsg {
   readonly type: 'query_result';
   readonly queryId: string;
   readonly ok: boolean;
@@ -64,7 +64,7 @@ export interface AgentGameOverMsg {
  * traía como propios (#118). Los `requestId` no sirven para distinguirlas: cada
  * partida cuenta desde `req-1`.
  */
-export interface AgentPartidaMsg {
+interface AgentPartidaMsg {
   readonly type: 'partida';
   readonly id: string;
 }
@@ -90,7 +90,7 @@ export interface AgentResponseMsg {
 }
 
 /** Consultas de estado que el agente puede hacer fuera de turno. */
-export interface AgentQueryMsg {
+interface AgentQueryMsg {
   readonly type: 'query';
   readonly queryId: string;
   readonly what: 'game_state' | 'battle_state' | 'map';

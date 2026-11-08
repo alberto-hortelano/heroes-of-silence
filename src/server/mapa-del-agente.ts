@@ -80,7 +80,7 @@ export async function partidaConElMapaDelAgente(
   });
 }
 
-export interface MapaDelAgente {
+interface MapaDelAgente {
   /** El plan si sirve; `null` si no hay agente, no contestó o no era jugable. */
   readonly plan: MapPlan | null;
   /** De dónde salió el mapa, o por qué no salió de él. Lo lee una persona. */

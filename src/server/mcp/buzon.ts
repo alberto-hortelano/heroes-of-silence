@@ -29,9 +29,9 @@ import type { Aviso } from './escucha.js';
  * 30 s y no 300 porque una consulta es una lectura del estado al otro lado: si
  * tarda medio minuto, no va a llegar.
  */
-export const PLAZO_CONSULTA_MS = 30_000;
+const PLAZO_CONSULTA_MS = 30_000;
 
-export interface RespuestaConsulta {
+interface RespuestaConsulta {
   readonly ok: boolean;
   readonly data?: unknown;
   readonly error?: string;

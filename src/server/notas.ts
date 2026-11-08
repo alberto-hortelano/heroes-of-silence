@@ -75,7 +75,7 @@ export const SIN_PARTIDA_TODAVIA =
  * (`march_halted`, #130) o la emboscó un grupo antes del destino (el
  * `battle_started` con `faltan`).
  */
-export type ParadaDeLaMarcha = Extract<
+type ParadaDeLaMarcha = Extract<
   GameEvent,
   { kind: 'march_cut' | 'march_halted' } | { kind: 'battle_started'; faltan: number }
 >;

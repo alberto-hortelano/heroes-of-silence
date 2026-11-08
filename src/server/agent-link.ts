@@ -18,7 +18,7 @@ import type {
   ServerToAgentMsg,
 } from './protocol.js';
 
-export interface PendingRequest {
+interface PendingRequest {
   readonly requestId: string;
   readonly kind: RequestKind;
   resolve: (data: unknown) => void;
@@ -26,7 +26,7 @@ export interface PendingRequest {
   timer: ReturnType<typeof setTimeout>;
 }
 
-export type QueryHandler = (what: string, args: Record<string, unknown>) => unknown;
+type QueryHandler = (what: string, args: Record<string, unknown>) => unknown;
 
 /**
  * La respuesta del agente **con el número de petición que la provocó**.

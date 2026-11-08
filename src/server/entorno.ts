@@ -64,7 +64,7 @@ export function textoDelEntorno(nombre: string): string | undefined {
  * necesita saber quien lo lee, que en el puerto es que **el 0 significa algo** y
  * en el plazo que el 0 es no esperar a nadie. Cada variable escribe su frase.
  */
-export function enteroDelEntorno(
+function enteroDelEntorno(
   nombre: string,
   regla: {
     readonly queEs: string;

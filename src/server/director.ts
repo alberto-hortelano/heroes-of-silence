@@ -130,7 +130,7 @@ export interface DirectorOptions {
   readonly preparar?: (state: GameState) => void;
 }
 
-export interface TurnReport {
+interface TurnReport {
   readonly player: PlayerId;
   readonly by: 'agent' | 'heuristic';
   readonly actions: number;

@@ -50,7 +50,7 @@ const COMBATE = combateDelEntorno();
 const WAIT_FOR_AGENT_MS = esperaAlAgente();
 
 /** Lo que un arnés puede pedirle a la partida: hoy, solo `preparar`. */
-export type OpcionesDePartida = Pick<DirectorOptions, 'preparar'>;
+type OpcionesDePartida = Pick<DirectorOptions, 'preparar'>;
 
 /**
  * Arranca la partida y la juega hasta el final. No lanza: un fallo se cuenta en
