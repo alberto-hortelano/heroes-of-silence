@@ -185,7 +185,7 @@ type Cuerpo =
   | { kind: 'site_freed'; site: string }
   | { kind: 'built'; town: string; building: string }
   | { kind: 'recruited'; town: string; creature: string; count: number }
-  /** Un héroe licencia tropa en un castillo suyo, para hacer sitio a otra mejor. */
+  /** Un héroe licencia tropa, en cualquier casilla: para hacer sitio a otra mejor o para descartarla. */
   | { kind: 'dismissed'; hero: string; creature: string; count: number }
   /**
    * Tras una batalla, el ejército de un héroe (`hero`) o la guarnición de un sitio

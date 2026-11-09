@@ -40,7 +40,7 @@ import { isEnterable, objectAt } from '../src/core/map/map.js';
 import { regionDeCasilla, tocaUnNodo } from '../src/core/map/regiones.js';
 import { createRng } from '../src/core/rng.js';
 import { settleBattle } from '../src/core/state/cierre.js';
-import { baseOf, heroById, heroesOf } from '../src/core/state/consultas.js';
+import { baseOf, castilloSuyoDelHeroe, heroById, heroesOf } from '../src/core/state/consultas.js';
 import { equipBlocker } from '../src/core/state/equipar.js';
 import { applyAdventureAction } from '../src/core/state/game.js';
 import { ascenderVeterano } from '../src/core/state/heroes.js';
@@ -67,6 +67,7 @@ import {
   darLaCiudad,
   ejercito,
   forzarBatalla,
+  fueraDeSuBase,
   guarnecer,
   ponerMonstruo,
 } from './partida-de-prueba.js';
@@ -496,6 +497,22 @@ describe('equipar y desequipar (C1, C4)', () => {
     accion(state, { type: 'dismiss', hero: hero.id, creature: TROPA_BARATA, count: 1 }, c);
     expect(hero.army).toEqual([]);
     expect(hero.mochila).toEqual(['maza']);
+  });
+
+  it('licenciado fuera del castillo, lo que llevaba vuelve igual a la mochila del héroe', () => {
+    // 09-11-2026: se licencia en cualquier casilla, y la mochila no depende de dónde.
+    const { state, c, hero } = enLaArmeria();
+    hero.at = fueraDeSuBase(state, 0).at;
+    expect(castilloSuyoDelHeroe(state, hero)).toBeUndefined();
+    hero.army = [
+      { creature: TROPA_BARATA },
+      { creature: TROPA, veterania: hoja('veterano-1', 30, { equipo: { arma: 'maza' } }) },
+    ];
+    hero.mochila = ['daga'];
+    accion(state, { type: 'dismiss', hero: hero.id, creature: TROPA, count: 1 }, c);
+    expect(hero.army).toEqual([{ creature: TROPA_BARATA }]);
+    expect(hero.mochila).toEqual(['daga', 'maza']);
+    expect(state.log.at(-1)).toMatchObject({ kind: 'dismissed', creature: TROPA, at: hero.at });
   });
 });
 

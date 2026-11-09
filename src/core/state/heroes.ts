@@ -20,7 +20,6 @@ import { unidadDelJuegoSiExiste } from '../unidad/catalogo.js';
 import {
   baseOf,
   casillaDeVuelta,
-  castilloSuyoDelHeroe,
   hayHuecoDeHeroe,
   heroById,
   heroeEnElPueblo,
@@ -41,25 +40,19 @@ import { revealAround } from './vision.js';
 /**
  * Por qué ese héroe no puede licenciar `count` × `creature` ahora, o `null`.
  * La frase es para la persona: la lanza la acción, y de ahí la leen la barra
- * del castillo (`sesion/partida.ts` enseña el error del núcleo, no redacta) y el
+ * de la partida (`sesion/partida.ts` enseña el error del núcleo, no redacta) y el
  * agente en su veredicto.
  *
- * Solo en un castillo propio —la base u otro—: licenciar en mitad del camino
- * sería tirar tropa para pasar una emboscada más ligero, y lo que se pidió es
- * poder **cambiarla** por otra mejor, que es algo que se hace donde se recluta.
+ * En **cualquier casilla** del mapa (09-11-2026, decisión del usuario: «un boton
+ * para descartar tropas independiente de esta pantalla»). Hasta entonces solo en
+ * un castillo propio, porque licenciar en mitad del camino sería tirar tropa para
+ * pasar una emboscada más ligero; esa razón la anuló el usuario. Lo que sigue
+ * mandando —su turno y ninguna batalla pendiente o en curso— lo pone
+ * `applyAdventureAction` para toda acción de aventura, no esta función.
  */
-export function dismissBlocker(
-  state: GameState,
-  hero: Hero,
-  creatureId: string,
-  count: number,
-): string | null {
+export function dismissBlocker(hero: Hero, creatureId: string, count: number): string | null {
   if (!Number.isSafeInteger(count) || count < 1) {
     return `son individuos: se licencian de 1 en adelante, no ${count}`;
-  }
-  const castillo = castilloSuyoDelHeroe(state, hero);
-  if (castillo === undefined) {
-    return `${hero.name} no está en un castillo suyo: la tropa se licencia en la base o en un castillo propio`;
   }
   // La frase dice el NOMBRE de la criatura y no su id: «"peasant"» era una
   // palabra en inglés en la barra del castillo. Un id que no está en el catálogo

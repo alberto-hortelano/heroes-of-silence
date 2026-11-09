@@ -2132,7 +2132,8 @@ aplica `game.ts`, que es el único que llama a `emit`.
   `dismissBlocker` y su frase. Va en el contrato con su prosa, en el castillo del
   cliente (un «−1» por criatura) y en la IA (`planCambio`: licencia lo más barato
   que pegue menos, solo si lo que entra pesa más que lo que sale). `pnpm qa` lo
-  exige cruzando el circuito.
+  exige cruzando el circuito. (09-11-2026: ya en cualquier casilla, con el «−1»
+  también en el panel del héroe en el mapa; ver `docs/areas/partida.md`.)
 - **La patrulla no es un hecho.** Era `raider_moved`, el 20 % del volcado, y no lo
   leía nadie: dónde está un grupo es estado, y el lienzo anima con él. Lo que sí
   se cuenta es que un grupo está en el mapa (`raider_spawned`) **con una sola

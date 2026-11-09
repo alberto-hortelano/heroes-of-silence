@@ -281,13 +281,14 @@ Notas:
   barato primero; aún no hay jugada para elegirlo), y "recentEvents" lo cuenta
   con "left_behind" ("creature", "count"). Lo que llevaban puesto va a la
   mochila del héroe; el de una guarnición se pierde.
-- "dismiss" LICENCIA individuos del ejército de un héroe que está en un castillo
-  tuyo (tu base u otro): se van para siempre, no vuelven a la guarnición. Sirve
-  para CAMBIAR tropa: con el liderazgo o los 6 individuos llenos de lo barato,
-  un "recruit" de algo mejor no cabe; licencia primero lo que sobra y recluta
-  después, en el mismo turno y en ese orden. De cada criatura se van primero
-  los de MENOS experiencia: el veterano no se va mientras quede un novato de su
-  tipo. Fuera de un castillo tuyo se rechaza diciéndolo.
+- "dismiss" LICENCIA individuos del ejército de un héroe tuyo, esté donde esté
+  del mapa, en tu turno: se van para siempre, no vuelven a ninguna guarnición;
+  lo que llevaban puesto vuelve a su "backpack". Sirve para descartar tropa y
+  para CAMBIARLA: con el liderazgo o los 6 individuos llenos de lo barato, un
+  "recruit" de algo mejor no cabe; licencia primero lo que sobra y recluta
+  después, en el mismo turno y en ese orden (el "recruit", en un castillo tuyo).
+  De cada criatura se van primero los de MENOS experiencia: el veterano no se va
+  mientras quede un novato de su tipo.
 - EQUIPO: todo héroe y todo individuo de la tropa tiene seis huecos
   (${SLOTS.join(', ')}) y en cada uno lleva una pieza o nada: "${SLOT_DE_HUECO.arma}" es
   el arma de cuerpo a cuerpo y "${SLOT_DE_HUECO.segunda}" una segunda (otra arma de

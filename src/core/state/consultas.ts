@@ -100,9 +100,8 @@ export function heroeEnElPueblo(state: GameState, town: Town): Hero | undefined 
 }
 
 /**
- * La ciudad **de su bando** en la que está `hero`, o `undefined`: donde se licencia
- * tropa y con cuya muralla y moral defiende. Sin la guarnición suya en una ajena:
- * para eso, `sitioDelHeroe`.
+ * La ciudad **de su bando** en la que está `hero`, o `undefined`: con cuya muralla
+ * y moral defiende. Sin la guarnición suya en una ajena: para eso, `sitioDelHeroe`.
  */
 export function castilloSuyoDelHeroe(state: GameState, hero: Hero): Town | undefined {
   const town = state.towns.find((t) => t.at.x === hero.at.x && t.at.y === hero.at.y);

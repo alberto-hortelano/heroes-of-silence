@@ -1,8 +1,9 @@
 /**
  * El ejército en los paneles de la partida: la fila de una tropa (`filaDeTropa`, la
  * única, con su veteranía y lo que lleva), el ejército agrupado (`renderArmy`), la tropa
- * del héroe en su castillo con un «−1» por tipo (`renderTropaLicenciable`) y la fila
- * del liderazgo (`filaLiderazgo`). La pintan el mapa, la base, la morada, el
+ * del héroe en su castillo con un «−1» por tipo (`renderTropaLicenciable`; el mismo
+ * botón, `botonDeLicenciar`, va en el panel del héroe en el mapa) y la fila del
+ * liderazgo (`filaLiderazgo`). La pintan el mapa, la base, la morada, el
  * ayuntamiento y la guarnición. Era parte de `views/panels.ts` hasta la fase C de la
  * reorganización (07-11-2026).
  */
@@ -84,7 +85,7 @@ export function filaDeTropa(
   extras: { readonly boton?: Html; readonly quitarDe?: string } = {},
 ): Html {
   const marca = isShooter(g.unit) ? ' ↑' : '';
-  return html`<div class="stack"><span>${g.unit.name}${marca}${lineaDeVeterania(g)}${lineaDeEquipo(g, extras.quitarDe)}</span><span class="count">${g.count}${extras.boton ?? NADA}</span></div>`;
+  return html`<div class="stack"><span>${g.unit.name}${marca}${lineaDeVeterania(g)}${lineaDeEquipo(g, extras.quitarDe)}</span><span class="count en-linea">${g.count}${extras.boton ?? NADA}</span></div>`;
 }
 
 /**
@@ -101,30 +102,31 @@ export function renderArmy(army: Army): Html {
 }
 
 /**
- * La tropa del héroe que está en su castillo, con un botón por criatura para
- * licenciar uno: es donde se cambia tropa barata por otra mejor. Un veterano
- * solo lo lleva si es él quien se iría. Sin comprobar reglas: si no se puede,
- * lo dice el núcleo en la barra.
+ * El «−1» de la fila `g` del ejército `army`: licencia uno de ese tipo. Solo en la
+ * fila de quien se iría de verdad (si no, `NADA`). Sin comprobar reglas: si no se
+ * puede, lo dice el núcleo en la barra. La pintan la base y la morada
+ * (`renderTropaLicenciable`) y el panel del héroe en el mapa, que licencia en
+ * cualquier casilla desde el 09-11-2026.
  */
-export function renderTropaLicenciable(heroId: string, army: Army): Html {
-  if (army.length === 0) return renderArmy(army);
-  const grupos = troopSummary(army);
+export function botonDeLicenciar(heroId: string, army: Army, g: TroopGroup): Html {
   // `dismiss` licencia POR TIPO, y de cada tipo se va primero quien diga
   // `elQueSeIria`. Así que el botón va solo en la fila de quien se iría de
   // verdad: puesto en la de un veterano con novatos de su tipo detrás, el clic
   // se habría llevado a otro sin decirlo.
-  const seIria = (g: TroopGroup): boolean => {
-    const t = elQueSeIria(army, g.creature);
-    return t !== null && t.veterania?.id === g.veterania?.id;
-  };
+  const t = elQueSeIria(army, g.creature);
+  if (t === null || t.veterania?.id !== g.veterania?.id) return NADA;
+  return html` <button data-action="dismiss" data-hero="${heroId}" data-creature="${g.creature}" title="Licenciar uno: de cada tipo se va primero el de menos experiencia">−1</button>`;
+}
+
+/**
+ * La tropa del héroe que está en su castillo, con un botón por criatura para
+ * licenciar uno: es donde se cambia tropa barata por otra mejor. Un veterano
+ * solo lo lleva si es él quien se iría (`botonDeLicenciar`).
+ */
+export function renderTropaLicenciable(heroId: string, army: Army): Html {
+  if (army.length === 0) return renderArmy(army);
   const filas = unir(
-    grupos.map((g) =>
-      filaDeTropa(g, {
-        boton: seIria(g)
-          ? html` <button data-action="dismiss" data-hero="${heroId}" data-creature="${g.creature}" title="Licenciar uno: de cada tipo se va primero el de menos experiencia">−1</button>`
-          : NADA,
-      }),
-    ),
+    troopSummary(army).map((g) => filaDeTropa(g, { boton: botonDeLicenciar(heroId, army, g) })),
   );
   return html`<div class="stack-list">${filas}</div>`;
 }

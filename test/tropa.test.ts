@@ -24,6 +24,7 @@ import {
 import { createRng } from '../src/core/rng.js';
 import {
   baseOf,
+  castilloSuyoDelHeroe,
   destinoDeRecluta,
   heroesOf,
   recruitCapacity,
@@ -39,8 +40,10 @@ import { ctx, JINETE, TROPA_BARATA } from './comun.js';
 import {
   copiaDePartida,
   ejercito,
+  forzarBatalla,
   fueraDeSuBase,
   sinGuarnicionDeSalida,
+  unPaso,
 } from './partida-de-prueba.js';
 
 /** Los cupos con el tope de siempre (7): un héroe lleva 6 y una guarnición 7. */
@@ -232,7 +235,7 @@ describe('la IA de reglas juega dentro del liderazgo', () => {
   });
 });
 
-describe('licenciar: cambiar tropa barata por otra mejor', () => {
+describe('licenciar: descartar tropa o cambiarla por otra mejor', () => {
   it('en su castillo licencia los ÚLTIMOS de esa criatura, conserva el orden del resto y lo cuenta', () => {
     const { state, hero } = heroeEnCasa(SEMILLA);
     hero.army = [
@@ -259,7 +262,45 @@ describe('licenciar: cambiar tropa barata por otra mejor', () => {
     });
   });
 
-  it('fuera de un castillo suyo, de más o de cero: lanza con la frase y no toca nada', () => {
+  it('fuera de un castillo también: en una casilla pegada, un paso, un pueblo y la base rival licencia y lo cuenta', () => {
+    // 09-11-2026, decisión del usuario: se licencia en cualquier casilla del mapa.
+    // Hasta entonces se rechazaba fuera de un castillo propio; las cuatro casillas
+    // son las que aquel rechazo cubría (camino, nodo, pueblo, castillo ajeno).
+    const { state, hero } = heroeEnCasa(SEMILLA);
+    const pueblo = state.map.objects.find((o) => o.kind === 'village');
+    expect(pueblo, 'el mapa de la semilla tiene algún pueblo').toBeDefined();
+    const casillas = {
+      'pegada a la base': fueraDeSuBase(state, 0).at,
+      'un paso': unPaso(state).at,
+      'un pueblo': pueblo!.at,
+      'la base rival': baseOf(state, 1)!.at,
+    };
+    for (const [donde, at] of Object.entries(casillas)) {
+      hero.at = { ...at };
+      expect(castilloSuyoDelHeroe(state, hero), donde).toBeUndefined();
+      hero.army = [{ creature: RECLUTA }, { creature: 'elfo-arquero' }, { creature: RECLUTA }];
+      applyAdventureAction(
+        state,
+        { type: 'dismiss', hero: hero.id, creature: RECLUTA, count: 1 },
+        ctx(SEMILLA),
+        0,
+      );
+      expect(
+        hero.army.map((t) => t.creature),
+        donde,
+      ).toEqual([RECLUTA, 'elfo-arquero']);
+      expect(state.log.at(-1), donde).toMatchObject({
+        kind: 'dismissed',
+        hero: hero.id,
+        creature: RECLUTA,
+        count: 1,
+        actor: 0,
+        at,
+      });
+    }
+  });
+
+  it('de más, de cero o de lo que no lleva: lanza con la frase y no toca nada, dentro y fuera del castillo', () => {
     const { state, hero } = heroeEnCasa(SEMILLA);
     hero.army = [{ creature: RECLUTA }, { creature: RECLUTA }];
     const antes = JSON.stringify(hero.army);
@@ -270,24 +311,59 @@ describe('licenciar: cambiar tropa barata por otra mejor', () => {
         ctx(SEMILLA),
         0,
       );
-    expect(() => licenciar(RECLUTA, 3)).toThrow(
-      `lleva 2 × ${NOMBRE_DEL_RECLUTA} y no puede licenciar 3`,
-    );
-    expect(() => licenciar(RECLUTA, 0)).toThrow(/de 1 en adelante, no 0/);
-    // Con el NOMBRE de la unidad y no su id (H4): «"archer"» era una palabra
-    // en inglés en la barra del castillo. Y un id que no existe se dice así.
-    const arquero = unidadDelJuego('elfo-arquero');
-    expect(arquero.name).not.toBe(arquero.id);
-    expect(() => licenciar(arquero.id, 1)).toThrow(
-      new RegExp(`no lleva individuos de tipo ${arquero.name}$`),
-    );
-    expect(() => licenciar(arquero.id, 1)).not.toThrow(arquero.id);
-    expect(() => licenciar('dragon', 1)).toThrow(/no existe ninguna unidad "dragon"/);
-    // Fuera del castillo: un paso al lado y ya no se puede.
-    const base = baseOf(state, 0)!;
-    hero.at = { x: base.at.x + 1, y: base.at.y };
-    expect(() => licenciar(RECLUTA, 1)).toThrow(/no está en un castillo suyo/);
+    const enCasa = { ...hero.at };
+    // Fuera del castillo, las mismas frases: lo único que cambió es dónde se puede.
+    for (const at of [enCasa, fueraDeSuBase(state, 0).at]) {
+      hero.at = { ...at };
+      expect(() => licenciar(RECLUTA, 3)).toThrow(
+        `lleva 2 × ${NOMBRE_DEL_RECLUTA} y no puede licenciar 3`,
+      );
+      expect(() => licenciar(RECLUTA, 0)).toThrow(/de 1 en adelante, no 0/);
+      expect(() => licenciar(RECLUTA, 1.5)).toThrow(/de 1 en adelante, no 1.5/);
+      // Con el NOMBRE de la unidad y no su id (H4): «"archer"» era una palabra
+      // en inglés en la barra del castillo. Y un id que no existe se dice así.
+      const arquero = unidadDelJuego('elfo-arquero');
+      expect(arquero.name).not.toBe(arquero.id);
+      expect(() => licenciar(arquero.id, 1)).toThrow(
+        new RegExp(`no lleva individuos de tipo ${arquero.name}$`),
+      );
+      expect(() => licenciar(arquero.id, 1)).not.toThrow(arquero.id);
+      expect(() => licenciar('dragon', 1)).toThrow(/no existe ninguna unidad "dragon"/);
+    }
     expect(JSON.stringify(hero.army)).toBe(antes);
+    expect(state.log.some((e) => e.kind === 'dismissed')).toBe(false);
+  });
+
+  it('lo que bloquea toda acción de aventura bloquea licenciar: el rival, fuera de turno y con una batalla pendiente', () => {
+    // Estas reglas no las escribe `dismissBlocker` sino `applyAdventureAction` y
+    // el `case 'dismiss'`: al quitar el castillo, lo que impide licenciar a mitad
+    // de camino es esto, y aquí se ve que sigue.
+    const { state, hero } = heroeEnCasa(SEMILLA);
+    const rival = heroesOf(state, 1)[0]!;
+    hero.army = [{ creature: RECLUTA }, { creature: RECLUTA }];
+    rival.army = [{ creature: RECLUTA }, { creature: RECLUTA }];
+    const licenciar = (h: typeof hero, quien: 0 | 1) =>
+      applyAdventureAction(
+        state,
+        { type: 'dismiss', hero: h.id, creature: RECLUTA, count: 1 },
+        ctx(SEMILLA),
+        quien,
+      );
+    const intactos = () => {
+      expect(hero.army).toHaveLength(2);
+      expect(rival.army).toHaveLength(2);
+      expect(state.log.some((e) => e.kind === 'dismissed')).toBe(false);
+    };
+    expect(state.current).toBe(0);
+    expect(() => licenciar(rival, 0)).toThrow(`${rival.name} no es de tu bando`);
+    expect(() => licenciar(rival, 1)).toThrow(/todavía no es tu turno/);
+    intactos();
+    forzarBatalla(state, ctx(SEMILLA), hero);
+    // Fuera del castillo y con la batalla montada: la batalla manda.
+    expect(castilloSuyoDelHeroe(state, hero)).toBeUndefined();
+    const ejercitoEnBatalla = JSON.stringify(hero.army);
+    expect(() => licenciar(hero, 0)).toThrow('hay una batalla pendiente de resolver');
+    expect(JSON.stringify(hero.army)).toBe(ejercitoEnBatalla);
     expect(state.log.some((e) => e.kind === 'dismissed')).toBe(false);
   });
 });
