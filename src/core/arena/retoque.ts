@@ -113,16 +113,21 @@ export function catalogoTrasElRetoque(
   r: RetoqueDeArena,
   catalogo: CatalogoDeLaArena,
 ): CatalogoDeLaArena {
-  const { unidades, equipo, hechizos } = catalogo;
+  const { unidades, equipo, hechizos, deLaPagina } = catalogo;
   switch (r.kind) {
     case 'tipo': {
       const u = validarUnidad(r.fuente.unidad, equipo);
-      return catalogoDeLaPelea([...new Map(unidades).set(u.id, u).values()], equipo, hechizos);
+      return catalogoDeLaPelea(
+        [...new Map(unidades).set(u.id, u).values()],
+        equipo,
+        hechizos,
+        deLaPagina,
+      );
     }
     case 'piezas':
-      return catalogoDeLaPelea([...unidades.values()], r.equipo, hechizos);
+      return catalogoDeLaPelea([...unidades.values()], r.equipo, hechizos, deLaPagina);
     case 'hechizos':
-      return catalogoDeLaPelea([...unidades.values()], equipo, r.hechizos);
+      return catalogoDeLaPelea([...unidades.values()], equipo, r.hechizos, deLaPagina);
     case 'heroe':
       return catalogo;
   }

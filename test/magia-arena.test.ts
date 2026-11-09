@@ -272,6 +272,32 @@ describe('levantar en el editor y en la arena (08-11-2026, «Levantar zombi»)',
     expect(Object.keys(b.levantables).sort()).toEqual(['esqueleto-guerrero', 'zombi']);
   });
 
+  it('lo que se levanta sin pelear sale de las unidades de la página, con lo no guardado (N1 de QA, 09-11-2026)', () => {
+    // La ficha del zombi, editada en la página (100 PV) y fuera de los bandos.
+    const deLaPagina = new Map([['zombi', unidad('zombi', { hp: 100 })]]);
+    const montaje = { ...conZombi(null), unidadesDeLaPagina: deLaPagina };
+    const b = batallaDeArena(montaje, createRng(1));
+    // Antes: los del juego (85).
+    expect(b.levantables.zombi?.unit.hp).toBe(100);
+    // Lo que no está en la página (el esqueleto, aquí), del juego.
+    expect(b.levantables['esqueleto-guerrero']?.unit.hp).toBe(unidad('esqueleto-guerrero').hp);
+    // Un retoque que no es de ese tipo no las pierde: el catálogo de después las lleva.
+    const catalogo = catalogoDelMontaje(montaje);
+    const piezas = { kind: 'piezas', equipo: EQUIPO_DEL_JUEGO } as const;
+    expect(catalogoTrasElRetoque(piezas, catalogo).unidad('zombi').hp).toBe(100);
+    expect(retocarEnBatalla(b, piezas, catalogo)).toBeNull();
+    expect(b.levantables.zombi?.unit.hp).toBe(100);
+    // Y se levanta con ellas: el parte de un retoque no ve un cambio que no se hizo.
+    const levantado = conUnLevantado(montaje);
+    expect(levantado.z.unit.hp).toBe(100);
+    const r = {
+      kind: 'tipo',
+      fuente: delBorrador(unidad('zombi', { hp: 100, attack: 3 })),
+    } as const;
+    expect(retocarEnBatalla(levantado.b, r, levantado.catalogo)).toBeNull();
+    expect(levantado.b.log.at(-1)).toMatchObject({ kind: 'retoque', cambios: ['ataque 2 → 3'] });
+  });
+
   /**
    * La batalla de `montaje` con el héroe en (2,4), el cadáver de `defender-0` en (4,4) y un
    * zombi ya levantado de él por el héroe (del bando de la izquierda).

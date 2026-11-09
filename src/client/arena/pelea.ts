@@ -35,6 +35,8 @@ export function luchar(pagina: PaginaDeLaArena): void {
         equipo: catalogo.equipo,
         combate: montaje.combate,
         hechizos: catalogoDeMagia(catalogo),
+        // Una copia: lo que se edite después entra por el retoque.
+        unidadesDeLaPagina: new Map(catalogo.unidadesDelCatalogo),
       },
       semilla,
       montaje.climaDeLaArena,

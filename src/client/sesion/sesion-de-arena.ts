@@ -29,6 +29,7 @@ import { createRng, type Rng } from '@core/rng.js';
 import { type ClimaDelSitio, DESPEJADO } from '@core/state/clima.js';
 import type { UnitInfo } from '@core/types.js';
 import { cuerpoDe } from '@core/unidad/catalogo.js';
+import type { Unidad } from '@core/unidad/formato.js';
 import { AYUDA_DEL_DESPLIEGUE } from '../comun/dichos.js';
 import {
   claveDeBatalla,
@@ -121,6 +122,8 @@ export class SesionDeArena extends SesionDeBatalla {
       readonly combate: ReglasDelCombate;
       /** Los hechizos con que se pelea (los de la página; sin ellos, los del juego). */
       readonly hechizos?: CatalogoDeHechizos;
+      /** Las unidades de la página: de ellas sale lo que se levanta sin pelear (`MontajeDeArena.unidadesDeLaPagina`). */
+      readonly unidadesDeLaPagina?: ReadonlyMap<string, Unidad>;
     },
     semilla: number,
     /** La arena no tiene regiones ni días: el despejado, o lo que pida `?clima=` (`arena/main.ts`). */
@@ -136,6 +139,9 @@ export class SesionDeArena extends SesionDeBatalla {
       equipo: montaje.equipo,
       combate: montaje.combate,
       ...(montaje.hechizos === undefined ? {} : { hechizos: montaje.hechizos }),
+      ...(montaje.unidadesDeLaPagina === undefined
+        ? {}
+        : { unidadesDeLaPagina: montaje.unidadesDeLaPagina }),
     };
     this.catalogo = catalogoDelMontaje(delMontaje);
     this.iaDelBando = {

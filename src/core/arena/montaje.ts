@@ -94,6 +94,14 @@ export interface MontajeDeArena {
    * las unidades.
    */
   readonly hechizos?: CatalogoDeHechizos;
+  /**
+   * Las unidades del catálogo de la página, con lo que no se ha guardado (09-11-2026,
+   * N1 de QA de «Levantar zombi»): de ellas sale lo que levanta un hechizo y no pelea
+   * desde el principio (el zombi, el esqueleto), con las cifras que enseña su ficha.
+   * Sin ellas, las del catálogo del juego. No viaja en el enlace: al abrirlo, la
+   * página ya tiene las suyas.
+   */
+  readonly unidadesDeLaPagina?: ReadonlyMap<string, Unidad>;
 }
 
 /**
@@ -105,6 +113,8 @@ export type CatalogoDeLaArena = CatalogoDeUnidades & {
   readonly equipo: CatalogoDeEquipo;
   readonly hechizos?: CatalogoDeHechizos;
   readonly unidades: ReadonlyMap<string, Unidad>;
+  /** Las de la página (`MontajeDeArena.unidadesDeLaPagina`), de donde sale lo que se levanta sin pelear. */
+  readonly deLaPagina?: ReadonlyMap<string, Unidad>;
 };
 
 /**
@@ -123,6 +133,7 @@ export function catalogoDelMontaje(montaje: MontajeDeArena): CatalogoDeLaArena {
     ),
     eq,
     montaje.hechizos,
+    montaje.unidadesDeLaPagina,
   );
 }
 
@@ -133,15 +144,18 @@ export function catalogoDelMontaje(montaje: MontajeDeArena): CatalogoDeLaArena {
  * id, `OrigenDelStack.unidad`, y el retoque de un tipo cambia todos los suyos).
  *
  * Lo que levanta un hechizo (`unidadesQueLevanta`: el zombi, el esqueleto) puede no
- * pelear desde el principio, y entonces se busca en el catálogo del juego (08-11-2026,
- * «Levantar zombi»); si pelea, sale con las cifras de la página. **Solo eso**: otro
- * id que no pelea lanza, como antes (desde /simplify, 09-11-2026; la primera versión
- * caía al catálogo del juego con cualquiera).
+ * pelear desde el principio (08-11-2026, «Levantar zombi»), y entonces sale de las
+ * unidades de la página (`deLaPagina`, comprobadas con estas piezas), con lo que no
+ * se ha guardado, y si no las hay, del catálogo del juego (N1 de QA, 09-11-2026:
+ * antes iba siempre al del juego y el zombi levantado no tenía las cifras de su
+ * ficha). Si pelea, sale con las suyas. **Solo eso**: otro id que no pelea lanza,
+ * como antes (desde /simplify, 09-11-2026).
  */
 export function catalogoDeLaPelea(
   unidades: readonly Unidad[],
   equipo: CatalogoDeEquipo,
   hechizos?: CatalogoDeHechizos,
+  deLaPagina?: ReadonlyMap<string, Unidad>,
 ): CatalogoDeLaArena {
   const porId = new Map<string, Unidad>();
   for (const u of unidades) {
@@ -159,12 +173,16 @@ export function catalogoDeLaPelea(
   return {
     equipo,
     ...(hechizos === undefined ? {} : { hechizos }),
+    ...(deLaPagina === undefined ? {} : { deLaPagina }),
     unidades: porId,
     unidad: (id) => {
       const u = porId.get(id);
       if (u !== undefined) return u;
-      // El del juego lanza con un id que no existe, nombrándolo.
-      if (seLevantan.has(id)) return CATALOGO_DEL_JUEGO.unidad(id);
+      if (seLevantan.has(id)) {
+        const suya = deLaPagina?.get(id);
+        // El del juego lanza con un id que no existe, nombrándolo.
+        return suya === undefined ? CATALOGO_DEL_JUEGO.unidad(id) : validarUnidad(suya, equipo);
+      }
       throw new Error(`«${id}» no es ninguna unidad de esta pelea`);
     },
   };
