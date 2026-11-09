@@ -198,9 +198,16 @@ export function objetivoBlocker(
 /** Lo que se apunta al lanzar: una unidad, una casilla o nada (sobre sí, el tablero). */
 export type Apuntado = { readonly target: string } | { readonly at: Hex } | null;
 
-/** Qué se apunta para `h`: «unidad», «casilla» o «nada». Una vez. */
-export function queSeApunta(h: Hechizo): 'unidad' | 'casilla' | 'nada' {
+/**
+ * Qué se apunta para `h`: «unidad», «casilla», «cadaver» o «nada». Una vez, y cada
+ * lector despacha con un `switch` sobre esto. El cadáver se elige con `at`, como una
+ * casilla (el cliente y el contrato no cambian), pero es su propio caso: hasta
+ * /simplify (09-11-2026) salía como «casilla» y cinco sitios lo rescataban mirando
+ * `objetivo` a mano.
+ */
+export function queSeApunta(h: Hechizo): 'unidad' | 'casilla' | 'cadaver' | 'nada' {
   if (sinObjetivo(h)) return 'nada';
+  if (h.objetivo === 'cadaver') return 'cadaver';
   return apuntaACasilla(h) ? 'casilla' : 'unidad';
 }
 

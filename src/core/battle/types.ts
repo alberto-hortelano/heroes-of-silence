@@ -262,14 +262,14 @@ export interface BattleStack {
 }
 
 /**
- * Una unidad del catálogo que se puede levantar de un cadáver, ya resuelta: su
- * hoja, sus cifras de novato (`cifrasDeUnidad`) y su oro de catálogo, lo que
- * `resolveUnit` pone en un stack que entra al montar.
+ * Una unidad del catálogo que se puede levantar de un cadáver, ya resuelta por la
+ * misma puerta que quien entra al montar (`resolveUnit`): su hoja, sus cifras de
+ * novato y su origen (con su oro), al que `levantar` añade `levantadoDe`.
  */
 export interface Levantable {
   readonly body: string;
   readonly unit: UnitInfo;
-  readonly oro: number;
+  readonly origen: Extract<OrigenDelStack, { readonly kind: 'catalogo' }>;
 }
 
 /** Un hechizo diferido en el aire: cuál, dónde caerá y con el poder de quien lo lanzó. */
@@ -454,11 +454,11 @@ export type BattleEvent =
   /** Un disparador colgado de `stack` saltó (`cuando`), del hechizo `spell`. */
   | { kind: 'triggered'; stack: string; spell: string; cuando: CuandoSalta }
   /**
-   * El hechizo `spell` levanta `stack`, nuevo, del bando `side`, del cadáver `from`
-   * en `at` (08-11-2026, «Levantar zombi»): va tras el `cast` o el `power` que lo
-   * lanzó. El cadáver queda gastado y deja de verse.
+   * El hechizo `spell` levanta `stack`, nuevo, del cadáver `from` en `at` (08-11-2026,
+   * «Levantar zombi»): va tras el `cast` o el `power` que lo lanzó. El cadáver queda
+   * gastado y deja de verse. El bando es el del stack nuevo.
    */
-  | { kind: 'raised'; stack: string; from: string; spell: string; side: Side; at: Hex }
+  | { kind: 'raised'; stack: string; from: string; spell: string; at: Hex }
   /**
    * La arena cambió a media pelea las cifras de `nombre` —un tipo entero o el
    * héroe de un lado— en estos `stacks` (`retocarEnBatalla`). No es una jugada:
@@ -664,14 +664,14 @@ export interface BattleState {
    */
   libro: Readonly<Record<string, Hechizo>>;
   /**
-   * Lo que se puede levantar de un cadáver en esta batalla, por bando y por id de
-   * unidad: las que nombran los `levantar` del libro, **resueltas al montarla**
-   * con el catálogo de cada bando (`createBattle`), como las cifras de cada stack:
-   * la batalla no lleva catálogo, y la arena levanta con las cifras de la página.
-   * Vacío sin ningún `levantar` en el libro. Lo lee `levantar` (`battle.ts`); lo
-   * rehace el retoque de la arena.
+   * Lo que se puede levantar de un cadáver en esta batalla, por id de unidad: las
+   * que nombran los `levantar` de su libro, **resueltas al montarla** con su catálogo
+   * (`createBattle`, `levantablesDe`), como las cifras de cada stack: la batalla no
+   * lleva catálogo, y la arena levanta con las cifras de la página. Vacío sin ningún
+   * `levantar` en el libro. Lo lee `levantar` (`battle.ts`); lo rehace el retoque de
+   * la arena. Sin bando: la partida no pasa catálogo y la arena pasa el mismo a los dos.
    */
-  levantables: Readonly<Record<Side, Readonly<Record<string, Levantable>>>>;
+  levantables: Readonly<Record<string, Levantable>>;
   /**
    * El golpe de quien se ha plantado ante su objetivo y espera la
    * rueda: quién, contra quién y la carga de la carrera con que llegó (medida

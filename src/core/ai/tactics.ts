@@ -45,7 +45,7 @@ import { alcanceDeLaGranada } from '../battle/granada.js';
 import { legalActionsAndCosts } from '../battle/legalidad.js';
 import { claveDeAbiertas, enLoAlto, esMuro, mismaPuerta } from '../battle/muralla.js';
 import { type PrevisionDeLanzar, previsionDe } from '../battle/prevision.js';
-import { soloCura } from '../battle/spells.js';
+import { queSeApunta, soloCura } from '../battle/spells.js';
 import type { BattleAction, BattleStack, BattleState, Side } from '../battle/types.js';
 import { otroBando, type Paso, type PuertaDeMuralla, type StackEffect } from '../battle/types.js';
 import { ESCALA_DE_CIFRAS } from '../escala.js';
@@ -394,6 +394,10 @@ function rindeDeLaJugada(
   quedan?: number,
   gastaSuTurno: BattleStack | null = null,
 ): Rinde {
+  // Levantar un cadáver no se prevé: no alcanza a nadie (rendiría cero) y la IA no
+  // lo lanza (backlog de «Levantar zombi», 08-11-2026).
+  const id = a.type === 'cast' ? a.spell : a.type === 'power' ? a.poder : null;
+  if (id === null || queSeApunta(hechizoDeLaBatalla(state, id)) === 'cadaver') return NADA;
   const p = previsionDe(state, a);
   if (p === null || (p.kind !== 'hechizo' && p.kind !== 'poder')) return NADA;
   return rindeDe(state, p, bando, quedan, gastaSuTurno);

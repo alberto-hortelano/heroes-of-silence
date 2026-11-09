@@ -46,6 +46,7 @@ import type {
 import type { ReglasDelCombate } from '../combate.js';
 import type { CatalogoDeEquipo, EquipoAtado } from '../equipo/atado.js';
 import { type CatalogoDeHechizos, HECHIZOS_DEL_JUEGO } from '../magia/catalogo.js';
+import { unidadesQueLevanta } from '../magia/formato.js';
 import type { Rng } from '../rng.js';
 import type { UnitInfo } from '../types.js';
 import { CATALOGO_DEL_JUEGO, type CatalogoDeUnidades } from '../unidad/catalogo.js';
@@ -95,10 +96,15 @@ export interface MontajeDeArena {
   readonly hechizos?: CatalogoDeHechizos;
 }
 
-/** Un catálogo de unidades con las piezas y los hechizos como los edita la arena. */
+/**
+ * Un catálogo de unidades con las piezas y los hechizos como los edita la arena:
+ * las unidades de la pelea (`unidades`, por id) y lo que levantan sus hechizos.
+ * Lo hace siempre `catalogoDeLaPelea`; tras un retoque, `catalogoTrasElRetoque`.
+ */
 export type CatalogoDeLaArena = CatalogoDeUnidades & {
   readonly equipo: CatalogoDeEquipo;
   readonly hechizos?: CatalogoDeHechizos;
+  readonly unidades: ReadonlyMap<string, Unidad>;
 };
 
 /**
@@ -111,27 +117,31 @@ export function catalogoDelMontaje(montaje: MontajeDeArena): CatalogoDeLaArena {
   const eq = montaje.equipo;
   // Se vuelven a mirar porque la batalla es la última puerta y un objeto a mano
   // (un test, el arnés) no pasó por ninguna otra.
-  const catalogo = catalogoDeLaPelea(
+  return catalogoDeLaPelea(
     [...montaje.izquierda.unidades, ...montaje.derecha.unidades].map((f) =>
       validarUnidad(f.unidad, eq),
     ),
     eq,
+    montaje.hechizos,
   );
-  return montaje.hechizos === undefined ? catalogo : { ...catalogo, hechizos: montaje.hechizos };
 }
 
 /**
- * Un catálogo con estas unidades y estas piezas. Un id, una unidad: la misma puede
- * salir en varios puestos, pero dos distintas con el mismo id lanzan diciéndolo
- * (un stack dice qué unidad es por su id, `OrigenDelStack.unidad`, y el retoque
- * de un tipo cambia todos los suyos). Una unidad que no está en ningún puesto se
- * busca en el catálogo del juego (08-11-2026, «Levantar zombi»): lo que levanta un
- * hechizo (el zombi, el esqueleto) puede no pelear desde el principio, y entonces
- * sale con las cifras guardadas; si está en la pelea, con las de la página.
+ * Un catálogo con estas unidades, estas piezas y estos hechizos (los del juego si no
+ * se dicen). Un id, una unidad: la misma puede salir en varios puestos, pero dos
+ * distintas con el mismo id lanzan diciéndolo (un stack dice qué unidad es por su
+ * id, `OrigenDelStack.unidad`, y el retoque de un tipo cambia todos los suyos).
+ *
+ * Lo que levanta un hechizo (`unidadesQueLevanta`: el zombi, el esqueleto) puede no
+ * pelear desde el principio, y entonces se busca en el catálogo del juego (08-11-2026,
+ * «Levantar zombi»); si pelea, sale con las cifras de la página. **Solo eso**: otro
+ * id que no pelea lanza, como antes (desde /simplify, 09-11-2026; la primera versión
+ * caía al catálogo del juego con cualquiera).
  */
 export function catalogoDeLaPelea(
   unidades: readonly Unidad[],
   equipo: CatalogoDeEquipo,
+  hechizos?: CatalogoDeHechizos,
 ): CatalogoDeLaArena {
   const porId = new Map<string, Unidad>();
   for (const u of unidades) {
@@ -143,21 +153,21 @@ export function catalogoDeLaPelea(
     }
     porId.set(u.id, u);
   }
+  const seLevantan = new Set(
+    [...(hechizos ?? HECHIZOS_DEL_JUEGO).values()].flatMap((h) => unidadesQueLevanta(h)),
+  );
   return {
     equipo,
+    ...(hechizos === undefined ? {} : { hechizos }),
+    unidades: porId,
     unidad: (id) => {
+      const u = porId.get(id);
+      if (u !== undefined) return u;
       // El del juego lanza con un id que no existe, nombrándolo.
-      return porId.get(id) ?? CATALOGO_DEL_JUEGO.unidad(id);
+      if (seLevantan.has(id)) return CATALOGO_DEL_JUEGO.unidad(id);
+      throw new Error(`«${id}» no es ninguna unidad de esta pelea`);
     },
   };
-}
-
-/**
- * El catálogo `cat` con la unidad `u` en lugar de la de su id: lo que deja en la
- * sesión un retoque de su tipo que entra (`retocarEnBatalla`, `kind: 'tipo'`).
- */
-export function conUnidad(cat: CatalogoDeLaArena, u: Unidad): CatalogoDeLaArena {
-  return { ...cat, unidad: (id) => (id === u.id ? u : cat.unidad(id)) };
 }
 
 /** Las cifras con las que pelea una unidad del montaje, comprobadas. */

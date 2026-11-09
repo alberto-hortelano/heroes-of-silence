@@ -121,6 +121,7 @@ import {
   queLevanta,
   queSeApunta,
 } from './spells.js';
+import { stackNuevo } from './stack-nuevo.js';
 import type { BattleAction, BattleEvent, BattleStack, BattleState, Side } from './types.js';
 import {
   type CuandoVence,
@@ -1193,14 +1194,15 @@ function lanzarHechizo(
     state.log.push({ ...hecho(null), diferido: true } as BattleEvent);
     return;
   }
-  if (h.objetivo === 'cadaver') {
+  const que = queSeApunta(h);
+  if (que === 'cadaver') {
     if (apuntado === null || !('at' in apuntado)) throw new Error('a un cadáver se lanza con «at»');
     state.log.push(hecho(null));
     levantar(state, h, l, apuntado.at);
     return;
   }
   const afectados = afectadosDe(state, h, l, apuntado);
-  if (queSeApunta(h) === 'unidad' && areaDe(h) === 0) {
+  if (que === 'unidad' && areaDe(h) === 0) {
     // A una sola unidad: el hecho de siempre, con lo que le hizo.
     const [t] = afectados;
     if (t === undefined) throw new Error('una unidad elegida sin unidad');
@@ -1235,38 +1237,28 @@ function levantar(state: BattleState, h: Hechizo, l: Lanzador, at: Hex): void {
   if (cadaver === null) throw new Error(`no hay ningún cadáver en (${at.col},${at.row})`);
   const unidad = queLevanta(h, cadaver);
   if (unidad === null) throw new Error(`«${h.nombre}» no levanta nada de ${cadaver.unit.name}`);
-  const r = state.levantables[l.bando][unidad];
+  const r = state.levantables[unidad];
   if (r === undefined) {
     throw new Error(`«${unidad}» no se resolvió al montar la batalla: no se puede levantar`);
   }
   const suyos = state.stacks.filter((x) => x.side === l.bando);
   const slot = Math.max(-1, ...suyos.map((x) => x.slot)) + 1;
-  const id = `${l.bando}-${slot}`;
-  state.stacks.push({
-    id,
-    side: l.bando,
-    slot,
-    body: r.body,
-    unit: r.unit,
-    origen: { kind: 'catalogo', unidad, oro: r.oro, veterania: null, levantadoDe: cadaver.id },
-    initialCount: 1,
-    count: 1,
-    topHp: r.unit.hp,
-    hex: { ...at },
-    escalera: false,
-    retaliated: false,
-    acted: true,
-    // La moral de quien lo lanza; un no-muerto, 0, como al montar.
-    morale: hasTrait(r.unit, 'undead') ? 0 : l.stack.morale,
-    effects: [],
-    ganado: { experiencia: 0, bajas: 0, heroes: [] },
-    apuntado: null,
-    recargando: 0,
-    granada: null,
-    granadasLanzadas: 0,
-    hechizoEnElAire: null,
-  });
-  state.log.push({ kind: 'raised', stack: id, from: cadaver.id, spell: h.id, side: l.bando, at });
+  const s = stackNuevo(
+    {
+      slot,
+      body: r.body,
+      unit: r.unit,
+      origen: { ...r.origen, levantadoDe: cadaver.id },
+      count: 1,
+      escalera: false,
+    },
+    l.bando,
+    { ...at },
+    // La moral de quien lo lanza (un no-muerto, 0, como al montar).
+    l.stack.morale,
+  );
+  state.stacks.push({ ...s, acted: true });
+  state.log.push({ kind: 'raised', stack: s.id, from: cadaver.id, spell: h.id, at });
 }
 
 /** Aplica `h` a cada uno de `afectados`, con un `spell_hit` por alcanzado. */

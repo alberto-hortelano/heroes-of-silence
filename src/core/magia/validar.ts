@@ -371,15 +371,15 @@ function problemasDelAlcance(h: Record<string, unknown>): string[] {
     if (h.objetivo === undefined) out.push('falta «objetivo»');
     else out.push(...deLaLista(h.objetivo, OBJETIVOS, 'objetivo'));
   }
-  // Con un cadáver, lo dice `problemasDelCadaver` con su frase, y no dos veces.
-  const alCadaver = h.objetivo === 'cadaver';
-  if (tipo === 'proyectil' && h.objetivo !== undefined && h.objetivo !== 'casilla' && !alCadaver) {
+  // A un cadáver, sus reglas y no las de los vivos que alcanza (área, «afecta»,
+  // proyectil, diferido): las dice `problemasDelCadaver` con su frase, una vez.
+  if (h.objetivo === 'cadaver') return [...out, ...problemasDelCadaver(h, tipo)];
+  if (tipo === 'proyectil' && h.objetivo !== undefined && h.objetivo !== 'casilla') {
     out.push('un proyectil se apunta a una casilla: «objetivo» tiene que ser "casilla"');
   }
-  if (e.diferido === true && h.objetivo !== 'casilla' && !alCadaver) {
+  if (e.diferido === true && h.objetivo !== 'casilla') {
     out.push('lo diferido sale sobre una casilla: «objetivo» tiene que ser "casilla"');
   }
-  if (alCadaver) out.push(...problemasDelCadaver(h, tipo));
 
   const area = h.area ?? 0;
   if (area === 'recta') {
@@ -390,16 +390,15 @@ function problemasDelAlcance(h: Record<string, unknown>): string[] {
   if (tipo === 'tablero' && h.area !== undefined) out.push('con «tablero» no hay área: son todos');
 
   const pideAfecta =
-    !alCadaver &&
-    (tipo === 'tablero' ||
-      tipo === 'proyectil' ||
-      h.objetivo === 'casilla' ||
-      (typeof area === 'number' && area > 0) ||
-      area === 'recta');
+    tipo === 'tablero' ||
+    tipo === 'proyectil' ||
+    h.objetivo === 'casilla' ||
+    (typeof area === 'number' && area > 0) ||
+    area === 'recta';
   if (pideAfecta && h.afecta === undefined) {
     out.push('alcanza a quien esté donde caiga: falta «afecta» (aliados, enemigos o todos)');
   }
-  if (!pideAfecta && h.afecta !== undefined && !alCadaver) {
+  if (!pideAfecta && h.afecta !== undefined) {
     out.push('va a una sola unidad elegida: sobra «afecta» (lo dice «objetivo»)');
   }
   if (h.afecta !== undefined) out.push(...deLaLista(h.afecta, AFECTA, 'afecta'));
@@ -433,9 +432,9 @@ function problemasDelCadaver(h: Record<string, unknown>, tipo: string): string[]
   if (h.afecta !== undefined) {
     out.push('a un cadáver sobra «afecta»: no alcanza a nadie vivo');
   }
-  const efectos = Array.isArray(h.efectos) ? h.efectos : [];
-  const levantan = efectos.filter((e) => esObjeto(e) && e.tipo === 'levantar').length;
-  if (levantan !== 1 || efectos.length !== 1) {
+  const efectos: unknown[] = Array.isArray(h.efectos) ? h.efectos : [];
+  const unico = efectos[0];
+  if (efectos.length !== 1 || !esObjeto(unico) || unico.tipo !== 'levantar') {
     out.push('a un cadáver se lanza un solo efecto, «levantar»');
   }
   return out;

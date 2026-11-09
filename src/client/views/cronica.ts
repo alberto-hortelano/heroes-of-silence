@@ -348,7 +348,7 @@ export function renderLog(
               ? mio
                 ? 'Tu héroe deja'
                 : `${jugador(e.actor)} deja`
-              : `La guarnición de ${sitioOCasilla(e.site, e.at, (x) => nombreDelSitio(x), 'un sitio')} deja`;
+              : `La guarnición ${sitioOCasilla(e.site, e.at, delSitio, 'de un sitio')} deja`;
           const pierde =
             e.lost.length === 0
               ? ''

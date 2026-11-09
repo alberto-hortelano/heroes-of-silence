@@ -5,15 +5,14 @@
  * **justo lo que sobra** (P6). Qué sobra, qué cabe y por qué no vale lo elegido lo
  * dice el núcleo (`sobrantesTrasLaBatalla`, `dejarBlocker`); aquí, lo que se cambia
  * hasta «Seguir» y los nombres. Viene propuesto lo que dejaría la IA
- * (`loQueDejaLaIA`). Lo pinta `partida/guarnicion.ts` en `<dialog id="sobrantes">`.
+ * (`Sobrante.propuesta`, la misma cuenta que aplica el cierre). El sobrante se lee
+ * una vez, al abrir: la batalla terminada no cambia mientras se elige. Lo pinta
+ * `partida/guarnicion.ts` en `<dialog id="sobrantes">`.
  */
-import type { Side } from '@core/battle/types.js';
-import { nombreDelSitio } from '@core/state/sitios.js';
+import { delSitio } from '@core/state/sitios.js';
 import {
   type Dejados,
   dejarBlocker,
-  loQueDejaLaIA,
-  loQueVuelve,
   type Sobrante,
   sobrantesTrasLaBatalla,
 } from '@core/state/sobrantes.js';
@@ -33,7 +32,7 @@ interface FilaDeLoQueSobra {
 
 /** El diálogo de lo que sobra (`Session.sobrantes`). */
 export interface VistaDeLoQueSobra {
-  /** Quién vuelve: el nombre del héroe o «la guarnición de …». */
+  /** Quién vuelve: el nombre del héroe o «la guarnición de Valdeluz» (`delSitio`: «del puente de…»). */
   readonly quien: string;
   readonly filas: readonly FilaDeLoQueSobra[];
   readonly tope: number;
@@ -50,20 +49,10 @@ interface DueñoDeLoQueSobra
 }
 
 export class SobrantesEnPantalla {
-  /** El bando de la persona que deja algo y cuántos de cada tipo, o `null` si no se elige nada. */
-  private eligiendo: {
-    readonly side: Side;
-    readonly propuesta: Readonly<Record<string, number>>;
-    readonly dejar: Map<string, number>;
-  } | null = null;
+  /** El sobrante de la persona que se elige y cuántos deja de cada tipo, o `null` si no se elige nada. */
+  private eligiendo: { readonly s: Sobrante; readonly dejar: Map<string, number> } | null = null;
 
   constructor(private readonly dueño: DueñoDeLoQueSobra) {}
-
-  /** El sobrante de la persona en la batalla pendiente, ya terminada, o `null`. */
-  private suyo(): Sobrante | null {
-    const viewer = this.dueño.viewer();
-    return sobrantesTrasLaBatalla(this.dueño.estado()).find((s) => s.dueño === viewer) ?? null;
-  }
 
   /**
    * Si a la persona le sobra algo al cerrar la batalla, abre el diálogo con lo que
@@ -72,11 +61,11 @@ export class SobrantesEnPantalla {
    */
   abrir(): boolean {
     if (this.eligiendo !== null) return true;
-    const s = this.suyo();
-    const pending = this.dueño.estado().pendingBattle;
-    if (s === null || pending === null) return false;
-    const propuesta = loQueDejaLaIA(loQueVuelve(this.dueño.estado(), pending, s.side), s);
-    this.eligiendo = { side: s.side, propuesta, dejar: new Map(Object.entries(propuesta)) };
+    if (this.dueño.estado().pendingBattle === null) return false;
+    const viewer = this.dueño.viewer();
+    const s = sobrantesTrasLaBatalla(this.dueño.estado()).find((x) => x.dueño === viewer);
+    if (s === undefined) return false;
+    this.eligiendo = { s, dejar: new Map(Object.entries(s.propuesta)) };
     this.dueño.barra('No cabe todo lo que vuelve de la batalla: elige qué dejas.');
     this.dueño.tocar();
     return true;
@@ -86,34 +75,30 @@ export class SobrantesEnPantalla {
   get vista(): VistaDeLoQueSobra | null {
     const e = this.eligiendo;
     if (e === null) return null;
-    const s = this.suyo();
-    if (s === null) return null;
-    const dejar = Object.fromEntries(e.dejar);
+    const { s } = e;
     return {
       quien:
-        s.quien.kind === 'heroe'
-          ? s.quien.heroe.name
-          : `la guarnición de ${nombreDelSitio(s.quien.sitio)}`,
+        s.quien.kind === 'heroe' ? s.quien.heroe.name : `la guarnición ${delSitio(s.quien.sitio)}`,
       filas: s.tropa.map((g) => ({
         creature: g.creature,
         nombre: unidadDelJuego(g.creature).name,
         vuelven: g.count,
         deja: e.dejar.get(g.creature) ?? 0,
-        propuesta: e.propuesta[g.creature] ?? 0,
+        propuesta: s.propuesta[g.creature] ?? 0,
       })),
       tope: s.tope,
       cupo: s.cupo,
-      motivo: dejarBlocker(s, dejar),
+      motivo: dejarBlocker(s, Object.fromEntries(e.dejar)),
     };
   }
 
   /** Deja uno más (o uno menos) de `creature`, sin pasar de lo que vuelve ni bajar de 0. */
   cambiar(creature: string, cambio: 1 | -1): void {
     const e = this.eligiendo;
-    const fila = this.vista?.filas.find((f) => f.creature === creature);
-    if (e === null || fila === undefined) return;
-    const n = fila.deja + cambio;
-    if (n < 0 || n > fila.vuelven) return;
+    const g = e?.s.tropa.find((x) => x.creature === creature);
+    if (e === null || g === undefined) return;
+    const n = (e.dejar.get(creature) ?? 0) + cambio;
+    if (n < 0 || n > g.count) return;
     e.dejar.set(creature, n);
     this.dueño.barra('');
     this.dueño.tocar();
@@ -123,21 +108,22 @@ export class SobrantesEnPantalla {
   loDeLaIA(): void {
     const e = this.eligiendo;
     if (e === null) return;
-    this.eligiendo = { ...e, dejar: new Map(Object.entries(e.propuesta)) };
+    this.eligiendo = { ...e, dejar: new Map(Object.entries(e.s.propuesta)) };
     this.dueño.tocar();
   }
 
   /** «Seguir»: con lo elegido, si vale, se cierra la batalla; si no, la barra dice por qué. */
   confirmar(): void {
     const e = this.eligiendo;
-    const v = this.vista;
-    if (e === null || v === null) return;
-    if (v.motivo !== null) {
-      this.dueño.barra(comoFrase(v.motivo));
+    if (e === null) return;
+    const dejar = Object.fromEntries(e.dejar);
+    const motivo = dejarBlocker(e.s, dejar);
+    if (motivo !== null) {
+      this.dueño.barra(comoFrase(motivo));
       return;
     }
     this.eligiendo = null;
-    this.dueño.cerrar({ [e.side]: Object.fromEntries(e.dejar) });
+    this.dueño.cerrar({ [e.s.side]: dejar });
     this.dueño.tocar();
   }
 }

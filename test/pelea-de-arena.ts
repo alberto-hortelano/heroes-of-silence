@@ -36,6 +36,8 @@ import {
   RUTA_DEL_CATALOGO_DE_EQUIPO,
 } from '../src/core/equipo/pieza.js';
 import { RUTA_DEL_HEROE } from '../src/core/hero/cuerpo-del-heroe.js';
+import { HECHIZOS_DEL_JUEGO } from '../src/core/magia/catalogo.js';
+import { unidadesQueLevanta } from '../src/core/magia/formato.js';
 import type { Rng } from '../src/core/rng.js';
 import {
   CATALOGO_DEL_JUEGO,
@@ -62,6 +64,7 @@ export function catalogoDe(b: BattleState, eq: CatalogoDeEquipo): CatalogoDeLaAr
   return catalogoDeLaPelea(
     [...m.izquierda.unidades, ...m.derecha.unidades].map((f) => f.unidad),
     eq,
+    m.hechizos,
   );
 }
 
@@ -199,11 +202,16 @@ export function peleaDelMotor(
       count: 1,
       ...(escalera === true ? { escalera: true } : {}),
     }));
-    // Lo que no está en ningún puesto, del catálogo del juego, como en la arena
-    // (`catalogoDeLaPelea`): lo que levanta un hechizo del libro (el zombi, el
-    // esqueleto; 08-11-2026) se resuelve al montar aunque no pelee.
+    // Lo que no está en ningún puesto y levanta un hechizo (el zombi, el esqueleto;
+    // 08-11-2026), del catálogo del juego, como en la arena (`catalogoDeLaPelea`):
+    // se resuelve al montar aunque no pelee. Otro id lanza.
     const catalogo: CatalogoDeUnidades = {
-      unidad: (id) => porId.get(id) ?? CATALOGO_DEL_JUEGO.unidad(id),
+      unidad: (id) => {
+        const u = porId.get(id);
+        if (u !== undefined) return u;
+        if (SE_LEVANTAN.has(id)) return CATALOGO_DEL_JUEGO.unidad(id);
+        throw new Error(`«${id}» no es ninguna unidad de esta pelea`);
+      },
       equipo: EQUIPO_DEL_JUEGO,
     };
     return { army, hero, catalogo };
@@ -216,6 +224,11 @@ export function peleaDelMotor(
     muralla,
   );
 }
+
+/** Lo que levanta algún hechizo del juego: lo único que `peleaDelMotor` busca fuera de la pelea. */
+const SE_LEVANTAN: ReadonlySet<string> = new Set(
+  [...HECHIZOS_DEL_JUEGO.values()].flatMap((h) => unidadesQueLevanta(h)),
+);
 
 /** Una unidad del borrador como fuente del montaje de la arena. */
 export function delBorrador(unidad: Unidad, escalera = false): FuenteDeArena {

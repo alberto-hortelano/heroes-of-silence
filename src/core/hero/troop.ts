@@ -111,6 +111,20 @@ export function capacidadDe(
 }
 
 /**
+ * Por qué `army` no cabe en `tope` de liderazgo y `cupo` de individuos, dicho para
+ * la persona, o `null` si cabe. Vivía en `state/sitios.ts`, privada, para el reparto
+ * entre héroe y sitio; desde el 09-11-2026 también la lee lo que sobra tras una
+ * batalla (`state/sobrantes.ts`), que llevaba su copia.
+ */
+export function lleno(
+  army: Army,
+  { tope, cupo }: { readonly tope: number; readonly cupo: number },
+): string | null {
+  if (army.length <= cupo && armyLeadership(army) <= tope) return null;
+  return `serían ${army.length} de ${cupo} individuos y ${armyLeadership(army)} de ${tope} de liderazgo`;
+}
+
+/**
  * Cuántos individuos de esa criatura caben todavía: bajo el `tope` de
  * liderazgo **y** bajo el `cupo` de individuos. Son dos límites y no uno porque
  * miden cosas distintas —el liderazgo decide QUÉ cabe, el cupo CUÁNTOS pisan el

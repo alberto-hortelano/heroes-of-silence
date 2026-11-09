@@ -11,6 +11,7 @@
 import { nadaEnElHueco } from '../equipo/manos.js';
 import { deDondeSale, pieza, piezaSiExiste, seVende } from '../equipo/pieza.js';
 import { destinoDeEquipo, equipoDe, type Portador } from '../equipo/portador.js';
+import { idsPuestos } from '../equipo/vestir.js';
 import { oroBlocker, type Town, tieneArmeria } from '../town/town.js';
 import type { Hero, Hueco, PlayerId, Troop, Veterania } from '../types.js';
 import {
@@ -33,6 +34,19 @@ import type { AdventureAction, GameState } from './tipos.js';
 export function aLaMochila(hero: Hero, ...ids: readonly (string | null)[]): void {
   const nuevas = ids.filter((id) => id !== null);
   if (nuevas.length > 0) hero.mochila = [...hero.mochila, ...nuevas];
+}
+
+/**
+ * Lo que llevaban puesto `seVan`, los que se licencian (`dismiss`) o se dejan al
+ * volver de una batalla (`settleBattle`, 08-11-2026), vuelve a la mochila de `hero`;
+ * sin héroe —una guarnición, que no tiene mochila— se pierde (P7 de «Levantar
+ * zombi»). Devuelve las piezas, en su orden: lo que se perdió, si no había mochila.
+ * Estaba escrito en los dos sitios hasta /simplify (09-11-2026).
+ */
+export function devolverLoPuesto(hero: Hero | null, seVan: readonly Troop[]): readonly string[] {
+  const piezas = seVan.flatMap((t) => idsPuestos(t.veterania?.equipo));
+  if (hero !== null) aLaMochila(hero, ...piezas);
+  return piezas;
 }
 
 /**

@@ -45,7 +45,15 @@ export function loApuntadoEnCasilla(
   const b = s.batallaALaVista;
   if (b === null) return null;
   const h = hechizoDeLaBatalla(b, apunta.id);
-  if (queSeApunta(h) !== 'casilla') return null;
+  switch (queSeApunta(h)) {
+    case 'unidad':
+    case 'nada':
+      return null;
+    // Una casilla y un cadáver se eligen igual: con `at`.
+    case 'casilla':
+    case 'cadaver':
+      break;
+  }
   const turno = s.turnoPropio;
   if (turno === null) return { motivo: NINGUNA_TUYA };
   const motivo =

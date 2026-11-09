@@ -6,7 +6,7 @@
  * reorganización (07-11-2026); lo que hace la arena y por qué, en `montaje.ts`.
  */
 import { loADistanciaTrasElRetoque } from '../battle/a-distancia.js';
-import { levantablesConElCatalogo, libroConElCatalogo } from '../battle/montaje.js';
+import { levantablesDe, libroConElCatalogo } from '../battle/montaje.js';
 import type {
   BattleStack,
   BattleState,
@@ -34,7 +34,7 @@ import {
 } from './ficha.js';
 import { type HeroeDeArena, heroeDeArena } from './heroe.js';
 import { type FuenteDeArena, LADOS, type Lado, ladoDe } from './lados.js';
-import { type CatalogoDeLaArena, conUnidad, unidadDeLaFuente } from './montaje.js';
+import { type CatalogoDeLaArena, catalogoDeLaPelea, unidadDeLaFuente } from './montaje.js';
 import {
   equipoQueNoVale,
   escritaDe,
@@ -97,20 +97,33 @@ export function retocarEnBatalla(
   // Lo que se levanta de un cadáver, con las cifras de después: si no, un zombi
   // retocado a media pelea se levantaría con las de antes (riesgo del plan de
   // «Levantar zombi», 08-11-2026).
-  if (motivo === null)
-    state.levantables = levantablesConElCatalogo(state, catalogoTras(r, catalogo));
+  if (motivo === null) {
+    state.levantables = levantablesDe(state.libro, catalogoTrasElRetoque(r, catalogo));
+  }
   return motivo;
 }
 
-/** El catálogo de la pelea tras un retoque que entra: el que la sesión adopta después. */
-function catalogoTras(r: RetoqueDeArena, catalogo: CatalogoDeLaArena): CatalogoDeLaArena {
+/**
+ * El catálogo de la pelea tras un retoque que entra: **el único sitio que lo dice**.
+ * Con él rehace la batalla lo que se levanta y la sesión de la arena lo adopta
+ * (`SesionDeArena.retocar`); hasta /simplify (09-11-2026) la sesión llevaba su copia
+ * del `switch`, y ya divergía (un tipo sin validar; los hechizos, solo en ella).
+ */
+export function catalogoTrasElRetoque(
+  r: RetoqueDeArena,
+  catalogo: CatalogoDeLaArena,
+): CatalogoDeLaArena {
+  const { unidades, equipo, hechizos } = catalogo;
   switch (r.kind) {
-    case 'tipo':
-      return conUnidad(catalogo, validarUnidad(r.fuente.unidad, catalogo.equipo));
+    case 'tipo': {
+      const u = validarUnidad(r.fuente.unidad, equipo);
+      return catalogoDeLaPelea([...new Map(unidades).set(u.id, u).values()], equipo, hechizos);
+    }
     case 'piezas':
-      return { ...catalogo, equipo: r.equipo };
-    case 'heroe':
+      return catalogoDeLaPelea([...unidades.values()], r.equipo, hechizos);
     case 'hechizos':
+      return catalogoDeLaPelea([...unidades.values()], equipo, r.hechizos);
+    case 'heroe':
       return catalogo;
   }
 }

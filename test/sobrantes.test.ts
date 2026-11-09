@@ -21,7 +21,6 @@ import { dueñoDeLaCiudad, guarnicionDeLaCiudad } from '../src/core/state/sitios
 import {
   dejarBlocker,
   loQueDejaLaIA,
-  loQueVuelve,
   sobrantesTrasLaBatalla,
 } from '../src/core/state/sobrantes.js';
 import type { GameState } from '../src/core/state/tipos.js';
@@ -105,7 +104,9 @@ describe('lo que sobra (sobrantesTrasLaBatalla, dejarBlocker)', () => {
     const { state } = conUnZombiDeMas(LLENO());
     const s = sobrantesTrasLaBatalla(state)[0];
     if (s === undefined) throw new Error('sin sobrante');
-    expect(dejarBlocker(s, {})).toBe('aún sobra: quedan 7 individuos y caben 6');
+    expect(dejarBlocker(s, {})).toMatch(
+      /^aún sobra: serían 7 de 6 individuos y \d+ de \d+ de liderazgo$/,
+    );
     expect(dejarBlocker(s, { zombi: 1 })).toBeNull();
     expect(dejarBlocker(s, { [TROPA_BARATA]: 1 })).toBeNull();
     expect(dejarBlocker(s, { [TROPA_BARATA]: 2 })).toMatch(/^dejas de más: aún cabe un /);
@@ -116,11 +117,10 @@ describe('lo que sobra (sobrantesTrasLaBatalla, dejarBlocker)', () => {
   it('la regla de la IA deja lo de menos rango y más barato, y nunca de más', () => {
     const { state } = conUnZombiDeMas(LLENO());
     const s = sobrantesTrasLaBatalla(state)[0];
-    const pending = state.pendingBattle;
-    if (s === undefined || pending === null) throw new Error('sin sobrante');
-    const dejar = loQueDejaLaIA(loQueVuelve(state, pending, 'attacker'), s);
-    expect(Object.values(dejar).reduce((a, b) => a + b, 0)).toBe(1);
-    expect(dejarBlocker(s, dejar)).toBeNull();
+    if (s === undefined) throw new Error('sin sobrante');
+    // Los dos de rango 1: el goblin, más barato que el zombi.
+    expect(s.propuesta).toEqual({ [TROPA_BARATA]: 1 });
+    expect(dejarBlocker(s, s.propuesta)).toBeNull();
     // Por liderazgo: con un tope corto, la IA deja hasta caber y vuelve lo que quepa.
     const corto = { tope: 7, cupo: 99 };
     const army = ejercito({ creature: TROPA_BARATA, count: 6 }, { creature: 'zombi', count: 1 });
@@ -209,6 +209,28 @@ describe('el cierre con lo que sobra (settleBattle)', () => {
     expect(monstruo).toMatchObject({ count: 1 });
   });
 
+  it('el que pierde sin rendirse no deja nada: lo pierde todo, también lo levantado', () => {
+    const { state, hero } = conUnZombiDeMas(LLENO());
+    const b = (state.pendingBattle as NonNullable<GameState['pendingBattle']>).battle;
+    // Gana el monstruo: cae el cuerpo del héroe y su tropa sigue en pie, zombi incluido.
+    const orco = stackById(b, 'defender-1');
+    orco.count = 1;
+    orco.topHp = orco.unit.hp;
+    matar(b, 'attacker-heroe');
+    b.finished = { winner: 'defender' };
+    // Tiene dueño (la regla del dueño, `battleOwners`), pero no vuelve a ningún sitio:
+    // no hay nada que elegir, ni que dejar.
+    expect(sobrantesTrasLaBatalla(state)).toEqual([]);
+    expect(() => settleBattle(state, ctx(1), { attacker: { zombi: 1 } })).toThrow(
+      'no se puede cerrar la batalla: al attacker no le sobra nada que dejar',
+    );
+    settleBattle(state, ctx(1));
+    expect(state.log.some((e) => e.kind === 'left_behind')).toBe(false);
+    // Vuelve a su base sin tropa, o cae si no tiene.
+    const h = state.heroes.find((x) => x.id === hero.id);
+    expect(h === undefined || h.army.length === 0).toBe(true);
+  });
+
   it('la guarnición que deja a uno equipado pierde lo que llevaba, y la crónica lo dice', () => {
     const state = newGame({ seed: 7 });
     const c = ctx(7);
@@ -267,10 +289,10 @@ describe('el cierre con lo que sobra (settleBattle)', () => {
 
 describe('el diálogo de lo que sobra (la persona, en «Continuar»)', () => {
   /** Una sesión con la batalla de su héroe lleno ganada y un zombi levantado de más. */
-  function sesionConUnZombiDeMas(): { s: Session; hero: Hero } {
+  function sesionConUnZombiDeMas(army: Army = LLENO()): { s: Session; hero: Hero } {
     const s = new Session(41);
     const hero = s.myHeroes()[0] as Hero;
-    hero.army = LLENO();
+    hero.army = army;
     ponerMonstruo(s.state, 'orko-dos-armas', 2);
     forzarBatalla(s.state, s.ctx, hero);
     const b = s.state.pendingBattle!.battle;
@@ -317,7 +339,7 @@ describe('el diálogo de lo que sobra (la persona, en «Continuar»)', () => {
     for (const f of s.sobrantes!.filas) {
       for (let i = 0; i < f.deja; i++) s.cambiarLoQueSobra(f.creature, -1);
     }
-    expect(s.sobrantes?.motivo).toBe('aún sobra: quedan 7 individuos y caben 6');
+    expect(s.sobrantes?.motivo).toMatch(/^aún sobra: serían 7 de 6 individuos/);
     expect(marcadoDe(renderLoQueSobra(s.sobrantes!))).toContain('aria-disabled="true"');
     s.confirmarLoQueSobra();
     expect(s.state.pendingBattle).not.toBeNull();
@@ -330,6 +352,37 @@ describe('el diálogo de lo que sobra (la persona, en «Continuar»)', () => {
     expect(s.sobrantes).toBeNull();
     expect(heroById(s.state, hero.id).army).toEqual(LLENO());
     expect(s.status).toContain('dejas 1 × Zombie, que no caben');
+  });
+
+  it('lo que propone el diálogo es lo que deja la IA al cerrar, aunque uno suba de rango en la batalla', () => {
+    // Un goblin (el más barato) y cinco piqueros, llenos, y el zombi de más. El goblin
+    // sube al rango 2 en la batalla: sin contar esa experiencia, la IA deja al goblin
+    // (rango 1, lo más barato); contándola, dejaría al zombi. Lo que se propone y lo
+    // que se aplica tienen que salir de la misma cuenta (H-A de /simplify, 09-11-2026).
+    const escenario = (): Session => {
+      const { s } = sesionConUnZombiDeMas([
+        ...ejercito({ creature: TROPA_BARATA, count: 1 }),
+        ...ejercito({ creature: 'imperio-piquero', count: 5 }),
+      ]);
+      const goblin = stackById(s.state.pendingBattle!.battle, 'attacker-0');
+      expect(goblin.origen).toMatchObject({ unidad: TROPA_BARATA });
+      goblin.ganado = { ...goblin.ganado, experiencia: 2700 };
+      return s;
+    };
+    const conDialogo = escenario();
+    conDialogo.finishBattle();
+    const propuesta = conDialogo.sobrantes!.filas.flatMap((f) =>
+      f.deja > 0 ? [[f.creature, f.deja]] : [],
+    );
+    expect(propuesta).toEqual([[TROPA_BARATA, 1]]);
+    const sola = escenario();
+    settleBattle(sola.state, sola.ctx);
+    const dejado = sola.state.log.flatMap((e) =>
+      e.kind === 'left_behind' ? [[e.creature, e.count]] : [],
+    );
+    expect(dejado).toEqual(propuesta);
+    // Quien se va no cuenta su ascenso: se deja antes de cobrar la experiencia.
+    expect(sola.state.log.some((e) => e.kind === 'troop_rank_up')).toBe(false);
   });
 
   it('«Resolver sola» también pregunta: juega la batalla y abre el diálogo', () => {

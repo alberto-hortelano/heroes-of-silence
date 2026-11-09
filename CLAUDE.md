@@ -216,7 +216,7 @@ Cada hecho tiene un sitio; la ruta, relativa a `src/core/` o `src/client/` (a `s
 | De un píxel del cuadro de la base al escenario | `planoDelCuadro` (`shared/base.ts`) |
 | Recortar un edificio de la base | `recortarLaBase`, `derivarRecorte` (`tools/taller/recorte-base.ts`) |
 | Quién hay en una base y qué dice | `vecinosDeLaBase`, `vozDe`; las voces del narrador, solo `ponerVoces` (`gente/voces.ts`) |
-| Lo que sobra tras la batalla | `sobrantesTrasLaBatalla`, `dejarBlocker`, `loQueDejaLaIA` (`state/sobrantes.ts`); lo aplica `settleBattle` |
+| Lo que sobra tras la batalla | `tropaQueVuelve`, `sobrantesTrasLaBatalla`, `dejarBlocker` (`state/sobrantes.ts`); lo aplica `settleBattle` |
 | La renta del día (solo oro) | `rentaDelDia` (`state/renta.ts`); lo que no alcanza, `oroBlocker` (`town/town.ts`) |
 | Camino de un héroe | `alcanceDelHeroe`, `caminoHasta` (`state/marcha.ts`); nadie más llama a `findPath` ni a `reachableFrom` |
 | Lo que se anda hoy | `pasosDeHoy` (`state/marcha.ts`) |
@@ -297,7 +297,7 @@ Cada hecho tiene un sitio; la ruta, relativa a `src/core/` o `src/client/` (a `s
 | Previsión de daño | `previsionDe`, `previsionDeLaRueda` (`battle/prevision.ts`) |
 | Un hechizo: formato y catálogo | `problemasDelHechizo` (`magia/validar.ts`); `HECHIZOS_DEL_JUEGO` (`magia/catalogo.ts`), el único que importa `data/hechizos.json` |
 | Lanzar un hechizo | `castBlocker`, `afectadosDe` (`battle/lanzar.ts`); la única aplicación, `lanzarHechizo` (`battle/battle.ts`) |
-| Levantar un cadáver | `cadaverEn`, `cadaverGastado` (`battle/consultas.ts`), `queLevanta` (`battle/spells.ts`); el único `stacks.push` a media pelea, `levantar` |
+| Levantar un cadáver | `cadaverEn` (`battle/consultas.ts`), `queLevanta` (`battle/spells.ts`); el stack, `stackNuevo` (`battle/stack-nuevo.ts`); el `push`, `levantar` |
 | Lo que dura un hechizo | `StackEffect` (`battle/effects.ts`); la muerte, solo `anotarLaMuerte` (`battle/battle.ts`) |
 | Salir del contacto | `salirCuesta` (`battle/contacto.ts`), `contactoBlocker` (`battle/consultas.ts`) |
 | Armadura | `trasLaArmadura`, `armaduraDe` (`battle/armas.ts`) |

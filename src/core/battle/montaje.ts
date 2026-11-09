@@ -15,7 +15,7 @@
 import { combateBlocker, type ReglasDelCombate } from '../combate.js';
 import { hojaDeLaTropa } from '../hero/troop.js';
 import { type CatalogoDeHechizos, HECHIZOS_DEL_JUEGO } from '../magia/catalogo.js';
-import { type Hechizo, levantarDe } from '../magia/formato.js';
+import { type Hechizo, unidadesQueLevanta } from '../magia/formato.js';
 import type { Rng } from '../rng.js';
 import { type FactionId, type Hero, type Hex, hasTrait, type UnitInfo } from '../types.js';
 import {
@@ -24,11 +24,11 @@ import {
   cifrasDeUnidad,
   oroDeUnidad,
 } from '../unidad/catalogo.js';
-import { quienNoEscala } from './asalto.js';
 import { hechizoDeLaBatalla } from './consultas.js';
 import { asentar, seguirElDespliegue } from './despliegue.js';
 import { clampMorale } from './effects.js';
 import { hayMuralla, puertasAlEmpezar, SIN_MURALLA, validarMuralla } from './muralla.js';
+import { type Entrada, stackNuevo } from './stack-nuevo.js';
 import {
   type BattleHero,
   type BattleStack,
@@ -38,7 +38,6 @@ import {
   type MurallaDeBatalla,
   type OrigenDelStack,
   SIDES,
-  type Side,
   type StackDeBatalla,
 } from './types.js';
 
@@ -199,7 +198,8 @@ export function createBattle(
     // Una lista, en el orden de `stacks`: la tropa por su puesto y el héroe el
     // ÚLTIMO, con `slot = army.length`, así que pierde los empates de
     // iniciativa con los suyos y los ids de la tropa no se mueven por tenerlo.
-    const entradas = setup.army.map((stack, slot) => resolveUnit(stack, slot, setup));
+    const cat = setup.catalogo ?? CATALOGO_DEL_JUEGO;
+    const entradas: Entrada[] = setup.army.map((stack, slot) => resolveUnit(stack, slot, cat));
     if (setup.hero !== null) entradas.push(entradaDelHeroe(setup.hero, setup.army.length));
     const units = entradas.map((e) => e.unit);
     // Dónde sale cada uno: lo que pida su formación (`Troop.salida`,
@@ -231,32 +231,7 @@ export function createBattle(
     const baseMorale = armyMorale(units) + (setup.moraleBonus ?? 0);
 
     entradas.forEach((e, i) => {
-      stacks.push({
-        id: e.origen.kind === 'heroe' ? `${side}-heroe` : `${side}-${e.slot}`,
-        side,
-        slot: e.slot,
-        body: e.body,
-        unit: e.unit,
-        origen: e.origen,
-        initialCount: e.count,
-        count: e.count,
-        topHp: e.unit.hp,
-        hex: hexes[i]!,
-        // La escalera solo va con quien puede ponerla: el defensor y el volador no
-        // escalan (`quienNoEscala`).
-        escalera: e.escalera && quienNoEscala(side, e.unit) === null,
-        retaliated: false,
-        acted: false,
-        // Una regla para todos: la del bando, recortada una vez. Los no-muertos, a 0.
-        morale: hasTrait(e.unit, 'undead') ? 0 : clampMorale(baseMorale),
-        effects: [],
-        ganado: { experiencia: 0, bajas: 0, heroes: [] },
-        apuntado: null,
-        recargando: 0,
-        granada: null,
-        granadasLanzadas: 0,
-        hechizoEnElAire: null,
-      });
+      stacks.push(stackNuevo(e, side, hexes[i]!, clampMorale(baseMorale)));
     });
   }
 
@@ -272,18 +247,9 @@ export function createBattle(
     muralla,
     rueda: combate.rueda,
     libro,
-    levantables: {
-      attacker: levantablesDe(
-        hechizosDelBando(attacker.hero?.mando ?? null, stacks, 'attacker'),
-        libro,
-        attacker.catalogo ?? CATALOGO_DEL_JUEGO,
-      ),
-      defender: levantablesDe(
-        hechizosDelBando(defender.hero?.mando ?? null, stacks, 'defender'),
-        libro,
-        defender.catalogo ?? CATALOGO_DEL_JUEGO,
-      ),
-    },
+    // Los dos bandos pelean con el mismo catálogo: la partida, el del juego; la arena,
+    // el de la pelea (`bandosDeArena`).
+    levantables: levantablesDe(libro, attacker.catalogo ?? defender.catalogo ?? CATALOGO_DEL_JUEGO),
     golpeEnCurso: null,
     escaleras: [],
     puertas: puertasAlEmpezar(muralla),
@@ -301,16 +267,10 @@ export function createBattle(
   return state;
 }
 
-/** Un stack resuelto y todavía sin colocar: lo que `createBattle` empuja. */
-interface Entrada {
-  readonly slot: number;
-  readonly body: string;
-  readonly unit: UnitInfo;
-  readonly origen: OrigenDelStack;
-  readonly count: number;
-  /** Si lleva escalera (`StackDeBatalla.escalera`). */
-  readonly escalera: boolean;
-}
+/** Una entrada de la tropa: su origen es del catálogo (`resolveUnit`). */
+type EntradaDelCatalogo = Entrada & {
+  readonly origen: Extract<OrigenDelStack, { readonly kind: 'catalogo' }>;
+};
 
 /**
  * De dónde salen las cifras de un stack de la tropa: del catálogo de su bando
@@ -319,7 +279,11 @@ interface Entrada {
  * `BattleStack.unit` y no vuelve a preguntar. Un novato devuelve la misma
  * referencia del catálogo, así que el volcado del banco no se mueve.
  */
-function resolveUnit(stack: StackDeBatalla, slot: number, setup: BattleSide): Entrada {
+function resolveUnit(
+  stack: StackDeBatalla,
+  slot: number,
+  cat: CatalogoDeUnidades,
+): EntradaDelCatalogo {
   // La experiencia es de un individuo: un stack de N con hoja de servicios no
   // sabría de cuál de los N es.
   if (stack.veterania !== undefined && stack.count !== 1) {
@@ -330,7 +294,6 @@ function resolveUnit(stack: StackDeBatalla, slot: number, setup: BattleSide): En
   // `cifrasDeUnidad`, la misma regla que leen la IA y el agente por
   // `troopUnit`: un veterano pisa el tablero con las cifras que ellos le ven,
   // y un novato con la referencia del catálogo tal cual.
-  const cat = setup.catalogo ?? CATALOGO_DEL_JUEGO;
   const unit = cifrasDeUnidad(stack.creature, stack.veterania, cat);
   return {
     slot,
@@ -407,61 +370,25 @@ function libroDe(
 }
 
 /**
- * Lo que puede levantar un bando que lanza los hechizos `ids` de `libro`, resuelto en
- * su catálogo `cat`: cada unidad que nombra uno de sus `levantar` (la de los vivos y
- * las de `de`; solo los suyos, que el catálogo de un bando puede no tener lo que
- * levanta el otro), con su hoja, sus cifras de novato y su oro, como `resolveUnit` las pone a
- * quien entra. Una que no está en `cat` lanza (`cat.unidad`): la carga y «Guardar»
- * ya lo rechazan (`levantadosBlocker`), y esto es la red de quien monta a mano.
- * Lo leen `createBattle` y el retoque de la arena (`levantablesConElCatalogo`).
+ * Lo que se puede levantar en una batalla con el libro `libro`: cada unidad que
+ * nombra uno de sus `levantar` (`unidadesQueLevanta`), resuelta en el catálogo `cat`
+ * por la misma puerta que quien entra al montarla (`resolveUnit`). Una que no está en
+ * `cat` lanza: la carga y «Guardar» ya lo rechazan (`levantadosBlocker`), y esto es la
+ * red de quien monta a mano. Lo leen `createBattle` y el retoque de la arena.
  */
-function levantablesDe(
-  ids: readonly string[],
+export function levantablesDe(
   libro: Readonly<Record<string, Hechizo>>,
   cat: CatalogoDeUnidades,
 ): Record<string, Levantable> {
   const out: Record<string, Levantable> = {};
-  for (const id of ids) {
-    const h = libro[id];
-    if (h === undefined)
-      throw new Error(`no se puede montar la batalla: no hay ningún hechizo «${id}»`);
-    const e = levantarDe(h);
-    if (e === undefined) continue;
-    for (const u of [e.vivos, ...Object.values(e.de ?? {})]) {
-      out[u] ??= {
-        body: hojaDeLaTropa({ creature: u }, cat),
-        unit: cifrasDeUnidad(u, undefined, cat),
-        oro: oroDeUnidad(u, cat),
-      };
+  for (const h of Object.values(libro)) {
+    for (const u of unidadesQueLevanta(h)) {
+      if (out[u] !== undefined) continue;
+      const { body, unit, origen } = resolveUnit({ creature: u, count: 1 }, 0, cat);
+      out[u] = { body, unit, origen };
     }
   }
   return out;
-}
-
-/**
- * Lo que se puede levantar en una batalla en curso tras un retoque de la arena: lo
- * de su libro de ahora, resuelto con el catálogo de la pelea `cat` (los dos bandos
- * pelean con el mismo).
- */
-export function levantablesConElCatalogo(
-  state: BattleState,
-  cat: CatalogoDeUnidades,
-): BattleState['levantables'] {
-  const de = (side: Side) =>
-    levantablesDe(hechizosDelBando(state.heroes[side], state.stacks, side), state.libro, cat);
-  return { attacker: de('attacker'), defender: de('defender') };
-}
-
-/** Lo que puede lanzar un bando: el libro de su héroe y los poderes de sus stacks. */
-function hechizosDelBando(
-  heroe: Pick<BattleHero, 'spells'> | null,
-  stacks: readonly BattleStack[],
-  side: Side,
-): readonly string[] {
-  return [
-    ...(heroe?.spells ?? []),
-    ...stacks.filter((s) => s.side === side).flatMap((s) => s.unit.poderes ?? []),
-  ];
 }
 
 /**

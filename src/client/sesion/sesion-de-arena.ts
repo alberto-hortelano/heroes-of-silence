@@ -12,10 +12,13 @@ import {
   batallaDeArena,
   type CatalogoDeLaArena,
   catalogoDelMontaje,
-  conUnidad,
   type LadoDeArena,
 } from '@core/arena/montaje.js';
-import { type RetoqueDeArena, retocarEnBatalla } from '@core/arena/retoque.js';
+import {
+  catalogoTrasElRetoque,
+  type RetoqueDeArena,
+  retocarEnBatalla,
+} from '@core/arena/retoque.js';
 import { activeStack, stackById } from '@core/battle/consultas.js';
 import { SIN_MURALLA } from '@core/battle/muralla.js';
 import type { BattleStack, BattleState, MurallaDeBatalla, Side } from '@core/battle/types.js';
@@ -228,9 +231,7 @@ export class SesionDeArena extends SesionDeBatalla {
     const largo = this.battle.log.length;
     const motivo = retocarEnBatalla(this.battle, r, this.catalogo);
     if (motivo !== null) return comoFrase(motivo);
-    if (r.kind === 'piezas') this.catalogo = { ...this.catalogo, equipo: r.equipo };
-    if (r.kind === 'hechizos') this.catalogo = { ...this.catalogo, hechizos: r.hechizos };
-    if (r.kind === 'tipo') this.catalogo = conUnidad(this.catalogo, r.fuente.unidad);
+    this.catalogo = catalogoTrasElRetoque(r, this.catalogo);
     // Lo que entra y cambia algo deja su `retoque` en el registro; lo que deja la
     // ficha como estaba no escribe nada, y no se dice «Cambiado» (N1 de QA).
     if (this.battle.log.length === largo) {

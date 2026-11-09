@@ -62,8 +62,11 @@ import {
   validarPieza,
 } from '../src/core/equipo/pieza.js';
 import { EQUIPO_BASE } from '../src/core/hero/cuerpo-del-heroe.js';
+import { todosLosHechizos } from '../src/core/magia/catalogo.js';
+import { unidadesQueLevanta } from '../src/core/magia/formato.js';
 import { createRng } from '../src/core/rng.js';
 import { HUECOS, type Hueco, huecosDeLaPieza } from '../src/core/types.js';
+import { unidad } from '../src/core/unidad/catalogo.js';
 import {
   RUTA_DEL_CATALOGO_DE_UNIDADES,
   type Unidad,
@@ -655,12 +658,23 @@ describe('la ficha de una unidad ofrece solo lo que el núcleo admite (H3 de la 
  * Por qué no se pasa del catálogo `antes` a las piezas `despues` con esas
  * unidades (`cambioDePiezas`), o `null` si se puede: la pregunta de las pruebas
  * del editor de equipo, que miran el motivo.
+ *
+ * La arena le pasa su catálogo entero de unidades; aquí van las de la prueba más
+ * las que levanta la magia del juego (`levantar_zombi`: el zombi y el esqueleto
+ * guerrero), sin las que la carga del catálogo lanza (`levantadosBlocker`).
  */
+/** Lo que levanta la magia del juego (`data/hechizos.json`). */
+const LEVANTADAS = [...new Set(todosLosHechizos().flatMap(unidadesQueLevanta))];
+
 function motivoDelCambio(
   antes: CatalogoDeEquipo,
   despues: readonly PiezaEscrita[],
   unidades: readonly Unidad[],
 ): string | null {
-  const r = cambioDePiezas(antes, despues, unidades);
+  const conLasQueSeLevantan = [
+    ...unidades,
+    ...LEVANTADAS.filter((id) => !unidades.some((u) => u.id === id)).map((id) => unidad(id)),
+  ];
+  const r = cambioDePiezas(antes, despues, conLasQueSeLevantan);
   return 'motivo' in r ? r.motivo : null;
 }

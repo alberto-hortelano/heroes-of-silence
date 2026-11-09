@@ -23,7 +23,6 @@ import {
   type Portador,
   sacarDeLaMochila,
 } from '../equipo/portador.js';
-import { idsPuestos } from '../equipo/vestir.js';
 import { loNeutralAlTope } from '../hero/grupos.js';
 import { learnable } from '../hero/hero.js';
 import { licenciar, withTroops } from '../hero/troop.js';
@@ -59,7 +58,14 @@ import {
   turnBlocker,
 } from './consultas.js';
 import { anotarLosSitios, emit, fotoDeLosSitios } from './cronica.js';
-import { aLaMochila, buyBlocker, equipBlocker, hojaNueva, unequipBlocker } from './equipar.js';
+import {
+  aLaMochila,
+  buyBlocker,
+  devolverLoPuesto,
+  equipBlocker,
+  hojaNueva,
+  unequipBlocker,
+} from './equipar.js';
 import { dismissBlocker, hireHero, salidaPendienteBlocker } from './heroes.js';
 import { anotarLaEleccion, aplicarEfectos } from './lugares.js';
 import { moveHero } from './marcha.js';
@@ -395,7 +401,7 @@ function aplicar(
       // Lo que llevaban puesto vuelve a la mochila: se licencia en un castillo
       // propio, con el héroe delante, y tirar una espada con quien se va no lo
       // pidió nadie (decisión del usuario sobre el plan).
-      aLaMochila(hero, ...seVan.flatMap((t) => idsPuestos(t.veterania?.equipo)));
+      devolverLoPuesto(hero, seVan);
       emit(state, {
         kind: 'dismissed',
         hero: hero.id,

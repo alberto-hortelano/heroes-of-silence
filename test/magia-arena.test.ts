@@ -11,12 +11,17 @@ import { type MontajeDelEnlace, montajeALaURL, montajeDeLaURL } from '../src/cor
 import { type HeroeDeArena, heroePorDefecto } from '../src/core/arena/heroe.js';
 import { batallaDeArena, catalogoDelMontaje } from '../src/core/arena/montaje.js';
 import { piezasDelMontaje } from '../src/core/arena/piezas.js';
-import { retocarEnBatalla } from '../src/core/arena/retoque.js';
+import { catalogoTrasElRetoque, retocarEnBatalla } from '../src/core/arena/retoque.js';
 import { COMBATE_COMPLETO } from '../src/core/combate.js';
 import { EQUIPO_DEL_JUEGO } from '../src/core/equipo/atado.js';
 import { EQUIPO_ESCRITO } from '../src/core/equipo/pieza.js';
 import { EQUIPO_BASE } from '../src/core/hero/cuerpo-del-heroe.js';
-import { catalogoDeHechizos, hechizo, todosLosHechizos } from '../src/core/magia/catalogo.js';
+import {
+  catalogoDeHechizos,
+  HECHIZOS_DEL_JUEGO,
+  hechizo,
+  todosLosHechizos,
+} from '../src/core/magia/catalogo.js';
 import {
   campoDe,
   conCampo,
@@ -210,10 +215,10 @@ describe('levantar en el editor y en la arena (08-11-2026, «Levantar zombi»)',
 
   it('lo que se levanta y no pelea sale del catálogo del juego; si pelea, con las cifras de la página', () => {
     const sinZombi = batallaDeArena(conZombi(null), createRng(1));
-    expect(sinZombi.levantables.attacker.zombi?.unit.hp).toBe(unidad('zombi').hp);
+    expect(sinZombi.levantables.zombi?.unit.hp).toBe(unidad('zombi').hp);
     const fuerte = unidad('zombi', { hp: 300 });
     const b = batallaDeArena(conZombi(fuerte), createRng(1));
-    expect(b.levantables.attacker.zombi?.unit.hp).toBe(300);
+    expect(b.levantables.zombi?.unit.hp).toBe(300);
     // Retocado a media pelea, se levanta con lo nuevo.
     const catalogo = catalogoDelMontaje(conZombi(fuerte));
     expect(
@@ -223,9 +228,39 @@ describe('levantar en el editor y en la arena (08-11-2026, «Levantar zombi»)',
         catalogo,
       ),
     ).toBeNull();
-    expect(b.levantables.attacker.zombi?.unit.hp).toBe(200);
-    // La derecha no levanta nada: no lo resuelve (su catálogo podría no tenerlo).
-    expect(b.levantables.defender).toEqual({});
+    expect(b.levantables.zombi?.unit.hp).toBe(200);
+    // Lo que levanta el libro y nada más: el esqueleto (del zombi) y el zombi.
+    expect(Object.keys(b.levantables).sort()).toEqual(['esqueleto-guerrero', 'zombi']);
+  });
+
+  it('el catálogo de la pelea busca en el del juego solo lo que se levanta; otro id lanza', () => {
+    const catalogo = catalogoDelMontaje(conZombi(null));
+    // El esqueleto no pelea, pero lo levanta «Levantar zombi»: del juego.
+    expect(catalogo.unidad('esqueleto-guerrero').id).toBe('esqueleto-guerrero');
+    // Un id que ni pelea ni se levanta es un fallo de quien monta (H de /simplify).
+    expect(() => catalogo.unidad('orko-dos-armas')).toThrow(
+      '«orko-dos-armas» no es ninguna unidad de esta pelea',
+    );
+  });
+
+  it('tras un retoque, la sesión y la batalla leen el mismo catálogo (catalogoTrasElRetoque)', () => {
+    const fuerte = unidad('zombi', { hp: 300 });
+    const catalogo = catalogoDelMontaje(conZombi(fuerte));
+    const retocado = unidad('zombi', { hp: 200 });
+    const r = { kind: 'tipo', fuente: delBorrador(retocado) } as const;
+    expect(catalogoTrasElRetoque(r, catalogo).unidad('zombi').hp).toBe(200);
+    // Los hechizos nuevos entran en el catálogo, y con ellos lo que se levanta.
+    const sinLevantar = catalogoDeHechizos(
+      [...HECHIZOS_DEL_JUEGO.values()].filter((h) => h.id !== 'levantar_zombi'),
+    );
+    const sinZombi = catalogoDelMontaje({ ...conZombi(null), hechizos: sinLevantar });
+    expect(() => sinZombi.unidad('zombi')).toThrow('«zombi» no es ninguna unidad de esta pelea');
+    const conLevantar = catalogoTrasElRetoque(
+      { kind: 'hechizos', hechizos: HECHIZOS_DEL_JUEGO },
+      sinZombi,
+    );
+    expect(conLevantar.hechizos).toBe(HECHIZOS_DEL_JUEGO);
+    expect(conLevantar.unidad('zombi').id).toBe('zombi');
   });
 });
 

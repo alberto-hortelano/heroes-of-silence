@@ -162,7 +162,6 @@ describe('levantar', () => {
         stack: 'attacker-3',
         from: 'defender-0',
         spell: 'levantar',
-        side: 'attacker',
         at: AQUI,
       },
     ]);
@@ -249,7 +248,10 @@ describe('levantar', () => {
     expect(poderBlocker(b, 'levantar', undefined, AQUI)).toBeNull();
     applyAction(b, { type: 'power', poder: 'levantar', at: AQUI }, rng);
     expect(b.stacks.at(-1)?.origen).toMatchObject({ unidad: 'zombi', levantadoDe: 'defender-0' });
-    expect(b.log.some((e) => e.kind === 'raised' && e.side === 'attacker')).toBe(true);
+    // El bando del levantado es el de quien lo lanza (el hecho no lo repite: J de /simplify).
+    expect(
+      b.log.some((e) => e.kind === 'raised' && stackById(b, e.stack).side === 'attacker'),
+    ).toBe(true);
   });
 
   it('un levantado que cae cuenta como una baja más en el resumen, y no lo rompe', () => {

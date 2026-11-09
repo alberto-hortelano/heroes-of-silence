@@ -111,19 +111,52 @@ export function renderGuarnicion(v: VistaDeLaGuarnicion): Html {
     </div>`;
 }
 
+/**
+ * Una fila de un tipo con − y + y, si lo elegido no es lo que propone la IA, «(la IA:
+ * N)» al lado: la de la defensa y la de lo que sobra tras la batalla. Estaba copiada en
+ * las dos hasta /simplify (09-11-2026).
+ */
+function filaConMenosYMas(f: {
+  readonly creature: string;
+  readonly nombre: string;
+  /** Lo que se lee entre − y +: «4 de 6», «deja 1 de 7». */
+  readonly cuenta: string;
+  readonly elegido: number;
+  readonly propuesta: number;
+  /** Los `data-action` de − y +. */
+  readonly menos: string;
+  readonly mas: string;
+  /** Por qué − o + no hacen nada, o `null`. */
+  readonly sinMenos: string | null;
+  readonly sinMas: string | null;
+}): Html {
+  const cambio =
+    f.elegido === f.propuesta
+      ? NADA
+      : html` <span class="veterania">(la IA: ${f.propuesta})</span>`;
+  return html`<div class="stack"><span>${f.nombre}${cambio}</span><span class="count">
+          <button data-action="${f.menos}" data-creature="${f.creature}"${atributosDeApagado(f.sinMenos)} aria-label="Uno menos de ${f.nombre}">−</button>
+          ${f.cuenta}
+          <button data-action="${f.mas}" data-creature="${f.creature}"${atributosDeApagado(f.sinMas)} aria-label="Uno más de ${f.nombre}">+</button>
+        </span></div>`;
+}
+
 export function renderDefensa(v: VistaDeLaDefensa): Html {
   const filas = unir(
-    v.filas.map((f) => {
-      const cambio =
-        f.pelean === f.propuesta
-          ? NADA
-          : html` <span class="veterania">(la IA: ${f.propuesta})</span>`;
-      return html`<div class="stack"><span>${f.nombre}${cambio}</span><span class="count">
-          <button data-action="defensa-menos" data-creature="${f.creature}"${atributosDeApagado(f.motivoMenos)} aria-label="Uno menos de ${f.nombre}">−</button>
-          ${f.pelean} de ${f.hay}
-          <button data-action="defensa-mas" data-creature="${f.creature}"${atributosDeApagado(f.motivoMas ?? f.notaMas)} aria-label="Uno más de ${f.nombre}">+</button>
-        </span></div>${motivoDelRechazo(f.motivoMas)}${notaDelApagado(f.notaMas)}`;
-    }),
+    v.filas.map(
+      (f) =>
+        html`${filaConMenosYMas({
+          creature: f.creature,
+          nombre: f.nombre,
+          cuenta: `${f.pelean} de ${f.hay}`,
+          elegido: f.pelean,
+          propuesta: f.propuesta,
+          menos: 'defensa-menos',
+          mas: 'defensa-mas',
+          sinMenos: f.motivoMenos,
+          sinMas: f.motivoMas ?? f.notaMas,
+        })}${motivoDelRechazo(f.motivoMas)}${notaDelApagado(f.notaMas)}`,
+    ),
   );
   return html`<h3 id="titulo-de-la-defensa">¡Te atacan en ${v.sitio}!</h3>
     <p class="cost">${v.hero.name} pelea siempre. Elige quién pelea con él, de su tropa y de la guarnición; lo que no pelea se queda fuera y, si pierde, se pierde con el sitio. Viene marcado lo que propone la IA: lo más fuerte que cabe.</p>
@@ -145,17 +178,19 @@ export function renderDefensa(v: VistaDeLaDefensa): Html {
  */
 export function renderLoQueSobra(v: VistaDeLoQueSobra): Html {
   const filas = unir(
-    v.filas.map((f) => {
-      const cambio =
-        f.deja === f.propuesta
-          ? NADA
-          : html` <span class="veterania">(la IA: ${f.propuesta})</span>`;
-      return html`<div class="stack"><span>${f.nombre}${cambio}</span><span class="count">
-          <button data-action="sobra-menos" data-creature="${f.creature}"${atributosDeApagado(f.deja <= 0 ? 'no deja ninguno' : null)} aria-label="Uno menos de ${f.nombre}">−</button>
-          deja ${f.deja} de ${f.vuelven}
-          <button data-action="sobra-mas" data-creature="${f.creature}"${atributosDeApagado(f.deja >= f.vuelven ? 'ya los deja todos' : null)} aria-label="Uno más de ${f.nombre}">+</button>
-        </span></div>`;
-    }),
+    v.filas.map((f) =>
+      filaConMenosYMas({
+        creature: f.creature,
+        nombre: f.nombre,
+        cuenta: `deja ${f.deja} de ${f.vuelven}`,
+        elegido: f.deja,
+        propuesta: f.propuesta,
+        menos: 'sobra-menos',
+        mas: 'sobra-mas',
+        sinMenos: f.deja <= 0 ? 'no deja ninguno' : null,
+        sinMas: f.deja >= f.vuelven ? 'ya los deja todos' : null,
+      }),
+    ),
   );
   return html`<h3 id="titulo-de-lo-que-sobra">No cabe todo lo que vuelve</h3>
     <p class="cost">Lo levantado en la batalla vuelve con ${v.quien}, y ya no cabe: caben ${v.cupo} individuos y ${v.tope} de liderazgo. Elige qué se deja, justo lo que sobra. Lo que llevaban puesto va a la mochila del héroe; el de una guarnición se pierde.</p>

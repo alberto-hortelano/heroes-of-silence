@@ -10,29 +10,30 @@
  * Se elige **antes de cerrar** la batalla, en el paso pendiente que ya existe
  * (B1 del plan): la persona en el diálogo de «Continuar» (`Session`), y quien no
  * elige —la IA, el agente, la batalla resuelta sola— con la regla de la IA
- * (`loQueDejaLaIA`). Lo aplica `settleBattle`, el único que lo escribe.
+ * (`Sobrante.propuesta`). Lo aplica `settleBattle`, el único que lo escribe.
+ *
+ * **Lo que vuelve se cuenta una vez** (`tropaQueVuelve`), y lo leen los dos: hasta
+ * /simplify (09-11-2026) el diálogo lo contaba sin la experiencia de la batalla y
+ * el cierre con ella, y con un ascenso a medias la IA proponía dejar a uno y el
+ * cierre dejaba a otro. Ahora lo que se queda se decide **antes** de cobrar la
+ * experiencia, y la cobra solo quien se queda.
  */
 
-import type { Side } from '../battle/types.js';
+import type { BattleStack, Side } from '../battle/types.js';
 import { laMasBarata } from '../hero/fuerza.js';
 import {
-  armyLeadership,
   capacidadDe,
   contarPorTipo,
+  ejercitoDe,
+  lleno,
   sinIndividuos,
   troopRoom,
-  withTroops,
+  troopsThatFit,
 } from '../hero/troop.js';
 import type { Army, GrupoDeTropa, Hero, PlayerId, Troop } from '../types.js';
 import { unidadDelJuego } from '../unidad/catalogo.js';
-import { heroById } from './consultas.js';
-import {
-  cupoDeLaGuarnicion,
-  laGuarnicion,
-  nombreDelSitio,
-  type Sitio,
-  sitioPorId,
-} from './sitios.js';
+import { battleOwners, heroById } from './consultas.js';
+import { cupoDeLaGuarnicion, type Sitio, sitioPorId } from './sitios.js';
 import type { GameState, PendingBattle } from './tipos.js';
 
 /** Lo que deja cada bando, por tipo: `{ zombi: 1 }`. */
@@ -42,6 +43,30 @@ export type Dejados = Readonly<Partial<Record<Side, Readonly<Record<string, numb
 export type QuienVuelve =
   | { readonly kind: 'heroe'; readonly heroe: Hero }
   | { readonly kind: 'sitio'; readonly sitio: Sitio };
+
+/** La tropa de un bando de la batalla terminada, como vuelve (`tropaQueVuelve`). */
+interface TropaQueVuelve {
+  /**
+   * De quién es el bando (`battleOwners`): **la regla del dueño, una**. Sin dueño
+   * —un monstruo, un grupo, un lugar, la guarnición neutral— no se lleva lo
+   * levantado (P1) ni acumula experiencia.
+   */
+  readonly dueño: PlayerId | null;
+  /**
+   * A quién vuelve, o `null`: sin dueño, o si pierde sin rendirse, que lo pierde
+   * todo después (el héroe vuelve a casa sin tropa o cae; la guarnición cae con el
+   * sitio), así que no hay nada que elegir. Rendirse es perder salvando la tropa.
+   */
+  readonly quien: QuienVuelve | null;
+  /**
+   * Los vivos del catálogo, un individuo por cabeza y en su orden de salida, **sin
+   * la experiencia de esta batalla** (con la hoja que traían): lo que se cuenta
+   * contra el límite y de lo que se deja. El héroe no es tropa.
+   */
+  readonly army: Army;
+  /** El stack del que sale cada individuo de `army`: de él cobra `settleBattle` lo ganado. */
+  readonly stackDe: ReadonlyMap<Troop, BattleStack>;
+}
 
 /** Un bando que vuelve con más de lo que le cabe. */
 export interface Sobrante {
@@ -54,42 +79,68 @@ export interface Sobrante {
   readonly tope: number;
   /** Los individuos que le caben. */
   readonly cupo: number;
+  /**
+   * Lo que deja quien no elige (`loQueDejaLaIA`), contado una vez: lo que propone
+   * el diálogo y lo que aplica `settleBattle` sin `dejados`.
+   */
+  readonly propuesta: Readonly<Record<string, number>>;
 }
 
 /**
- * Quién se queda con la tropa del bando `side` al cerrar `pending`, o `null` si
- * nadie: la pierde quien pierde sin rendirse (el héroe vuelve a casa sin tropa o
- * cae; la guarnición cae con el sitio) y quien no tiene dueño (un monstruo, un
- * grupo, un lugar, la guarnición neutral), que no se lleva lo levantado (P1).
+ * La tropa del bando `side` de la batalla pendiente, ya terminada, como vuelve:
+ * **la única cuenta** de lo que vuelve, la que leen el cierre (`settleBattle`) y lo
+ * que sobra (`sobrantesTrasLaBatalla`). Un stack de N vuelve como N individuos.
  */
-function quienVuelve(state: GameState, pending: PendingBattle, side: Side): QuienVuelve | null {
+function tropaQueVuelve(state: GameState, pending: PendingBattle, side: Side): TropaQueVuelve {
   const fin = pending.battle.finished;
   if (fin === null) throw new Error('la batalla no ha terminado');
-  // Rendirse es perder salvando la tropa: con rendición, los dos se la quedan.
-  if (fin.winner !== side && fin.surrender === undefined) return null;
-  const quien = side === 'attacker' ? pending.attacker : pending.foe;
-  switch (quien.kind) {
-    case 'hero':
-      return { kind: 'heroe', heroe: heroById(state, quien.heroId) };
-    case 'garrison': {
-      const sitio = sitioPorId(state, quien.site);
-      return laGuarnicion(state, sitio)?.dueño == null ? null : { kind: 'sitio', sitio };
+  const dueño = battleOwners(state, pending)[side];
+  const army: Troop[] = [];
+  const stackDe = new Map<Troop, BattleStack>();
+  for (const s of pending.battle.stacks) {
+    if (s.side !== side || s.count <= 0 || s.origen.kind !== 'catalogo') continue;
+    const o = s.origen;
+    if (o.levantadoDe !== undefined && dueño === null) continue;
+    for (let i = 0; i < s.count; i++) {
+      // La casilla de su formación vuelve con él (`OrigenDelStack.salida`), y la
+      // hoja que traía, si es de alguien: sin dueño no se acumula nada.
+      const t: Troop = {
+        creature: o.unidad,
+        ...(o.salida === undefined ? {} : { salida: o.salida }),
+        ...(dueño === null || o.veterania === null ? {} : { veterania: o.veterania }),
+      };
+      army.push(t);
+      stackDe.set(t, s);
     }
+  }
+  const pierde = fin.winner !== side && fin.surrender === undefined;
+  const quien = dueño === null || pierde ? null : quienEs(state, pending, side);
+  return { dueño, quien, army, stackDe };
+}
+
+/** Los dos bandos de la batalla pendiente, ya terminada, como vuelven. */
+export function tropasQueVuelven(state: GameState): Readonly<Record<Side, TropaQueVuelve>> {
+  const pending = state.pendingBattle;
+  if (pending === null) throw new Error('no hay batalla pendiente');
+  return {
+    attacker: tropaQueVuelve(state, pending, 'attacker'),
+    defender: tropaQueVuelve(state, pending, 'defender'),
+  };
+}
+
+/** El héroe o el sitio que lleva el bando `side` (con dueño: lo ha mirado quien llama). */
+function quienEs(state: GameState, pending: PendingBattle, side: Side): QuienVuelve {
+  const q = side === 'attacker' ? pending.attacker : pending.foe;
+  switch (q.kind) {
+    case 'hero':
+      return { kind: 'heroe', heroe: heroById(state, q.heroId) };
+    case 'garrison':
+      return { kind: 'sitio', sitio: sitioPorId(state, q.site) };
     case 'monster':
     case 'raider':
     case 'lugar':
-      return null;
+      throw new Error(`un bando de ${q.kind} no tiene dueño al que volver`);
   }
-}
-
-/** El dueño de lo que vuelve. */
-function dueñoDe(state: GameState, q: QuienVuelve): PlayerId {
-  if (q.kind === 'heroe') return q.heroe.owner;
-  const g = laGuarnicion(state, q.sitio);
-  if (g === null || g.dueño === null) {
-    throw new Error(`la guarnición ${nombreDelSitio(q.sitio)} vuelve sin dueño`);
-  }
-  return g.dueño;
 }
 
 /** Lo que le cabe a quien vuelve: el héroe con su liderazgo de antes de cobrar; el sitio, su cupo. */
@@ -100,68 +151,39 @@ function limiteDe(
   return q.kind === 'heroe' ? capacidadDe(q.heroe, state.combate.tope) : cupoDeLaGuarnicion(state);
 }
 
-/** Si `army` cabe en el límite. */
-function cabe(army: Army, l: { readonly tope: number; readonly cupo: number }): boolean {
-  return army.length <= l.cupo && armyLeadership(army) <= l.tope;
-}
-
-/**
- * Lo que vuelve del bando `side` de la batalla terminada, sin la experiencia de
- * esta (la cobra `settleBattle`): los vivos del catálogo, en su orden de salida.
- * Lo levantado vuelve solo a quien tiene dueño (P1); quien no, lo pierde con el
- * resto. El héroe no es tropa.
- */
-export function loQueVuelve(state: GameState, pending: PendingBattle, side: Side): Army {
-  const conDueño = quienVuelve(state, pending, side) !== null;
-  const out: Troop[] = [];
-  for (const s of pending.battle.stacks) {
-    if (s.side !== side || s.count <= 0 || s.origen.kind !== 'catalogo') continue;
-    if (s.origen.levantadoDe !== undefined && !conDueño) continue;
-    const v = s.origen.veterania;
-    for (let i = 0; i < s.count; i++) {
-      out.push(
-        v === null ? { creature: s.origen.unidad } : { creature: s.origen.unidad, veterania: v },
-      );
-    }
-  }
-  return out;
-}
-
 /**
  * Los bandos de la batalla pendiente, ya terminada, que vuelven con más de lo que
- * les cabe. Vacío casi siempre: solo lo levantado de un cadáver pasa del límite.
- * Lo leen el cierre (`settleBattle`) y la pantalla de la persona (`Session`).
+ * les cabe, con lo que propone la IA. Vacío casi siempre: solo lo levantado de un
+ * cadáver pasa del límite. Lo leen el cierre (`settleBattle`, que le pasa lo que ya
+ * contó) y la pantalla de la persona (`Session`).
  */
-export function sobrantesTrasLaBatalla(state: GameState): readonly Sobrante[] {
-  const pending = state.pendingBattle;
-  if (pending === null) throw new Error('no hay batalla pendiente');
+export function sobrantesTrasLaBatalla(
+  state: GameState,
+  vuelven: Readonly<Record<Side, TropaQueVuelve>> = tropasQueVuelven(state),
+): readonly Sobrante[] {
   const out: Sobrante[] = [];
   for (const side of ['attacker', 'defender'] as const) {
-    const q = quienVuelve(state, pending, side);
-    if (q === null) continue;
-    const army = loQueVuelve(state, pending, side);
-    const l = limiteDe(state, q);
-    if (cabe(army, l)) continue;
-    out.push({ side, dueño: dueñoDe(state, q), quien: q, tropa: contarPorTipo(army), ...l });
+    const { dueño, quien, army } = vuelven[side];
+    if (dueño === null || quien === null) continue;
+    const l = limiteDe(state, quien);
+    if (lleno(army, l) === null) continue;
+    out.push({
+      side,
+      dueño,
+      quien,
+      tropa: contarPorTipo(army),
+      ...l,
+      propuesta: loQueDejaLaIA(army, l),
+    });
   }
   return out;
-}
-
-/** El ejército de `tropa` sin lo de `dejar`, por tipo. */
-function sinLoDejado(
-  tropa: readonly GrupoDeTropa[],
-  dejar: Readonly<Record<string, number>>,
-): Army {
-  let army: Army = [];
-  for (const g of tropa) army = withTroops(army, g.creature, g.count - (dejar[g.creature] ?? 0));
-  return army;
 }
 
 /**
  * Por qué no vale dejar `dejar` del sobrante `s`, o `null`: que sea de su tropa y
- * no más de lo que lleva, que lo que queda quepa y que no deje **de más** (P6: con
- * cualquiera de los dejados de vuelta, ya no cabría). La única frase: la leen
- * `settleBattle`, que lanza con ella, y el diálogo, que la enseña en directo.
+ * no más de lo que lleva, que lo que queda quepa (`lleno`) y que no deje **de más**
+ * (P6: con cualquiera de los dejados de vuelta, ya no cabría). La única frase: la
+ * leen `settleBattle`, que lanza con ella, y el diálogo, que la enseña en directo.
  */
 export function dejarBlocker(s: Sobrante, dejar: Readonly<Record<string, number>>): string | null {
   for (const [creature, n] of Object.entries(dejar)) {
@@ -175,12 +197,11 @@ export function dejarBlocker(s: Sobrante, dejar: Readonly<Record<string, number>
       return `vuelven ${g.count} × ${unidadDelJuego(creature).name}, y no se dejan ${n}`;
     }
   }
-  const queda = sinLoDejado(s.tropa, dejar);
-  if (queda.length > s.cupo) {
-    return `aún sobra: quedan ${queda.length} individuos y caben ${s.cupo}`;
-  }
-  const ocupa = armyLeadership(queda);
-  if (ocupa > s.tope) return `aún sobra: ocupan ${ocupa} de liderazgo y caben ${s.tope}`;
+  const queda = ejercitoDe(
+    s.tropa.map((g) => ({ creature: g.creature, count: g.count - (dejar[g.creature] ?? 0) })),
+  );
+  const noCabe = lleno(queda, s);
+  if (noCabe !== null) return `aún sobra: ${noCabe}`;
   for (const [creature, n] of Object.entries(dejar)) {
     if (n > 0 && troopRoom(queda, s.tope, s.cupo, creature) >= 1) {
       return `dejas de más: aún cabe un ${unidadDelJuego(creature).name}`;
@@ -193,24 +214,20 @@ export function dejarBlocker(s: Sobrante, dejar: Readonly<Record<string, number>
  * Lo que deja quien no elige (la IA, el agente, la batalla resuelta sola): de uno
  * en uno, el que licenciaría la IA (`laMasBarata` sin tope de poder: lo más novato
  * y barato primero) hasta que quepa, y después vuelve, del último en irse al
- * primero, el que aún quepa, para no dejar de más (`dejarBlocker`).
+ * primero, el que aún quepa (`troopsThatFit`), para no dejar de más (`dejarBlocker`).
  */
 export function loQueDejaLaIA(
   army: Army,
   l: { readonly tope: number; readonly cupo: number },
 ): Record<string, number> {
   let actual = army;
-  const fuera: string[] = [];
-  while (!cabe(actual, l)) {
+  const fuera: Troop[] = [];
+  while (lleno(actual, l) !== null) {
     const v = laMasBarata(actual, Number.POSITIVE_INFINITY);
     if (v === null) throw new Error('no queda nadie que dejar y el ejército sigue sin caber');
     actual = sinIndividuos(actual, v.creature, 1);
-    fuera.push(v.creature);
+    fuera.push({ creature: v.creature });
   }
-  const dejar: Record<string, number> = {};
-  for (const c of fuera.reverse()) {
-    if (troopRoom(actual, l.tope, l.cupo, c) >= 1) actual = withTroops(actual, c, 1);
-    else dejar[c] = (dejar[c] ?? 0) + 1;
-  }
-  return dejar;
+  const { fuera: seDejan } = troopsThatFit(actual, l.tope, l.cupo, fuera.reverse());
+  return Object.fromEntries(contarPorTipo(seDejan).map((g) => [g.creature, g.count]));
 }

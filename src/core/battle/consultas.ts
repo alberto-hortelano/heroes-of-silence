@@ -532,28 +532,30 @@ export function cadaverGastado(state: BattleState, s: Pick<BattleStack, 'id'>): 
 }
 
 /**
- * Los cadáveres de `hex` que siguen en el suelo (sin gastar), **del último en caer
- * al primero**, por el orden de su `perished` en el registro. Sobre un muerto puede
- * pararse otro y morir allí (uno por casilla cuenta solo a los vivos), así que
- * puede haber varios. Lo leen `cadaverEn` y la regla de apuntar a un cadáver.
- */
-function cadaveresEn(state: BattleState, hex: Hex): readonly BattleStack[] {
-  const cayo = new Map<string, number>();
-  state.log.forEach((e, i) => {
-    if (e.kind === 'perished') cayo.set(e.stack, i);
-  });
-  return state.stacks
-    .filter((x) => !isAlive(x) && hexEquals(x.hex, hex) && !cadaverGastado(state, x))
-    .sort((a, b) => (cayo.get(b.id) ?? -1) - (cayo.get(a.id) ?? -1));
-}
-
-/**
  * El cadáver que se levanta en `hex`: **el último en caer** que no esté gastado
  * (S3 de «Levantar zombi»: si ese no se puede levantar, se rechaza, no se busca otro
- * debajo), o `null` si no queda ninguno.
+ * debajo), o `null` si no queda ninguno. Sobre un muerto puede pararse otro y morir
+ * allí (uno por casilla cuenta solo a los vivos), así que puede haber varios.
+ *
+ * Recorre el registro **hacia atrás** hasta el primer `perished` de esa casilla que no
+ * esté gastado: la lista legal y el botón lo preguntan casilla a casilla, en cada
+ * decisión. Hasta /simplify (09-11-2026) montaba un mapa del registro entero y ordenaba
+ * a todos los muertos para quedarse con el primero.
  */
 export function cadaverEn(state: BattleState, hex: Hex): BattleStack | null {
-  return cadaveresEn(state, hex)[0] ?? null;
+  const gastados = new Set<string>();
+  for (const x of state.stacks) {
+    if (x.origen.kind === 'catalogo' && x.origen.levantadoDe !== undefined) {
+      gastados.add(x.origen.levantadoDe);
+    }
+  }
+  for (let i = state.log.length - 1; i >= 0; i--) {
+    const e = state.log[i];
+    if (e?.kind !== 'perished' || gastados.has(e.stack)) continue;
+    const s = stackById(state, e.stack);
+    if (!isAlive(s) && hexEquals(s.hex, hex)) return s;
+  }
+  return null;
 }
 
 /**

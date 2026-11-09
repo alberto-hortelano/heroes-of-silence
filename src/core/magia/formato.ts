@@ -173,6 +173,16 @@ export function levantarDe(h: Pick<Hechizo, 'efectos'>): Levantar | undefined {
   return h.efectos.find((e): e is Levantar => e.tipo === 'levantar');
 }
 
+/**
+ * Las unidades que puede levantar `h` (la de los vivos y las de `de`), sin repetir;
+ * ninguna si no levanta. Lo que el motor resuelve al montar (`levantablesDe`) y lo
+ * que la arena busca en el catálogo del juego si no pelea (`catalogoDeLaPelea`).
+ */
+export function unidadesQueLevanta(h: Pick<Hechizo, 'efectos'>): readonly string[] {
+  const e = levantarDe(h);
+  return e === undefined ? [] : [...new Set([e.vivos, ...Object.values(e.de ?? {})])];
+}
+
 /** Un hechizo, tal como se escribe en `data/hechizos.json`. */
 export interface Hechizo {
   readonly id: string;
@@ -213,12 +223,9 @@ export function esDiferido(h: Pick<Hechizo, 'entrega'>): boolean {
   );
 }
 
-/**
- * Si se apunta a una casilla (y no a una unidad, ni a nada): la casilla o la del
- * cadáver, que se elige igual, con `at` (el cliente y el contrato no cambian).
- */
+/** Si se apunta a una casilla (y no a una unidad, a un cadáver ni a nada). */
 export function apuntaACasilla(h: Pick<Hechizo, 'objetivo'>): boolean {
-  return h.objetivo === 'casilla' || h.objetivo === 'cadaver';
+  return h.objetivo === 'casilla';
 }
 
 /** Si se lanza sin elegir nada: sobre sí o sobre el tablero entero. */

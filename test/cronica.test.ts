@@ -625,6 +625,41 @@ describe('la crónica de la pantalla deja de mentir', () => {
     ).toContain(`Defiendes ${base.name} con 6 individuos y dejas fuera 0`);
   });
 
+  it('lo que deja una guarnición tras la batalla se dice «del puente», no «de el puente» (I de /simplify)', () => {
+    const state = newGame({ seed: 3 });
+    // Un paso que se nombra con «el» (el puente, el paso de montaña…): la puerta de la
+    // muralla es «la», y con ella las dos frases coincidían.
+    const paso = state.map.objects.find((o) => {
+      const sitio = o.kind === 'node' ? sitioSiExiste(state, o.id) : null;
+      return sitio?.kind === 'paso' && sitio.nodo.barrera !== 'wall';
+    })!;
+    const goblin = unidadDelJuego(TROPA_BARATA).name;
+    const frase = marcadoDe(
+      renderLog(
+        [
+          evento({
+            kind: 'left_behind',
+            hero: null,
+            site: paso.id,
+            creature: TROPA_BARATA,
+            count: 1,
+            lost: [],
+            actor: 1,
+          }),
+        ],
+        0,
+        undefined,
+        (id) => sitioSiExiste(state, id),
+      ),
+    );
+    expect(frase).toMatch(
+      new RegExp(
+        `La guarnición del (paso|puente).* de \\(${paso.at.x},${paso.at.y}\\) deja 1 × ${goblin}`,
+      ),
+    );
+    expect(frase).not.toMatch(/de el /);
+  });
+
   it('la obra de un puesto se nombra por su sitio, con su precio (fase 3 del puesto fronterizo)', () => {
     const state = newGame({ seed: 3 });
     const paso = state.map.objects.find((o) => o.kind === 'node')!;

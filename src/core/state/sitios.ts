@@ -45,6 +45,7 @@ import {
   contarPorTipo,
   GARRISON_LEADERSHIP,
   licenciar,
+  lleno,
   type TroopGroup,
   troopBlocker,
   troopSummary,
@@ -735,12 +736,6 @@ export function ponerLaGuarnicion(
  */
 export function quitarLaGuarnicion(state: GameState, id: string): void {
   delete state.guarniciones[id];
-}
-
-/** Lo que ocupa un ejército frente a lo que cabe, dicho para la persona. */
-function lleno(army: Army, { tope, cupo }: { tope: number; cupo: number }): string | null {
-  if (army.length <= cupo && armyLeadership(army) <= tope) return null;
-  return `serían ${army.length} de ${cupo} individuos y ${armyLeadership(army)} de ${tope} de liderazgo`;
 }
 
 /**

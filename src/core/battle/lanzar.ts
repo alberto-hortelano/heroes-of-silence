@@ -88,34 +88,38 @@ export function apuntadoBlocker(
   apuntado: Apuntado | undefined,
   exigeHerida: boolean,
 ): string | null {
-  const que = queSeApunta(h);
-  if (que === 'nada') {
-    if (apuntado != null)
-      return `«${h.nombre}» no se apunta: va ${h.entrega.tipo === 'sobreSi' ? 'sobre quien lo lanza' : 'a todo el tablero'}`;
-    return null;
+  switch (queSeApunta(h)) {
+    case 'nada':
+      if (apuntado != null)
+        return `«${h.nombre}» no se apunta: va ${h.entrega.tipo === 'sobreSi' ? 'sobre quien lo lanza' : 'a todo el tablero'}`;
+      return null;
+    case 'cadaver':
+      return cadaverBlocker(state, h, l, apuntado);
+    case 'unidad': {
+      if (apuntado === undefined) {
+        return state.stacks.some((t) => unidadBlocker(h, l, t, exigeHerida) === null)
+          ? null
+          : exigeHerida && soloCura(h)
+            ? 'nadie de su bando tiene ninguna herida'
+            : 'no hay ningún objetivo válido';
+      }
+      if (apuntado === null || !('target' in apuntado))
+        return `«${h.nombre}» se lanza a una unidad`;
+      const target = state.stacks.find((t) => t.id === apuntado.target);
+      if (target === undefined) return `no hay ninguna unidad "${apuntado.target}"`;
+      return unidadBlocker(h, l, target, exigeHerida);
+    }
+    case 'casilla': {
+      if (apuntado === undefined) return null;
+      if (apuntado === null || !('at' in apuntado)) return `«${h.nombre}» se lanza a una casilla`;
+      const at = apuntado.at;
+      if (!isInside(at)) return `(${at.col},${at.row}) no es una casilla del tablero`;
+      if (h.entrega.tipo === 'proyectil' && hexEquals(at, l.stack.hex)) {
+        return `«${h.nombre}» no se lanza a la casilla de quien lo lanza: no habría recta`;
+      }
+      return distanciaBlocker(h, l, at);
+    }
   }
-  if (h.objetivo === 'cadaver') return cadaverBlocker(state, h, l, apuntado);
-  if (apuntado === undefined) {
-    if (que === 'casilla') return null;
-    return state.stacks.some((t) => unidadBlocker(h, l, t, exigeHerida) === null)
-      ? null
-      : exigeHerida && soloCura(h)
-        ? 'nadie de su bando tiene ninguna herida'
-        : 'no hay ningún objetivo válido';
-  }
-  if (que === 'unidad') {
-    if (apuntado === null || !('target' in apuntado)) return `«${h.nombre}» se lanza a una unidad`;
-    const target = state.stacks.find((t) => t.id === apuntado.target);
-    if (target === undefined) return `no hay ninguna unidad "${apuntado.target}"`;
-    return unidadBlocker(h, l, target, exigeHerida);
-  }
-  if (apuntado === null || !('at' in apuntado)) return `«${h.nombre}» se lanza a una casilla`;
-  const at = apuntado.at;
-  if (!isInside(at)) return `(${at.col},${at.row}) no es una casilla del tablero`;
-  if (h.entrega.tipo === 'proyectil' && hexEquals(at, l.stack.hex)) {
-    return `«${h.nombre}» no se lanza a la casilla de quien lo lanza: no habría recta`;
-  }
-  return distanciaBlocker(h, l, at);
 }
 
 /**
@@ -157,9 +161,13 @@ function cadaverBlocker(
 
 /** Las casillas con algún muerto, sin repetir, en el orden de `stacks`. */
 function casillasConCadaver(state: BattleState): readonly Hex[] {
+  const vistas = new Set<string>();
   const out: Hex[] = [];
   for (const s of state.stacks) {
-    if (!isAlive(s) && !out.some((h) => hexEquals(h, s.hex))) out.push(s.hex);
+    const clave = `${s.hex.col},${s.hex.row}`;
+    if (isAlive(s) || vistas.has(clave)) continue;
+    vistas.add(clave);
+    out.push(s.hex);
   }
   return out;
 }
@@ -203,7 +211,7 @@ export function afectadosDe(
   apuntado: Apuntado,
 ): readonly BattleStack[] {
   // Un cadáver no alcanza a nadie vivo: lo que hace es levantar (`levantar`, `battle.ts`).
-  if (h.objetivo === 'cadaver') return [];
+  if (queSeApunta(h) === 'cadaver') return [];
   const afecta = h.afecta ?? 'todos';
   const area = areaDe(h);
   const vivosEn = (casillas: readonly Hex[], sin: BattleStack | null): BattleStack[] =>
@@ -395,13 +403,10 @@ export function jugadasDeLanzar(
     case 'unidad':
       return state.stacks.flatMap((t) => (vale(t.id) ? [{ target: t.id }] : []));
     case 'casilla':
-      // A un cadáver, una por casilla con muertos en la que vale; a una casilla,
-      // la de cada vivo.
-      if (h.objetivo === 'cadaver') {
-        return casillasConCadaver(state).flatMap((at) => (vale(undefined, at) ? [{ at }] : []));
-      }
       return state.stacks.flatMap((t) =>
         isAlive(t) && vale(undefined, t.hex) ? [{ at: t.hex }] : [],
       );
+    case 'cadaver':
+      return casillasConCadaver(state).flatMap((at) => (vale(undefined, at) ? [{ at }] : []));
   }
 }
