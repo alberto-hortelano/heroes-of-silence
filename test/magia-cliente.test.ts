@@ -5,6 +5,8 @@
  * `cast` con `at` y lee lo que hace (`spell_list`).
  */
 import { describe, expect, it } from 'vitest';
+import { panelDeBatalla } from '../src/client/batalla/panel.js';
+import { marcadoDe, NADA } from '../src/client/comun/html.js';
 import { loApuntadoEnCasilla } from '../src/client/sesion/batalla/libro.js';
 import { SesionDeArena } from '../src/client/sesion/sesion-de-arena.js';
 import { heroePorDefecto } from '../src/core/arena/heroe.js';
@@ -26,7 +28,7 @@ function unidad(id: string) {
 }
 
 /** Una pelea de la arena con el héroe de la izquierda (de la persona) que sabe `hechizos`. */
-function pelea(hechizos: readonly string[]): SesionDeArena {
+function pelea(hechizos: readonly string[], derecha = ['orko-dos-armas']): SesionDeArena {
   const s = new SesionDeArena(
     {
       combate: COMBATE_COMPLETO,
@@ -35,7 +37,7 @@ function pelea(hechizos: readonly string[]): SesionDeArena {
         heroe: { ...heroePorDefecto('izquierda'), hechizos },
         ia: false,
       },
-      derecha: { unidades: [unidad('orko-dos-armas')], heroe: null, ia: true },
+      derecha: { unidades: derecha.map(unidad), heroe: null, ia: true },
       equipo: EQUIPO_DEL_JUEGO,
       hechizos: catalogoDeHechizos(todosLosHechizos()),
     },
@@ -84,6 +86,50 @@ describe('la persona lanza los hechizos del editor', () => {
     const apunta = s.apuntado;
     if (apunta === null) throw new Error('no espera el clic');
     expect(loApuntadoEnCasilla(s, apunta, { col: 3, row: 3 })).toBeNull();
+  });
+});
+
+describe('la ayuda del panel con un hechizo elegido (H4 de QA de «Levantar zombi», 09-11-2026)', () => {
+  /** Lo mínimo de la página para pintar el panel de la batalla: nada propio. */
+  const SIN_PAGINA = {
+    final: () => NADA,
+    quienDespliega: () => null,
+    ficha: () => NADA,
+    fila: () => ({ flecha: '', nombre: '', cuenta: '' }),
+    mana: () => NADA,
+    botones: NADA,
+    rendicion: () => NADA,
+    sinHeroe: NADA,
+    turnoAjeno: NADA,
+    mio: null,
+  };
+  const ayuda = (s: SesionDeArena): string | undefined =>
+    /<p class="cost" style="margin-top:\.5rem">([^<]*Escape cancela\.)<\/p>/.exec(
+      marcadoDe(panelDeBatalla(s, false, SIN_PAGINA)),
+    )?.[1];
+
+  it('dice qué se pulsa: una unidad, una casilla o un cadáver', () => {
+    const aUnidad = pelea(['berserker']);
+    aUnidad.hechizos.selectSpell('berserker');
+    expect(ayuda(aUnidad)).toBe('Berserker: pulsa sobre la unidad objetivo. Escape cancela.');
+
+    const aCasilla = pelea(['bola_de_fuego']);
+    aCasilla.hechizos.selectSpell('bola_de_fuego');
+    expect(ayuda(aCasilla)).toMatch(/: pulsa la casilla donde lanzarlo\. Escape cancela\.$/);
+
+    // Un orco muerto junto al héroe: su cadáver, que se puede levantar.
+    const aCadaver = pelea(['levantar_zombi'], ['orko-dos-armas', 'orko-dos-armas']);
+    const cuerpo = aCadaver.battle.stacks.find((x) => x.id === 'attacker-heroe');
+    const orco = aCadaver.battle.stacks.find((x) => x.id === 'defender-0');
+    if (cuerpo === undefined || orco === undefined) throw new Error('sin héroe o sin orco');
+    orco.hex = { col: cuerpo.hex.col + 2, row: cuerpo.hex.row };
+    orco.count = 0;
+    aCadaver.battle.log.push({ kind: 'perished', stack: orco.id });
+    aCadaver.hechizos.selectSpell('levantar_zombi');
+    expect(aCadaver.hechizos.selectedSpell).toBe('levantar_zombi');
+    expect(ayuda(aCadaver)).toBe(
+      'Levantar zombi: pulsa la casilla del cadáver que levantar. Escape cancela.',
+    );
   });
 });
 

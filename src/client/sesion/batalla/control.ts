@@ -27,6 +27,7 @@ import { firmaDelDespliegue } from '@core/battle/despliegue.js';
 import { castBlocker } from '@core/battle/lanzar.js';
 import { ataqueBlocker, legalActionsAndCosts } from '@core/battle/legalidad.js';
 import { type Prevision, previsionDe } from '@core/battle/prevision.js';
+import { queSeApunta } from '@core/battle/spells.js';
 import type { BattleAction, BattleStack, BattleState, Side } from '@core/battle/types.js';
 import { enOrdenDelLibro, nombreDeHechizo } from '@core/magia/catalogo.js';
 import type { Rng } from '@core/rng.js';
@@ -46,6 +47,8 @@ export interface SpellOption {
   readonly castable: boolean;
   /** Por qué no se puede lanzar, escrito para la persona. Vacío si sí se puede. */
   readonly motivo: string;
+  /** Qué se pulsa para lanzarlo (`queSeApunta`): lo dice la ayuda del panel. */
+  readonly apunta: ReturnType<typeof queSeApunta>;
 }
 
 /** Lo que la escena de batalla lee en cada fotograma, calculado una vez por jugada. */
@@ -411,7 +414,15 @@ export function opcionesDeHechizo(
     if (motivo === null) {
       throw new Error(`${sp.nombre} no se ofrece y el núcleo no dice por qué`);
     }
-    return { id, name: sp.nombre, cost: sp.mana, targets, castable, motivo };
+    return {
+      id,
+      name: sp.nombre,
+      cost: sp.mana,
+      targets,
+      castable,
+      motivo,
+      apunta: queSeApunta(sp),
+    };
   });
 }
 

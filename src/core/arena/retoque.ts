@@ -147,7 +147,7 @@ function retocar(
       }));
       return 'motivo' in nuevo
         ? nuevo.motivo
-        : retocarElTipo(state, r.fuente, nuevo.valor.unit, nuevo.valor.ficha);
+        : retocarElTipo(state, r.fuente, nuevo.valor.unit, nuevo.valor.ficha, catalogo);
     }
     case 'heroe': {
       const nuevo = oElMotivo(() => ({
@@ -203,17 +203,39 @@ function fichaDeAntes(state: BattleState, clave: string): FichaEnPalabras {
   return ficha;
 }
 
+/**
+ * La ficha de antes del tipo `id`: la que puso el montaje o un retoque anterior y, si
+ * no la hay, la de la unidad con que pelea ahora (`catalogo`). Le pasa a lo que se
+ * levanta de un cadáver sin venir en el montaje (H1 de QA de «Levantar zombi»,
+ * 09-11-2026: «Editar» en un zombi levantado decía «la pelea no trae la ficha de
+ * unidad:zombi»): se levantó con las cifras de `catalogo` (`levantablesDe`, que el
+ * retoque rehace con el mismo catálogo que adopta la sesión), así que esa es su ficha.
+ * Una batalla sin fichas no la montó la arena, y lanza como antes.
+ */
+function fichaDelTipoAntes(
+  state: BattleState,
+  id: string,
+  catalogo: CatalogoDeLaArena,
+): FichaEnPalabras {
+  const clave = claveDeFicha({ kind: 'unidad', id });
+  if (state.fichasDeArena === undefined || state.fichasDeArena[clave] !== undefined) {
+    return fichaDeAntes(state, clave);
+  }
+  return fichaEnPalabras({ unidad: catalogo.unidad(id) }, catalogo.equipo);
+}
+
 function retocarElTipo(
   state: BattleState,
   fuente: FuenteDeArena,
   unit: UnitInfo,
   ficha: FichaEnPalabras,
+  catalogo: CatalogoDeLaArena,
 ): string | null {
   const tipo = tipoDeLaFuente(fuente);
   const suyos = stacksDeLaFicha(state, claveDeFicha(tipo));
   if (suyos.length === 0) return `${unit.name} no está en esta pelea`;
   const clave = claveDeFicha(tipo);
-  const cambios = cambiosDeLaFicha(fichaDeAntes(state, clave), ficha);
+  const cambios = cambiosDeLaFicha(fichaDelTipoAntes(state, tipo.id, catalogo), ficha);
   // La ficha manda: si no cambia, tampoco cambia ninguna cifra de la pelea, y
   // no se escribe nada (N1 de QA: «ataque 3 → 3» dejaba una línea y «Cambiado»).
   if (cambios.length === 0) return null;

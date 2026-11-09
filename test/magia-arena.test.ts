@@ -7,11 +7,14 @@
 import { readFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
+import { problemasDeLaFicha } from '../src/client/arena/magia.js';
 import { type MontajeDelEnlace, montajeALaURL, montajeDeLaURL } from '../src/core/arena/enlace.js';
 import { type HeroeDeArena, heroePorDefecto } from '../src/core/arena/heroe.js';
 import { batallaDeArena, catalogoDelMontaje } from '../src/core/arena/montaje.js';
 import { piezasDelMontaje } from '../src/core/arena/piezas.js';
 import { catalogoTrasElRetoque, retocarEnBatalla } from '../src/core/arena/retoque.js';
+import { applyAction } from '../src/core/battle/battle.js';
+import { stackById } from '../src/core/battle/consultas.js';
 import { COMBATE_COMPLETO } from '../src/core/combate.js';
 import { EQUIPO_DEL_JUEGO } from '../src/core/equipo/atado.js';
 import { EQUIPO_ESCRITO } from '../src/core/equipo/pieza.js';
@@ -31,11 +34,13 @@ import {
   copiaDe,
   hechizoNuevo,
 } from '../src/core/magia/editar.js';
+import type { Hechizo } from '../src/core/magia/formato.js';
 import { problemasDelHechizo } from '../src/core/magia/validar.js';
 import { createRng } from '../src/core/rng.js';
 import { FACTION_IDS } from '../src/core/types.js';
-import type { Unidad } from '../src/core/unidad/formato.js';
+import { leerCatalogos, type Unidad } from '../src/core/unidad/formato.js';
 import { escribirCatalogo, leerCatalogo } from '../tools/arena/borrador.js';
+import { turnoDe } from './magia-de-prueba.js';
 import {
   carpetaDeLaArena,
   catalogoEntero,
@@ -198,6 +203,40 @@ describe('levantar en el editor y en la arena (08-11-2026, «Levantar zombi»)',
     });
   });
 
+  it('la ficha dice de lo que se levanta lo mismo que «Guardar», y no «Vale» (H3 de QA, 09-11-2026)', () => {
+    const h = conCampo(
+      conEfecto(conCampo(hechizoNuevo([]), 'efectos', []), 'efectos', 'levantar'),
+      'objetivo',
+      'cadaver',
+    );
+    const unidades = catalogoEntero();
+    expect(problemasDeLaFicha(h, [h], unidades)).toEqual([]);
+    /** Lo que diría «Guardar» con `x` en el catálogo, o `null` si lo guarda. */
+    const alGuardar = (x: Hechizo): string | null => {
+      try {
+        leerCatalogos(
+          EQUIPO_DEL_JUEGO,
+          { unidades },
+          catalogoDeHechizos([...todosLosHechizos(), x]),
+        );
+        return null;
+      } catch (err) {
+        return (err as Error).message;
+      }
+    };
+    const noExiste = conCampo(h, 'efectos.0.vivos', 'no-existe');
+    const [frase] = problemasDeLaFicha(noExiste, [noExiste], unidades);
+    expect(frase).toBe(
+      '«Hechizo nuevo» nombra «no-existe», que no es ninguna unidad de data/unidades.json',
+    );
+    expect(alGuardar(noExiste)).toBe(`data/hechizos.json: ${frase}`);
+    // Un vivo en `de` (de qué cadáver sale otra cosa): tampoco vale, con su frase.
+    const deUnVivo = conCampo(h, 'efectos.0.de', { 'goblin-lancero': 'zombi' });
+    const [otra] = problemasDeLaFicha(deUnVivo, [deUnVivo], unidades);
+    expect(otra).toMatch(/^«Hechizo nuevo»: Goblin lancero no es no-muerto/);
+    expect(alGuardar(deUnVivo)).toBe(`data/hechizos.json: ${otra}`);
+  });
+
   /** Un héroe de la izquierda que sabe levantar, contra dos unidades de la derecha. */
   const LEVANTA = { ...heroePorDefecto('izquierda'), hechizos: ['levantar_zombi'] };
   const conZombi = (zombi: Unidad | null) => ({
@@ -231,6 +270,75 @@ describe('levantar en el editor y en la arena (08-11-2026, «Levantar zombi»)',
     expect(b.levantables.zombi?.unit.hp).toBe(200);
     // Lo que levanta el libro y nada más: el esqueleto (del zombi) y el zombi.
     expect(Object.keys(b.levantables).sort()).toEqual(['esqueleto-guerrero', 'zombi']);
+  });
+
+  /**
+   * La batalla de `montaje` con el héroe en (2,4), el cadáver de `defender-0` en (4,4) y un
+   * zombi ya levantado de él por el héroe (del bando de la izquierda).
+   */
+  function conUnLevantado(montaje: ReturnType<typeof conZombi>) {
+    const rng = createRng(1);
+    const b = batallaDeArena(montaje, rng);
+    const casillas: Readonly<Record<string, { col: number; row: number }>> = {
+      'attacker-heroe': { col: 2, row: 4 },
+      'attacker-0': { col: 2, row: 2 },
+      'defender-0': { col: 4, row: 4 },
+      'defender-1': { col: 9, row: 4 },
+    };
+    for (const s of b.stacks) s.hex = casillas[s.id] ?? s.hex;
+    const muerto = stackById(b, 'defender-0');
+    muerto.count = 0;
+    b.log.push({ kind: 'perished', stack: muerto.id });
+    turnoDe(b, 'attacker', rng);
+    applyAction(b, { type: 'cast', spell: 'levantar_zombi', at: { col: 4, row: 4 } }, rng);
+    const z = b.stacks.at(-1);
+    if (z?.origen.kind !== 'catalogo' || z.origen.levantadoDe !== 'defender-0') {
+      throw new Error('no se ha levantado nada');
+    }
+    return { b, z, catalogo: catalogoDelMontaje(montaje) };
+  }
+
+  it('un levantado que no venía en el montaje se retoca como cualquiera, y lo que se levante después también (H1 de QA, 09-11-2026)', () => {
+    const montaje = {
+      ...conZombi(null),
+      derecha: {
+        unidades: [
+          delBorrador(unidad('templario-escudo')),
+          delBorrador(unidad('templario-escudo')),
+        ],
+        heroe: null,
+      },
+    };
+    const { b, z, catalogo } = conUnLevantado(montaje);
+    expect(b.fichasDeArena?.['unidad:zombi']).toBeUndefined();
+    const vida = unidad('zombi').hp;
+    const desde = b.log.length;
+    const r = { kind: 'tipo', fuente: delBorrador(unidad('zombi', { hp: 222 })) } as const;
+    // Antes: «la pelea no trae la ficha de unidad:zombi: no la montó la arena».
+    expect(retocarEnBatalla(b, r, catalogo)).toBeNull();
+    expect(stackById(b, z.id)).toMatchObject({ unit: { hp: 222 }, topHp: 222 });
+    expect(b.log.slice(desde)).toEqual([
+      { kind: 'retoque', nombre: 'Zombie', stacks: [z.id], cambios: [`vida ${vida} → 222`] },
+    ]);
+    // Lo que se levante después, con lo nuevo.
+    expect(b.levantables.zombi?.unit.hp).toBe(222);
+    // El segundo retoque compara con la ficha que dejó el primero, como cualquier tipo.
+    const despues = catalogoTrasElRetoque(r, catalogo);
+    const otra = { kind: 'tipo', fuente: delBorrador(unidad('zombi', { hp: 150 })) } as const;
+    expect(retocarEnBatalla(b, otra, despues)).toBeNull();
+    expect(b.log.at(-1)).toMatchObject({ kind: 'retoque', cambios: ['vida 222 → 150'] });
+  });
+
+  it('si el levantado es de un tipo que ya pelea, el retoque de ese tipo lo alcanza', () => {
+    const { b, z, catalogo } = conUnLevantado(conZombi(unidad('zombi', { hp: 300 })));
+    const r = { kind: 'tipo', fuente: delBorrador(unidad('zombi', { hp: 200 })) } as const;
+    expect(retocarEnBatalla(b, r, catalogo)).toBeNull();
+    expect(b.log.at(-1)).toMatchObject({
+      kind: 'retoque',
+      stacks: ['defender-1', z.id],
+      cambios: ['vida 300 → 200'],
+    });
+    expect(stackById(b, z.id).unit.hp).toBe(200);
   });
 
   it('el catálogo de la pelea busca en el del juego solo lo que se levanta; otro id lanza', () => {

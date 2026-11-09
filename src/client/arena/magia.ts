@@ -11,6 +11,8 @@
  * batalla. Los cambios los hace el núcleo (`core/magia/editar.ts`); aquí solo se
  * pinta y se lee lo que se toca. Sin estado propio salvo el elegido.
  */
+
+import { catalogoDeHechizos } from '@core/magia/catalogo.js';
 import { queHaceElHechizo } from '@core/magia/dicho.js';
 import {
   campoDe,
@@ -44,6 +46,7 @@ import {
 } from '@core/magia/formato.js';
 import { problemasDeLaLista, problemasDelHechizo } from '@core/magia/validar.js';
 import { esFaccion, FACTION_IDS, NOMBRE_DE_FACCION } from '@core/types.js';
+import { levantadosBlocker, type Unidad } from '@core/unidad/formato.js';
 import { estaMarcado } from '../comun/campos.js';
 import { type Html, html, NADA, pintar, unir } from '../comun/html.js';
 import { nota } from '../views/notas.js';
@@ -60,6 +63,8 @@ interface PaginaDeMagia {
   quienLoUsa(id: string): readonly string[];
   /** El poder mágico con que se dice lo que hace (el del héroe de la izquierda). */
   poder(): number;
+  /** Las unidades de la página, guardadas o no: con ellas se juzga lo que levanta un hechizo. */
+  unidades(): readonly Unidad[];
   /** Lo que dice la barra de la página. */
   avisar(texto: string): void;
 }
@@ -396,18 +401,41 @@ function fichaDe(h: Hechizo, p: PaginaDeMagia, problemas: readonly string[]): Ht
   </section>`;
 }
 
+/**
+ * Todo lo que tiene `h` en contra, lo que dice la ficha y el sello «no vale» de la lista:
+ * sus problemas (`problemasDelHechizo`), los de `lista` que le tocan (id o nombre
+ * repetido) y lo que levanta contra las unidades de la página (`levantadosBlocker`, con la
+ * frase de «Guardar»). Sin este último, la ficha decía «Vale» de un «levantar» con una
+ * unidad que no existe y «Guardar» lo rechazaba (H3 de QA de «Levantar zombi», 09-11-2026).
+ */
+export function problemasDeLaFicha(
+  h: Hechizo,
+  lista: readonly Hechizo[],
+  unidades: readonly Unidad[],
+): string[] {
+  const levantado = levantadosBlocker(unidades, catalogoDeHechizos([h]));
+  return [
+    ...problemasDelHechizo(h),
+    ...problemasDeLaLista(lista)
+      .filter((x) => x.includes(`«${h.id}»`) || x.includes(`«${h.nombre}»`))
+      .filter((x) => x.includes('dos veces')),
+    ...(levantado === null ? [] : [levantado]),
+  ];
+}
+
 /** La lista, por entrega. */
 function listaDe(
   hechizos: readonly Hechizo[],
   elegido: string | null,
   sinGuardar: readonly string[],
+  unidades: readonly Unidad[],
 ): Html {
   const grupos = ENTREGAS.map((t) => {
     const suyos = hechizos.filter((h) => h.entrega.tipo === t);
     if (suyos.length === 0) return NADA;
     return html`<h3 class="cabecera-hueco">${NOMBRE_DE_ENTREGA[t]}</h3><div class="lista-de-piezas">${unir(
       suyos.map((h) => {
-        const malo = problemasDelHechizo(h).length > 0;
+        const malo = problemasDeLaFicha(h, hechizos, unidades).length > 0;
         const sello = h.gremio === null ? 'solo arena' : `gremio ${h.gremio}`;
         return html`<button class="pieza${h.id === elegido ? ' elegida' : ''}${malo ? ' no-vale' : ''}" data-magia="elegir" data-hechizo="${h.id}"><span class="nombre">${h.nombre}${sinGuardar.includes(h.id) ? ' •' : ''}</span><span class="cost">${h.mana} maná</span><span class="sello">${sello}${malo ? ' · no vale' : ''}</span></button>`;
       }),
@@ -428,19 +456,11 @@ export function montarEditorDeMagia(
     if (elegido !== null && !lista.some((h) => h.id === elegido)) elegido = null;
     elegido ??= lista[0]?.id ?? null;
     const h = lista.find((x) => x.id === elegido) ?? null;
-    // Los problemas del elegido y los del catálogo entero que le tocan (id o nombre repetido).
-    const problemas =
-      h === null
-        ? []
-        : [
-            ...problemasDelHechizo(h),
-            ...problemasDeLaLista(lista)
-              .filter((x) => x.includes(`«${h.id}»`) || x.includes(`«${h.nombre}»`))
-              .filter((x) => x.includes('dos veces')),
-          ];
+    const unidades = p.unidades();
+    const problemas = h === null ? [] : problemasDeLaFicha(h, lista, unidades);
     pintar(
       el,
-      html`${listaDe(lista, elegido, p.sinGuardar())}${h === null ? html`<section class="magia-ficha"><p class="cost">No hay ningún hechizo: crea uno.</p></section>` : fichaDe(h, p, problemas)}`,
+      html`${listaDe(lista, elegido, p.sinGuardar(), unidades)}${h === null ? html`<section class="magia-ficha"><p class="cost">No hay ningún hechizo: crea uno.</p></section>` : fichaDe(h, p, problemas)}`,
     );
   };
 

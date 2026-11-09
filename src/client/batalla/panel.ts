@@ -343,7 +343,27 @@ function renderSpells(elegido: string | null, opciones: readonly SpellOption[]):
   );
   const opcion = opciones.find((o) => o.id === elegido);
   return html`<h3>Hechizos</h3><div class="stack-list">${botones}</div>
-    ${opcion === undefined ? NADA : html`<p class="cost" style="margin-top:.5rem">${opcion.name}: pulsa sobre la unidad objetivo. Escape cancela.</p>`}`;
+    ${opcion === undefined ? NADA : html`<p class="cost" style="margin-top:.5rem">${opcion.name}: ${quePulsar(opcion.apunta)}. Escape cancela.</p>`}`;
+}
+
+/**
+ * Qué se pulsa con un hechizo elegido, por lo que apunta (`SpellOption.apunta`). Era
+ * siempre «pulsa sobre la unidad objetivo», también con uno de casilla y uno de cadáver
+ * (H4 de QA de «Levantar zombi», 09-11-2026). Uno sin objetivo se lanza al elegirlo
+ * (`LibroDeBatalla.selectSpell`) y no llega a quedar elegido; si llegara, no se dice
+ * que se pulse nada.
+ */
+function quePulsar(apunta: SpellOption['apunta']): string {
+  switch (apunta) {
+    case 'unidad':
+      return 'pulsa sobre la unidad objetivo';
+    case 'casilla':
+      return 'pulsa la casilla donde lanzarlo';
+    case 'cadaver':
+      return 'pulsa la casilla del cadáver que levantar';
+    case 'nada':
+      return 'se lanza sin elegir sobre quién';
+  }
 }
 
 /**

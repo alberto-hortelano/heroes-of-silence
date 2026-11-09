@@ -122,6 +122,7 @@ const editorDeMagia = montarEditorDeMagia(elMagia, {
   sinGuardar: () => hechizosSinGuardar(catalogo),
   quienLoUsa: (id) => quienUsaElHechizo(pagina, id),
   poder: () => montaje.heroes.izquierda?.poder ?? 1,
+  unidades: () => [...catalogo.unidadesDelCatalogo.values()],
   avisar: (texto) => {
     vista.aviso = texto;
     pedirFotograma();

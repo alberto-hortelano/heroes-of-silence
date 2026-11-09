@@ -127,7 +127,9 @@ export function apuntadoBlocker(
  * sobre `apuntado`, o `null`. En este orden: lo que se elige (una casilla), que no
  * haya nadie vivo en ella, que haya un cadáver sin gastar, que no sea el del héroe,
  * que de él salga algo (`queLevanta`) y la distancia. Sin `apuntado`, la pregunta
- * del botón: ¿hay algún cadáver que se pueda levantar desde aquí?
+ * del botón: ¿hay algún cadáver que se pueda levantar desde aquí? Si los hay pero
+ * ninguno a su alcance, se dice eso y no que no haya (H2 de QA, 09-11-2026: con el
+ * único cadáver a 5 casillas y alcance 4, el botón decía «no hay ningún cadáver»).
  */
 function cadaverBlocker(
   state: BattleState,
@@ -136,12 +138,27 @@ function cadaverBlocker(
   apuntado: Apuntado | undefined,
 ): string | null {
   if (apuntado === undefined) {
-    return casillasConCadaver(state).some((at) => cadaverBlocker(state, h, l, { at }) === null)
-      ? null
-      : 'no hay ningún cadáver que levantar';
+    const levantables = casillasConCadaver(state).filter(
+      (at) => cadaverEnLaCasillaBlocker(state, h, at) === null,
+    );
+    if (levantables.length === 0) return 'no hay ningún cadáver que levantar';
+    if (levantables.some((at) => distanciaBlocker(h, l, at) === null)) return null;
+    // Lo que deja fuera por distancia es el contacto o un tope: la entrega libre llega a todo.
+    const tope = alcanceDe(h);
+    return tope === undefined
+      ? `ningún cadáver que se pueda levantar está en contacto con ${l.stack.unit.name}`
+      : `ningún cadáver que se pueda levantar está a su alcance (${conPlural(tope, 'casilla')})`;
   }
   if (apuntado === null || !('at' in apuntado)) return `«${h.nombre}» se lanza a un cadáver`;
-  const at = apuntado.at;
+  return cadaverEnLaCasillaBlocker(state, h, apuntado.at) ?? distanciaBlocker(h, l, apuntado.at);
+}
+
+/**
+ * Por qué el cadáver de `at` no vale para `h`, sin mirar la distancia, o `null`: la
+ * casilla, nadie vivo encima, un cadáver sin gastar, que no sea el del héroe y que
+ * de él salga algo. La mitad de `cadaverBlocker` que no depende de quién lo lanza.
+ */
+function cadaverEnLaCasillaBlocker(state: BattleState, h: Hechizo, at: Hex): string | null {
   const donde = `(${at.col},${at.row})`;
   if (!isInside(at)) return `${donde} no es una casilla del tablero`;
   const vivo = vivoEn(state, at);
@@ -156,7 +173,7 @@ function cadaverBlocker(
   if (queLevanta(h, cadaver) === null) {
     return `«${h.nombre}» no levanta nada del cadáver de ${cadaver.unit.name}`;
   }
-  return distanciaBlocker(h, l, at);
+  return null;
 }
 
 /** Las casillas con algún muerto, sin repetir, en el orden de `stacks`. */
@@ -189,14 +206,19 @@ function unidadBlocker(
   return null;
 }
 
+/** Hasta cuántas casillas llega la entrega de `h`, o `undefined` si no tiene tope (o es en contacto). */
+function alcanceDe(h: Hechizo): number | undefined {
+  const e = h.entrega;
+  return e.tipo === 'alcance' ? e.casillas : e.tipo === 'proyectil' ? e.casillas : undefined;
+}
+
 /** Por qué `at` está fuera del alcance de la entrega de `h` desde `l`, o `null`. */
 function distanciaBlocker(h: Hechizo, l: Lanzador, at: Hex): string | null {
-  const e = h.entrega;
   const d = hexDistance(l.stack.hex, at);
-  if (e.tipo === 'contacto' && d > 1) {
+  if (h.entrega.tipo === 'contacto' && d > 1) {
     return `«${h.nombre}» se lanza en contacto, y eso está a ${d} casillas de ${l.stack.unit.name}`;
   }
-  const tope = e.tipo === 'alcance' ? e.casillas : e.tipo === 'proyectil' ? e.casillas : undefined;
+  const tope = alcanceDe(h);
   if (tope !== undefined && d > tope) {
     return `«${h.nombre}» llega a ${conPlural(tope, 'casilla')}, y eso está a ${d}`;
   }

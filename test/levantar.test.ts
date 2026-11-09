@@ -98,6 +98,25 @@ describe('los rechazos, con su motivo (castBlocker)', () => {
     );
   });
 
+  it('con cadáveres que valdrían pero ninguno a su alcance, el botón dice la distancia (H2 de QA, 09-11-2026)', () => {
+    // El héroe en (2,4) y el único cadáver en (6,4), a 4.
+    const corto = de('levantar', { ...LEVANTAR, entrega: { tipo: 'alcance', casillas: 2 } });
+    const { b } = conUnCadaver([corto, RAYO]);
+    expect(castBlocker(b, 'attacker', 'levantar')).toBe(
+      'ningún cadáver que se pueda levantar está a su alcance (2 casillas)',
+    );
+    expect(legalActions(b).filter((a) => a.type === 'cast' && a.spell === 'levantar')).toEqual([]);
+    const tocando = de('levantar', { ...LEVANTAR, entrega: { tipo: 'contacto' } });
+    const { b: b2 } = conUnCadaver([tocando, RAYO]);
+    expect(castBlocker(b2, 'attacker', 'levantar')).toMatch(
+      /^ningún cadáver que se pueda levantar está en contacto con /,
+    );
+    // Si el que queda lejos no se podría levantar (un esqueleto), lo de siempre: no hay ninguno.
+    const { b: b3 } = conUnCadaver([corto, RAYO]);
+    Object.assign(stackById(b3, 'defender-0'), muerto('esqueleto-guerrero'));
+    expect(castBlocker(b3, 'attacker', 'levantar')).toBe('no hay ningún cadáver que levantar');
+  });
+
   it('un cadáver con alguien vivo encima no se levanta', () => {
     const { b } = conUnCadaver();
     stackById(b, 'defender-1').hex = { ...AQUI };
