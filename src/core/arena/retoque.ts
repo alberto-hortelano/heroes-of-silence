@@ -6,7 +6,7 @@
  * reorganización (07-11-2026); lo que hace la arena y por qué, en `montaje.ts`.
  */
 import { loADistanciaTrasElRetoque } from '../battle/a-distancia.js';
-import { libroConElCatalogo } from '../battle/montaje.js';
+import { levantablesConElCatalogo, libroConElCatalogo } from '../battle/montaje.js';
 import type {
   BattleStack,
   BattleState,
@@ -22,6 +22,7 @@ import { maxMana } from '../hero/hero.js';
 import { type CatalogoDeHechizos, HECHIZOS_DEL_JUEGO } from '../magia/catalogo.js';
 import type { Equipo, UnitInfo } from '../types.js';
 import { cuerpoDe } from '../unidad/catalogo.js';
+import { validarUnidad } from '../unidad/formato.js';
 import {
   cambiosDeLaFicha,
   claveDeFicha,
@@ -33,7 +34,7 @@ import {
 } from './ficha.js';
 import { type HeroeDeArena, heroeDeArena } from './heroe.js';
 import { type FuenteDeArena, LADOS, type Lado, ladoDe } from './lados.js';
-import { type CatalogoDeLaArena, unidadDeLaFuente } from './montaje.js';
+import { type CatalogoDeLaArena, conUnidad, unidadDeLaFuente } from './montaje.js';
 import {
   equipoQueNoVale,
   escritaDe,
@@ -88,6 +89,33 @@ export type RetoqueDeArena =
  * `catalogoDelMontaje` con lo retocado): la batalla no lleva catálogo.
  */
 export function retocarEnBatalla(
+  state: BattleState,
+  r: RetoqueDeArena,
+  catalogo: CatalogoDeLaArena,
+): string | null {
+  const motivo = retocar(state, r, catalogo);
+  // Lo que se levanta de un cadáver, con las cifras de después: si no, un zombi
+  // retocado a media pelea se levantaría con las de antes (riesgo del plan de
+  // «Levantar zombi», 08-11-2026).
+  if (motivo === null)
+    state.levantables = levantablesConElCatalogo(state, catalogoTras(r, catalogo));
+  return motivo;
+}
+
+/** El catálogo de la pelea tras un retoque que entra: el que la sesión adopta después. */
+function catalogoTras(r: RetoqueDeArena, catalogo: CatalogoDeLaArena): CatalogoDeLaArena {
+  switch (r.kind) {
+    case 'tipo':
+      return conUnidad(catalogo, validarUnidad(r.fuente.unidad, catalogo.equipo));
+    case 'piezas':
+      return { ...catalogo, equipo: r.equipo };
+    case 'heroe':
+    case 'hechizos':
+      return catalogo;
+  }
+}
+
+function retocar(
   state: BattleState,
   r: RetoqueDeArena,
   catalogo: CatalogoDeLaArena,

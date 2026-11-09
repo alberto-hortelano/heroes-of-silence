@@ -1391,7 +1391,8 @@ describe('el gremio enseña (#2)', () => {
 
   it('el gremio de un pueblo enseña los de su facción (08-11-2026)', () => {
     // `townSpells` pasa la facción del pueblo, no todas: con los datos de hoy los
-    // cinco del gremio son de las cinco, así que cada facción aprende lo mismo.
+    // cinco del gremio son de las cinco, así que cada facción aprende lo mismo, y los
+    // no muertos, además, Levantar zombi en el nivel 2 (08-11-2026, «Nivel 2»).
     for (const f of FACTION_IDS) {
       const pueblo = createTown(`t-${f}`, 'Prueba', f, { x: 0, y: 0 });
       pueblo.buildings = [...pueblo.buildings, 'mage_guild_1', 'mage_guild_2'];
@@ -1401,7 +1402,11 @@ describe('el gremio enseña (#2)', () => {
           .map((s) => s.id)
           .sort(),
         f,
-      ).toEqual(['haste', 'magic_arrow', 'slow']);
+      ).toEqual(
+        f === 'no-muertos'
+          ? ['haste', 'levantar_zombi', 'magic_arrow', 'slow']
+          : ['haste', 'magic_arrow', 'slow'],
+      );
     }
   });
 

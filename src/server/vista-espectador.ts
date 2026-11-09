@@ -155,6 +155,7 @@ function stackAlCable(s: BattleStack): StackEnCable {
           unidad: origen.unidad,
           veterania: hojaAlCable(origen.veterania),
           ...(origen.salida === undefined ? {} : { salida: origen.salida }),
+          ...(origen.levantadoDe === undefined ? {} : { levantadoDe: origen.levantadoDe }),
         },
       };
     case 'heroe':

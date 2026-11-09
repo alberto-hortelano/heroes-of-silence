@@ -55,6 +55,7 @@ const SIGUEN_AL_HECHIZO: ReadonlySet<string> = new Set([
   'effect_end',
   'perished',
   'triggered',
+  'raised',
 ]);
 
 /** El resumen de una batalla ya terminada. Lanza si el registro miente. */
@@ -85,8 +86,9 @@ export function resumenDeBatalla(battle: BattleState): ResumenDeBatalla {
     });
   });
 
-  // `initialCount - count` son los muertos exactos: ningún hechizo resucita
-  // (ver `BattleStack.initialCount`). Un `Map` por bando para agrupar sin
+  // `initialCount - count` son los muertos exactos: nadie resucita, y un levantado
+  // es otro stack con su `initialCount` de 1, que si cae cuenta como uno más (ver
+  // `BattleStack.initialCount`). Un `Map` por bando para agrupar sin
   // perder el orden de salida, que es el de `stacks`.
   const perdidas: Record<Side, Map<string, number>> = { attacker: new Map(), defender: new Map() };
   for (const s of battle.stacks) {

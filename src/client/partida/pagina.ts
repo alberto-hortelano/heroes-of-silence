@@ -49,6 +49,8 @@ export interface ElementosDeLaPartida {
   readonly elDefensa: HTMLDialogElement;
   /** Quién te ataca y dónde, sobre el mapa, antes de la batalla (`partida/aviso.ts`). */
   readonly elAviso: HTMLDialogElement;
+  /** Lo que sobra al cerrar una batalla (`Session.sobrantes`). */
+  readonly elSobrantes: HTMLDialogElement;
   readonly stage: HTMLElement;
   readonly lateral: HTMLElement;
 }
@@ -74,6 +76,7 @@ export function elementosDeLaPartida(): ElementosDeLaPartida {
     elGuarnicion: document.getElementById('guarnicion') as HTMLDialogElement,
     elDefensa: document.getElementById('defensa') as HTMLDialogElement,
     elAviso: document.getElementById('aviso') as HTMLDialogElement,
+    elSobrantes: document.getElementById('sobrantes') as HTMLDialogElement,
     stage: document.getElementById('stage') as HTMLElement,
     lateral: document.getElementById('lateral') as HTMLElement,
   };

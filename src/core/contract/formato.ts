@@ -274,6 +274,13 @@ Notas:
   "staying" fuera). Lo que se queda fuera no pelea, y si pierde la batalla se
   pierde con el sitio: la ciudad o el paso son del rival. Sin héroe, defiende
   la guarnición entera.
+- LO QUE SOBRA: lo levantado de un cadáver en batalla no cuenta en el tablero,
+  pero vuelve con el ejército. Si al acabar el ejército de tu héroe (o la
+  guarnición) pasa de su límite (liderazgo o individuos), el juego deja por ti
+  justo lo que sobra, con la regla con que licencia la IA (lo más novato y
+  barato primero; aún no hay jugada para elegirlo), y "recentEvents" lo cuenta
+  con "left_behind" ("creature", "count"). Lo que llevaban puesto va a la
+  mochila del héroe; el de una guarnición se pierde.
 - "dismiss" LICENCIA individuos del ejército de un héroe que está en un castillo
   tuyo (tu base u otro): se van para siempre, no vuelven a la guarnición. Sirve
   para CAMBIAR tropa: con el liderazgo o los 6 individuos llenos de lo barato,
@@ -583,8 +590,11 @@ Notas:
   apuntar o atacar. Se te volverá a pedir acción para el mismo stack.
 - MAGIA: cada hechizo de "spell_list" dice a qué se lanza ("target"): "ally",
   "enemy" o "any" llevan "target" (una unidad); "tile", "at" (una casilla; vale
-  cualquiera a su alcance, "legalActions" trae una por unidad viva); "self" y
-  "all", nada. El héroe lanza desde la casilla de su cuerpo: «en contacto» es a
+  cualquiera a su alcance, "legalActions" trae una por unidad viva); "corpse", "at"
+  en la casilla de un cadáver sin nadie vivo encima ("legalActions" trae una por
+  cadáver que se puede levantar): levanta allí una unidad de tu bando, que entra en
+  la ronda siguiente, y el cadáver se gasta (el registro lo cuenta con "raised": "stack" el
+  nuevo, "from" el cadáver); "self" y "all", nada. El héroe lanza desde la casilla de su cuerpo: «en contacto» es a
   una casilla de él y «a x casillas», hasta x. Uno diferido ("cast" con
   "diferido" en el registro, "spellAt" en el stack del cuerpo) cae al empezar el
   siguiente turno de quien lo lanzó. Lo que deja un hechizo va en

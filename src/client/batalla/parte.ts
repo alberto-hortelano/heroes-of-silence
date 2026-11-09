@@ -218,6 +218,10 @@ export function renderBattleLog(battle: BattleState, mio: Side | null): Html {
         }
         case 'triggered':
           return html`<div>Salta ${nombreDeHechizo(e.spell, battle.libro)} de ${quienEs(e.stack)}</div>`;
+        // Un cadáver levantado (08-11-2026, «Levantar zombi»): lo de quien lo
+        // levanta, bueno para su bando, como lo que cura.
+        case 'raised':
+          return html`<div${paraQuienLee(e.stack, true)}>${nombreDeHechizo(e.spell, battle.libro)}: se levanta ${quienEs(e.stack)} del cadáver de ${quienEs(e.from)} en (${e.at.col},${e.at.row})</div>`;
         // La arena cambió unas cifras a media pelea (el editor): no es una
         // jugada, pero desde aquí la pelea se juega con las nuevas. Entre
         // paréntesis y con «;», porque un cambio de lista ya lleva sus dos

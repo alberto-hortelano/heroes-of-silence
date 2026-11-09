@@ -27,6 +27,7 @@ import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import WebSocket, { WebSocketServer } from 'ws';
 import { adaptarBatalla, adaptarEscena, sitiosDelCable } from '../src/client/espectador/adaptar.js';
+import { mismaBatalla } from '../src/client/espectador/telon.js';
 import { type Catalogo, RUTA_DEL_CATALOGO } from '../src/client/render/escenario/catalogo.js';
 import { componer } from '../src/client/render/escenario/colocar.js';
 import type { AdventureScene } from '../src/client/render/mapa/mapa.js';
@@ -57,8 +58,9 @@ import { Director } from '../src/server/director.js';
 import { construirVista } from '../src/server/vista-espectador.js';
 import type { SpectatorView, VistaHeroe } from '../src/shared/cable-del-espectador.js';
 import { ponVeteranoEnLaBase } from '../tools/qa/agente/veterano-en-la-base.js';
-import { forzarTurno } from './batalla-de-prueba.js';
+import { bando, forzarTurno, mando } from './batalla-de-prueba.js';
 import { RAIZ, TROPA } from './comun.js';
+import { turnoDe } from './magia-de-prueba.js';
 import { conCaminos, costesDelAlcance, planConCiudadDeRegion } from './mapa-de-prueba.js';
 import { monstruoVivo, sinGuarnicionDeSalida } from './partida-de-prueba.js';
 
@@ -771,6 +773,42 @@ describe('la batalla en la vista', () => {
     // rehiciera con `unidadDelJuego(body)` a secas, le pintaría cifras de novato.
     expect(vuelta.stacks[0]!.unit.attack).toBe(batalla.stacks[0]!.unit.attack);
     expect(vuelta.stacks[0]!.unit.attack).toBeGreaterThan(unidadDelJuego(TROPA).attack);
+  });
+
+  it('lo levantado de un cadáver viaja con su `levantadoDe`, y es la misma batalla con un stack más (08-11-2026)', () => {
+    const { state } = conBatalla();
+    const rng = createRng(5);
+    const batalla = createBattle(
+      bando([{ creature: TROPA, count: 1 }], {
+        heroe: mando({ spells: ['levantar_zombi'], mana: 50 }),
+      }),
+      bando([{ creature: TROPA, count: 2 }]),
+      rng,
+      COMBATE_COMPLETO,
+    );
+    state.pendingBattle = { ...state.pendingBattle!, battle: batalla };
+    turnoDe(batalla, 'attacker', rng);
+    // El primer rival, muerto a mano, y el héroe a su lado.
+    const caido = batalla.stacks.find((x) => x.id === 'defender-0')!;
+    caido.count = 0;
+    batalla.log.push({ kind: 'perished', stack: caido.id });
+    batalla.stacks.find((x) => x.id === 'attacker-heroe')!.hex = {
+      col: caido.hex.col - 1,
+      row: caido.hex.row,
+    };
+    const antes: SpectatorView = JSON.parse(JSON.stringify(construirVista(state, [])));
+    applyAction(batalla, { type: 'cast', spell: 'levantar_zombi', at: caido.hex }, rng);
+    const ida: SpectatorView = JSON.parse(JSON.stringify(construirVista(state, [])));
+    const levantado = ida.battle!.estado.stacks.at(-1)!;
+    expect(levantado.origen).toEqual({
+      kind: 'catalogo',
+      unidad: 'zombi',
+      veterania: null,
+      levantadoDe: 'defender-0',
+    });
+    expect(adaptarBatalla(ida.battle!)).toEqual(sinLoQueNoViaja(batalla));
+    // Con un stack más al final no es otra batalla: el animador no se reinicia.
+    expect(mismaBatalla(antes.battle!.estado, ida.battle!.estado)).toBe(true);
   });
 
   it('una unidad que no está en el catálogo y llega sin `unit` lanza, no se inventa', () => {

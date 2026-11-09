@@ -16,6 +16,8 @@ El detalle que vivía en `CLAUDE.md` hasta la fase Doc de la reorganización de 
 
 ## El agente
 
+**Levantar un cadáver** (08-11-2026, `docs/agents/2026-11-08-levantar-zombi/`): en `spell_list`, `target: "corpse"` (`objetivoAlAgente`, `contract/vistas.ts`, ya sin `default`: un objetivo nuevo no llega como «any» en silencio); se lanza con `cast.at` (el esquema zod no cambia) y `legalActions` trae una casilla por cadáver que se puede levantar; el registro lo cuenta con `raised` (tal cual, `hechoAlAgente`). Lo que sobra al volver lo deja la regla de la IA y `recentEvents` lo cuenta con `left_behind`; que lo elija el agente, backlog. La prosa, en `RESPONSE_FORMAT` (MAGIA y LO QUE SOBRA)
+
 Patrón listen/respond: `heroes_listen` bloquea hasta que hay decisión, la
 petición trae el formato de respuesta embebido, el agente responde una vez con
 `heroes_respond`, y el veredicto de lo anterior llega pegado a la siguiente

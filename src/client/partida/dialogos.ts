@@ -9,7 +9,7 @@
 import { type Html, pintar } from '../comun/html.js';
 import { renderAviso } from './aviso.js';
 import { renderConversacion } from './base/panel.js';
-import { renderDefensa, renderGuarnicion } from './guarnicion.js';
+import { renderDefensa, renderGuarnicion, renderLoQueSobra } from './guarnicion.js';
 import { renderConversacionDelLugar } from './lugar/panel.js';
 import type { PaginaDeLaPartida } from './pagina.js';
 
@@ -52,15 +52,20 @@ export function mostrarConversacion(
  * cierra por su `cancel` (la defensa, con la propuesta de la IA).
  */
 export function mostrarLaGuarnicion(
-  pagina: Pick<PaginaDeLaPartida, 'elGuarnicion' | 'elDefensa' | 'elAviso' | 'session'>,
+  pagina: Pick<
+    PaginaDeLaPartida,
+    'elGuarnicion' | 'elDefensa' | 'elAviso' | 'elSobrantes' | 'session'
+  >,
 ): void {
-  const { elGuarnicion, elDefensa, elAviso, session } = pagina;
+  const { elGuarnicion, elDefensa, elAviso, elSobrantes, session } = pagina;
   const vista = session.vistaDeLaGuarnicion();
   mostrarModal(elGuarnicion, vista === null ? null : renderGuarnicion(vista));
   const defensa = session.defensa;
   mostrarModal(elDefensa, defensa === null ? null : renderDefensa(defensa));
   const aviso = session.avisoDelAtaque;
   mostrarModal(elAviso, aviso === null ? null : renderAviso(aviso));
+  const sobran = session.sobrantes;
+  mostrarModal(elSobrantes, sobran === null ? null : renderLoQueSobra(sobran));
 }
 
 /** Un `<dialog>` modal con `contenido`, o cerrado si no hay nada que enseñar. */
@@ -77,10 +82,10 @@ function mostrarModal(el: HTMLDialogElement, contenido: Html | null): void {
 export function instalarLosDialogos(
   pagina: Pick<
     PaginaDeLaPartida,
-    'elGuarnicion' | 'elAviso' | 'elDefensa' | 'session' | 'pedirFotograma'
+    'elGuarnicion' | 'elAviso' | 'elDefensa' | 'elSobrantes' | 'session' | 'pedirFotograma'
   >,
 ): void {
-  const { elGuarnicion, elAviso, elDefensa, session, pedirFotograma } = pagina;
+  const { elGuarnicion, elAviso, elDefensa, elSobrantes, session, pedirFotograma } = pagina;
   elGuarnicion.addEventListener('cancel', (ev) => {
     ev.preventDefault();
     session.cerrarLaGuarnicion();
@@ -88,6 +93,8 @@ export function instalarLosDialogos(
   });
   // El aviso no se despide con Escape: la batalla llega igual, y se elige cómo.
   elAviso.addEventListener('cancel', (ev) => ev.preventDefault());
+  // Ni lo que sobra: la batalla no se cierra hasta elegir qué se deja (P2).
+  elSobrantes.addEventListener('cancel', (ev) => ev.preventDefault());
   elDefensa.addEventListener('cancel', (ev) => {
     ev.preventDefault();
     session.dejarLaDefensaDeLaIA();

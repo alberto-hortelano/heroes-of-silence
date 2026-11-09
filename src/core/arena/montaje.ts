@@ -48,7 +48,7 @@ import type { CatalogoDeEquipo, EquipoAtado } from '../equipo/atado.js';
 import { type CatalogoDeHechizos, HECHIZOS_DEL_JUEGO } from '../magia/catalogo.js';
 import type { Rng } from '../rng.js';
 import type { UnitInfo } from '../types.js';
-import type { CatalogoDeUnidades } from '../unidad/catalogo.js';
+import { CATALOGO_DEL_JUEGO, type CatalogoDeUnidades } from '../unidad/catalogo.js';
 import { type Unidad, unidadDeCombate, validarUnidad } from '../unidad/formato.js';
 import { claveDeFicha, fichaDelHeroe, fichaEnPalabras, tipoDeLaFuente } from './ficha.js';
 import { type HeroeDeArena, heroeDeArena } from './heroe.js';
@@ -124,7 +124,10 @@ export function catalogoDelMontaje(montaje: MontajeDeArena): CatalogoDeLaArena {
  * Un catálogo con estas unidades y estas piezas. Un id, una unidad: la misma puede
  * salir en varios puestos, pero dos distintas con el mismo id lanzan diciéndolo
  * (un stack dice qué unidad es por su id, `OrigenDelStack.unidad`, y el retoque
- * de un tipo cambia todos los suyos).
+ * de un tipo cambia todos los suyos). Una unidad que no está en ningún puesto se
+ * busca en el catálogo del juego (08-11-2026, «Levantar zombi»): lo que levanta un
+ * hechizo (el zombi, el esqueleto) puede no pelear desde el principio, y entonces
+ * sale con las cifras guardadas; si está en la pelea, con las de la página.
  */
 export function catalogoDeLaPelea(
   unidades: readonly Unidad[],
@@ -143,9 +146,8 @@ export function catalogoDeLaPelea(
   return {
     equipo,
     unidad: (id) => {
-      const u = porId.get(id);
-      if (u === undefined) throw new Error(`«${id}» no es ninguna unidad de esta pelea`);
-      return u;
+      // El del juego lanza con un id que no existe, nombrándolo.
+      return porId.get(id) ?? CATALOGO_DEL_JUEGO.unidad(id);
     },
   };
 }

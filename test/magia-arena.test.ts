@@ -29,8 +29,14 @@ import {
 import { problemasDelHechizo } from '../src/core/magia/validar.js';
 import { createRng } from '../src/core/rng.js';
 import { FACTION_IDS } from '../src/core/types.js';
+import type { Unidad } from '../src/core/unidad/formato.js';
 import { escribirCatalogo, leerCatalogo } from '../tools/arena/borrador.js';
-import { carpetaDeLaArena, catalogoEntero } from './pelea-de-arena.js';
+import {
+  carpetaDeLaArena,
+  catalogoEntero,
+  delBorrador,
+  unidadDeArena as unidad,
+} from './pelea-de-arena.js';
 
 describe('editar un hechizo (core/magia/editar.ts)', () => {
   it('uno nuevo vale, y su copia lleva otro id y otro nombre', () => {
@@ -167,6 +173,62 @@ describe('la arena pelea con los hechizos de la página', () => {
   });
 });
 
+describe('levantar en el editor y en la arena (08-11-2026, «Levantar zombi»)', () => {
+  it('el editor pone el efecto «levantar», y con el objetivo «cadaver» vale', () => {
+    const h = conEfecto(conCampo(hechizoNuevo([]), 'efectos', []), 'efectos', 'levantar');
+    expect(h.efectos).toEqual([
+      { tipo: 'levantar', vivos: 'zombi', de: { zombi: 'esqueleto-guerrero' } },
+    ]);
+    // Instantáneo: no le pone duración.
+    expect(h.duracion).toBeUndefined();
+    // Sin el objetivo, la ficha dice qué falta.
+    expect(problemasDelHechizo(h)).toContain(
+      '«Hechizo nuevo»: «levantar» solo va con el objetivo «cadaver»: se levanta de un cadáver',
+    );
+    expect(problemasDelHechizo(conCampo(h, 'objetivo', 'cadaver'))).toEqual([]);
+    // `de` por su ruta, como cualquier campo; vacío se quita.
+    expect(campoDe(conCampo(h, 'efectos.0.de', undefined), 'efectos.0')).toEqual({
+      tipo: 'levantar',
+      vivos: 'zombi',
+    });
+  });
+
+  /** Un héroe de la izquierda que sabe levantar, contra dos unidades de la derecha. */
+  const LEVANTA = { ...heroePorDefecto('izquierda'), hechizos: ['levantar_zombi'] };
+  const conZombi = (zombi: Unidad | null) => ({
+    izquierda: { unidades: [delBorrador(unidad('templario-escudo'))], heroe: LEVANTA },
+    derecha: {
+      unidades: [
+        delBorrador(unidad('templario-escudo')),
+        ...(zombi === null ? [] : [delBorrador(zombi)]),
+      ],
+      heroe: null,
+    },
+    combate: COMBATE_COMPLETO,
+    equipo: EQUIPO_DEL_JUEGO,
+  });
+
+  it('lo que se levanta y no pelea sale del catálogo del juego; si pelea, con las cifras de la página', () => {
+    const sinZombi = batallaDeArena(conZombi(null), createRng(1));
+    expect(sinZombi.levantables.attacker.zombi?.unit.hp).toBe(unidad('zombi').hp);
+    const fuerte = unidad('zombi', { hp: 300 });
+    const b = batallaDeArena(conZombi(fuerte), createRng(1));
+    expect(b.levantables.attacker.zombi?.unit.hp).toBe(300);
+    // Retocado a media pelea, se levanta con lo nuevo.
+    const catalogo = catalogoDelMontaje(conZombi(fuerte));
+    expect(
+      retocarEnBatalla(
+        b,
+        { kind: 'tipo', fuente: delBorrador(unidad('zombi', { hp: 200 })) },
+        catalogo,
+      ),
+    ).toBeNull();
+    expect(b.levantables.attacker.zombi?.unit.hp).toBe(200);
+    // La derecha no levanta nada: no lo resuelve (su catálogo podría no tenerlo).
+    expect(b.levantables.defender).toEqual({});
+  });
+});
+
 describe('«Guardar» escribe data/hechizos.json', () => {
   let dir: string | null = null;
   afterEach(() => {
@@ -237,6 +299,21 @@ describe('«Guardar» escribe data/hechizos.json', () => {
         ),
       }),
     ).toThrow(/«Curar» no es de su facción \(Templarios\): es de Elfos/);
+    expect(readFileSync(join(dir, 'data/hechizos.json'), 'utf8')).toBe(antes);
+  });
+
+  it('levantar una unidad que no existe no se guarda (08-11-2026)', () => {
+    dir = carpetaDeLaArena('arena-magia-');
+    const antes = readFileSync(join(dir, 'data/hechizos.json'), 'utf8');
+    expect(() =>
+      escribirCatalogo(dir as string, {
+        unidades: catalogoEntero(),
+        piezas: EQUIPO_ESCRITO,
+        hechizos: todosLosHechizos().map((h) =>
+          h.id === 'levantar_zombi' ? conCampo(h, 'efectos.0.vivos', 'momia') : h,
+        ),
+      }),
+    ).toThrow(/«Levantar zombi» nombra «momia», que no es ninguna unidad/);
     expect(readFileSync(join(dir, 'data/hechizos.json'), 'utf8')).toBe(antes);
   });
 

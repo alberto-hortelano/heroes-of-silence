@@ -48,7 +48,8 @@ import type { Session } from './sesion/partida.js';
 declare const HERRAMIENTAS_DE_DESARROLLO: boolean;
 
 const elementos = elementosDeLaPartida();
-const { app, canvas, elStatus, elSeed, elRueda, elGuarnicion, elDefensa, elAviso } = elementos;
+const { app, canvas, elStatus, elSeed, elRueda, elGuarnicion, elDefensa, elAviso, elSobrantes } =
+  elementos;
 
 /**
  * El bucle de dibujo (`comun/bucle.ts`), con la red de la partida: un fallo al pintar se
@@ -119,7 +120,7 @@ apuntarElSueloEn(app);
 
 // Antes que los gestos de la batalla, como siempre: con lo que leen, que la página aún no
 // está entera.
-instalarLosDialogos({ elGuarnicion, elAviso, elDefensa, session, pedirFotograma });
+instalarLosDialogos({ elGuarnicion, elAviso, elDefensa, elSobrantes, session, pedirFotograma });
 
 /**
  * Los gestos de la batalla, los de la arena (`batalla/gestos.ts`): los botones del

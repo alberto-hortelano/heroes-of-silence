@@ -22,7 +22,12 @@ import { catalogoDeHechizos, HECHIZOS_DEL_JUEGO, hechizo } from '../src/core/mag
 import { rinde } from '../src/core/magia/formato.js';
 import { createRng, type Rng } from '../src/core/rng.js';
 import { UNIDADES, unidadDelJuego, unidadesDelJuego } from '../src/core/unidad/catalogo.js';
-import { hechizosDeUnidadesBlocker, poderDeUnidadBlocker } from '../src/core/unidad/formato.js';
+import {
+  hechizosDeUnidadesBlocker,
+  leerCatalogos,
+  levantadosBlocker,
+  poderDeUnidadBlocker,
+} from '../src/core/unidad/formato.js';
 import { avanzarHasta } from './batalla-de-prueba.js';
 import { SANADOR } from './comun.js';
 import { delBorrador, unidadDeArena as unidad } from './pelea-de-arena.js';
@@ -167,5 +172,54 @@ describe('los poderes son hechizos de la unidad (Unidad.hechizos, 06-11-2026)', 
     );
     // Y el catálogo del juego carga: nadie lleva un poder ajeno.
     expect(hechizosDeUnidadesBlocker(UNIDADES, HECHIZOS_DEL_JUEGO)).toBeNull();
+  });
+});
+
+describe('lo que levanta un hechizo, con el catálogo de unidades (08-11-2026, «Levantar zombi»)', () => {
+  const levantar = hechizo('levantar_zombi');
+  const con = (efecto: object) =>
+    catalogoDeHechizos([{ ...levantar, efectos: [efecto as (typeof levantar.efectos)[number]] }]);
+
+  it('el del juego carga: el zombi y el esqueleto existen, y el zombi es no-muerto', () => {
+    expect(levantadosBlocker(UNIDADES, HECHIZOS_DEL_JUEGO)).toBeNull();
+  });
+
+  it('una unidad que no existe, en «vivos» o en «de», no vale', () => {
+    expect(levantadosBlocker(UNIDADES, con({ tipo: 'levantar', vivos: 'momia' }))).toBe(
+      '«Levantar zombi» nombra «momia», que no es ninguna unidad de data/unidades.json',
+    );
+    expect(
+      levantadosBlocker(UNIDADES, con({ tipo: 'levantar', vivos: 'zombi', de: { zombi: 'lich' } })),
+    ).toBe('«Levantar zombi» nombra «lich», que no es ninguna unidad de data/unidades.json');
+  });
+
+  it('de un vivo sale siempre lo de «vivos»: «de» solo nombra no-muertos', () => {
+    expect(
+      levantadosBlocker(
+        UNIDADES,
+        con({ tipo: 'levantar', vivos: 'zombi', de: { 'templario-monje': 'esqueleto-guerrero' } }),
+      ),
+    ).toBe(
+      '«Levantar zombi»: Monje no es no-muerto, y de un vivo sale siempre lo de «vivos» (zombi)',
+    );
+  });
+
+  it('la carga lo lanza nombrando data/hechizos.json', () => {
+    const json = { unidades: UNIDADES };
+    expect(() =>
+      leerCatalogos(
+        EQUIPO_DEL_JUEGO,
+        json,
+        catalogoDeHechizos([
+          ...HECHIZOS_DEL_JUEGO.values(),
+          {
+            ...levantar,
+            id: 'otro',
+            nombre: 'Otro',
+            efectos: [{ tipo: 'levantar', vivos: 'momia' }],
+          },
+        ]),
+      ),
+    ).toThrow('data/hechizos.json: «Otro» nombra «momia»');
   });
 });

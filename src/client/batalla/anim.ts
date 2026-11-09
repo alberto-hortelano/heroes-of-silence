@@ -50,6 +50,8 @@ export const DURACION = {
   shoot: 620,
   cast: 520,
   perished: 520,
+  /** Lo levantado de un cadáver aparece en su casilla (`raised`, «Levantar zombi»). */
+  raised: 520,
   /** El tirador se vuelve hacia la casilla a la que apunta (`aimed`). */
   apunta: 360,
   /**
@@ -202,6 +204,16 @@ type Paso =
     } & Reloj)
   | { readonly tipo: 'perished'; readonly stack: string; readonly dura: number }
   /**
+   * Se levanta `stack` del cadáver `from` (08-11-2026): hasta que acaba el paso, el
+   * levantado no se ve y el cadáver sigue en el suelo; después, al revés.
+   */
+  | {
+      readonly tipo: 'raised';
+      readonly stack: string;
+      readonly from: string;
+      readonly dura: number;
+    }
+  /**
    * El cruce de la rueda del golpe: nadie se mueve; lo cuenta el diálogo de la
    * rueda. `efectos`, lo que llevaba colgado cada stack antes de leer la jugada del
    * cruce (`FotoDeEfectos`): la cabecera del desenlace los pinta.
@@ -283,6 +295,7 @@ function actorDe(p: Paso): string | null {
     case 'cruce':
       return p.evento.stack;
     case 'perished':
+    case 'raised':
       return null;
   }
 }
@@ -449,6 +462,8 @@ function pasoDeAccion(e: BattleEvent, battle: BattleState): PasoDeAccion | null 
       };
     case 'perished':
       return { tipo: 'perished', stack: e.stack, dura: DURACION.perished };
+    case 'raised':
+      return { tipo: 'raised', stack: e.stack, from: e.from, dura: DURACION.raised };
     case 'aimed':
       return { tipo: 'apunta', stack: e.stack, at: e.at, dura: DURACION.apunta };
     case 'thrown':
@@ -575,6 +590,13 @@ export class BattleAnimator {
    * por fotograma.
    */
   private readonly aCentro = new Map<string, Plano>();
+  /**
+   * Lo levantado de un cadáver cuyo paso aún no se ha contado: el estado ya lo trae,
+   * pero no se ve hasta que acaba su `raised` (08-11-2026, «Levantar zombi»).
+   */
+  private readonly porAparecer = new Set<string>();
+  /** Los cadáveres gastados ya contados: no se pintan (`OrigenDelStack.levantadoDe`). */
+  private readonly gastados = new Set<string>();
   /** El instante del fotograma, fijado por `tick`. */
   private ahora = 0;
   /** La casilla de cabeza en la que se VE quieta cada una, como `vista`. */
@@ -632,7 +654,13 @@ export class BattleAnimator {
       this.casillaVista.clear();
       this.vidaVista.clear();
       this.porContar.clear();
+      this.porAparecer.clear();
+      this.gastados.clear();
       for (const s of battle.stacks) {
+        // Lo ya levantado se ve, y su cadáver no: no hay nada que contar.
+        if (s.origen.kind === 'catalogo' && s.origen.levantadoDe !== undefined) {
+          this.gastados.add(s.origen.levantadoDe);
+        }
         // Cada uno empieza mirando al otro lado del tablero: el defensor, al oeste.
         this.mirada.set(s.id, miradaDeSalida(s));
         this.enSuCasilla(battle, s);
@@ -647,6 +675,7 @@ export class BattleAnimator {
       const e = battle.log[i] as BattleEvent;
       const paso = this.traducir(e, battle);
       if (paso !== null) {
+        if (paso.tipo === 'raised') this.porAparecer.add(paso.stack);
         this.cola.push(paso);
         for (const id of tocadosPor(paso))
           this.porContar.set(id, (this.porContar.get(id) ?? 0) + 1);
@@ -857,6 +886,10 @@ export class BattleAnimator {
       this.altura.set(p.stack, p.alturas.at(-1) as number);
     }
     if (p.tipo === 'perished') this.caidas.set(p.stack, inicio);
+    if (p.tipo === 'raised') {
+      this.porAparecer.delete(p.stack);
+      this.gastados.add(p.from);
+    }
     // El daño sigue después del paso: se apunta cuándo fue el impacto.
     if (p.tipo === 'attack' || p.tipo === 'shoot' || p.tipo === 'cast') {
       if (p.target !== null && p.damage > 0) this.heridas.set(p.target, inicio + p.impacto * dura);
@@ -1058,8 +1091,10 @@ export class BattleAnimator {
 
     // Una unidad muerta en el estado sigue en pie hasta que su caída se ve.
     const inicioDeLaCaida = isAlive(s) ? undefined : this.caidas.get(s.id);
-    const visible = inicioDeLaCaida === undefined;
-    const caida = inicioDeLaCaida === undefined ? null : this.ahora - inicioDeLaCaida;
+    // Ni el levantado antes de contarse ni el cadáver gastado después: ninguno se pinta.
+    const fuera = this.porAparecer.has(s.id) || this.gastados.has(s.id);
+    const visible = inicioDeLaCaida === undefined && !fuera;
+    const caida = inicioDeLaCaida === undefined || fuera ? null : this.ahora - inicioDeLaCaida;
     const vida = (this.porContar.get(s.id) ?? 0) > 0 ? this.vidaVista.get(s.id) : undefined;
     return {
       en: this.centro(s, cabeza),

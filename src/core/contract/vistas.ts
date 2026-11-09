@@ -177,18 +177,27 @@ function chargeDamageDe(c: UnidadDelJuego): { chargeDamage?: readonly [number, n
 }
 
 /** A qué se lanza un hechizo, en el contrato. */
-function objetivoAlAgente(h: Hechizo): 'ally' | 'enemy' | 'any' | 'tile' | 'self' | 'all' {
+function objetivoAlAgente(
+  h: Hechizo,
+): 'ally' | 'enemy' | 'any' | 'tile' | 'corpse' | 'self' | 'all' {
   if (h.entrega.tipo === 'sobreSi') return 'self';
   if (h.entrega.tipo === 'tablero') return 'all';
-  switch (h.objetivo) {
+  // Sin `default` (08-11-2026, «Levantar zombi»): un objetivo nuevo llegaba al agente
+  // como «any» sin que nada fallara. Sin objetivo con otra entrega no lo deja
+  // la validación (`problemasDelHechizo`).
+  const objetivo = h.objetivo;
+  if (objetivo === undefined) throw new Error(`«${h.nombre}» no dice a qué se lanza («objetivo»)`);
+  switch (objetivo) {
     case 'aliado':
       return 'ally';
     case 'enemigo':
       return 'enemy';
+    case 'cualquiera':
+      return 'any';
     case 'casilla':
       return 'tile';
-    default:
-      return 'any';
+    case 'cadaver':
+      return 'corpse';
   }
 }
 
@@ -196,7 +205,7 @@ function objetivoAlAgente(h: Hechizo): 'ally' | 'enemy' | 'any' | 'tile' | 'self
  * Los hechizos del juego como los lee el agente (`spell_list`, 06-11-2026): el id, el
  * nombre, el nivel del gremio que lo enseña (`null`: ninguno), el maná, la
  * descripción de quien lo escribió, lo que hace en una frase (`queHaceElHechizo`) y
- * a qué se lanza (`target`: con "tile", `cast` lleva `at`; con "self" o "all", nada).
+ * a qué se lanza (`target`: con "tile" o "corpse", `cast` lleva `at`; con "self" o "all", nada).
  */
 export function hechizosAlAgente() {
   return todosLosHechizos().map((h) => ({

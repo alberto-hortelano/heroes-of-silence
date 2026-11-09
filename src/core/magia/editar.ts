@@ -37,6 +37,10 @@ function efectoNuevo(tipo: TipoDeEfecto): Efecto {
         a: 'portador',
         efectos: [{ tipo: 'danio', cantidad: 5, armadura: false }],
       };
+    case 'levantar':
+      // Lo de «Levantar zombi»: del vivo, un zombi; del zombi, un esqueleto. Pide el
+      // objetivo «cadaver», que la ficha dice si falta.
+      return { tipo, vivos: 'zombi', de: { zombi: 'esqueleto-guerrero' } };
   }
 }
 

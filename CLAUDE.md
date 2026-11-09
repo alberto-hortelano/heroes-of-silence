@@ -216,6 +216,7 @@ Cada hecho tiene un sitio; la ruta, relativa a `src/core/` o `src/client/` (a `s
 | De un píxel del cuadro de la base al escenario | `planoDelCuadro` (`shared/base.ts`) |
 | Recortar un edificio de la base | `recortarLaBase`, `derivarRecorte` (`tools/taller/recorte-base.ts`) |
 | Quién hay en una base y qué dice | `vecinosDeLaBase`, `vozDe`; las voces del narrador, solo `ponerVoces` (`gente/voces.ts`) |
+| Lo que sobra tras la batalla | `sobrantesTrasLaBatalla`, `dejarBlocker`, `loQueDejaLaIA` (`state/sobrantes.ts`); lo aplica `settleBattle` |
 | La renta del día (solo oro) | `rentaDelDia` (`state/renta.ts`); lo que no alcanza, `oroBlocker` (`town/town.ts`) |
 | Camino de un héroe | `alcanceDelHeroe`, `caminoHasta` (`state/marcha.ts`); nadie más llama a `findPath` ni a `reachableFrom` |
 | Lo que se anda hoy | `pasosDeHoy` (`state/marcha.ts`) |
@@ -296,6 +297,7 @@ Cada hecho tiene un sitio; la ruta, relativa a `src/core/` o `src/client/` (a `s
 | Previsión de daño | `previsionDe`, `previsionDeLaRueda` (`battle/prevision.ts`) |
 | Un hechizo: formato y catálogo | `problemasDelHechizo` (`magia/validar.ts`); `HECHIZOS_DEL_JUEGO` (`magia/catalogo.ts`), el único que importa `data/hechizos.json` |
 | Lanzar un hechizo | `castBlocker`, `afectadosDe` (`battle/lanzar.ts`); la única aplicación, `lanzarHechizo` (`battle/battle.ts`) |
+| Levantar un cadáver | `cadaverEn`, `cadaverGastado` (`battle/consultas.ts`), `queLevanta` (`battle/spells.ts`); el único `stacks.push` a media pelea, `levantar` |
 | Lo que dura un hechizo | `StackEffect` (`battle/effects.ts`); la muerte, solo `anotarLaMuerte` (`battle/battle.ts`) |
 | Salir del contacto | `salirCuesta` (`battle/contacto.ts`), `contactoBlocker` (`battle/consultas.ts`) |
 | Armadura | `trasLaArmadura`, `armaduraDe` (`battle/armas.ts`) |
@@ -401,6 +403,7 @@ Verificadas contra fheroes2 salvo donde dice «regla nuestra». El detalle, con 
 | Victoria | perder la base elimina en el acto | nuestra |
 | Magia (hechizos) | un hechizo es datos: entrega, efectos, duración y facciones; el gremio y los poderes, solo de la suya | nuestra |
 | Infiltración | cada casilla de barrera cuesta el día entero; parado en ella, intocable | nuestra |
+| Levantar un cadáver | del último caído: vivo → zombi, zombi → esqueleto; nace sin turno y fuera del tope; al volver, se deja lo que sobra | nuestra |
 | Guarnición y defensa | todo sitio guarda tropa; no se recoge sola; defiende el héroe con lo elegido | nuestra |
 | Ocupación | un sitio de dentro de una región es de quien la tenga; con tropa ajena, no rinde | nuestra |
 | Murallas del mapa | ciudad tras piedra, pueblo tras madera, paso tras su obra; escalera a todo el atacante | nuestra |
@@ -434,7 +437,8 @@ de respuesta embebido, el agente responde una vez con `heroes_respond`, y el ver
 anterior llega pegado a la siguiente petición, también cuando acertó. Sus acciones se descartan una
 a una con su motivo; todo pasa por la niebla; del contrato se exportan esquemas, no alias de tipo.
 Defiende sus batallas y diseña el mapa (si el plan no vale, el procedimental y se le dice por qué).
-No están en su contrato (backlog): `repartir_tropa`, mejorar el puesto y entrar en un lugar (F4).
+No están en su contrato (backlog): `repartir_tropa`, mejorar el puesto, entrar en un lugar (F4) y
+elegir lo que sobra tras una batalla (lo deja la regla de la IA).
 Las peticiones, las consultas, la rueda, la muralla, el clima y lo demás: `docs/areas/agente.md`.
 
 ## El cliente

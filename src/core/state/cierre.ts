@@ -10,7 +10,9 @@
 import { resumenDeBatalla } from '../battle/resumen.js';
 import type { BattleStack, Side } from '../battle/types.js';
 import { PIEZAS_DE_BOTIN } from '../equipo/pieza.js';
+import { idsPuestos } from '../equipo/vestir.js';
 import { rangoDeHeroe, rangoDeTropa } from '../hero/rango.js';
+import { licenciar } from '../hero/troop.js';
 import type { MapObject } from '../map/tipos.js';
 import { claveDeEncuentro, claveDeOpcion, daPremio, esPremio } from '../mundo/formato.js';
 import { mundoDe } from '../mundo/reglas.js';
@@ -31,7 +33,14 @@ import { aLaMochila, hojaNueva } from './equipar.js';
 import type { BattleFoe } from './events.js';
 import { aplicarEfectos, cobroDe, opcionDeLaBatalla } from './lugares.js';
 import { entregarElSitio } from './marcha.js';
-import { delSitio, laGuarnicion, ponerLaGuarnicion, sitioPorId } from './sitios.js';
+import { delSitio, idDelSitio, laGuarnicion, ponerLaGuarnicion, sitioPorId } from './sitios.js';
+import {
+  type Dejados,
+  dejarBlocker,
+  loQueDejaLaIA,
+  type QuienVuelve,
+  sobrantesTrasLaBatalla,
+} from './sobrantes.js';
 import type { Enfrentamiento, GameContext, GameState, PendingBattle } from './tipos.js';
 import { checkDefeat } from './turnos.js';
 import { revealAround } from './vision.js';
@@ -43,11 +52,28 @@ function esEmboscada<T extends Enfrentamiento>(
   return p.attacker.kind === 'raider';
 }
 
-/** Reparte las consecuencias de una batalla ya terminada. */
-export function settleBattle(state: GameState, _ctx: GameContext): void {
+/**
+ * Reparte las consecuencias de una batalla ya terminada. `dejados`, lo que la
+ * persona eligió dejar de un bando que vuelve con más de lo que le cabe
+ * (`sobrantesTrasLaBatalla`, 08-11-2026); un bando que se pasa y no viene en él
+ * deja lo de la regla de la IA (`loQueDejaLaIA`). Lo que no vale lanza con la
+ * frase de `dejarBlocker`, antes de tocar nada.
+ */
+export function settleBattle(state: GameState, _ctx: GameContext, dejados: Dejados = {}): void {
   const pending = state.pendingBattle;
   if (pending === null) throw new Error('no hay batalla pendiente');
   if (pending.battle.finished === null) throw new Error('la batalla no ha terminado');
+  // Lo que sobra se mira con el liderazgo de antes de cobrar la experiencia: el
+  // mismo que vio la persona en el diálogo.
+  const sobran = sobrantesTrasLaBatalla(state);
+  for (const side of Object.keys(dejados) as Side[]) {
+    const s = sobran.find((x) => x.side === side);
+    if (s === undefined) {
+      throw new Error(`no se puede cerrar la batalla: al ${side} no le sobra nada que dejar`);
+    }
+    const motivo = dejarBlocker(s, dejados[side] ?? {});
+    if (motivo !== null) throw new Error(`no se puede cerrar la batalla: ${motivo}`);
+  }
 
   const finished = pending.battle.finished;
   const winner = finished.winner;
@@ -67,8 +93,10 @@ export function settleBattle(state: GameState, _ctx: GameContext): void {
   // Los vivos de un bando, en su orden de salida. Un stack de N —el motor los
   // sigue sabiendo jugar— vuelve como N individuos, aunque la partida solo le
   // mande de 1. Sin ordenar: `createBattle` empuja cada bando en orden de
-  // `slot` y nadie añade ni reordena stacks después, así que el orden de
-  // `stacks` YA es el de salida.
+  // `slot`, y lo único que se añade después es lo levantado de un cadáver
+  // (`levantar`, 08-11-2026), al final y con el `slot` siguiente, así que el
+  // orden de `stacks` YA es el de salida. Lo levantado vuelve solo a un bando con
+  // dueño (P1): a un monstruo o un grupo no le crece la tropa.
   //
   // Y vuelven con su experiencia: la que traían más la que han ganado, en el
   // mismo individuo. Solo los de un bando con dueño —la tropa de un héroe o la
@@ -81,6 +109,13 @@ export function settleBattle(state: GameState, _ctx: GameContext): void {
     const cobro: Cobro = { state, dueño: dueños[side], ascensos };
     for (const s of pending.battle.stacks) {
       if (s.side !== side || s.count <= 0) continue;
+      if (
+        s.origen.kind === 'catalogo' &&
+        s.origen.levantadoDe !== undefined &&
+        dueños[side] === null
+      ) {
+        continue;
+      }
       let base: Troop;
       switch (s.origen.kind) {
         case 'catalogo':
@@ -97,8 +132,25 @@ export function settleBattle(state: GameState, _ctx: GameContext): void {
     return vivos;
   };
 
-  const supervivientesDelDefensor = superviviente('defender');
-  const supervivientesDelAtacante = superviviente('attacker');
+  // Lo que sobra se deja aquí, antes de que la tropa vuelva a nadie: lo elegido o
+  // la regla de la IA. Sus ascensos no se cuentan (se van) y su equipo va a la
+  // mochila del héroe o, de una guarnición, se pierde (P7).
+  const dejan: Dejado[] = [];
+  const conLoQueCabe = (side: Side, army: Army): Army => {
+    const s = sobran.find((x) => x.side === side);
+    if (s === undefined) return army;
+    const dejar = dejados[side] ?? loQueDejaLaIA(army, s);
+    let queda = army;
+    for (const [creature, count] of Object.entries(dejar)) {
+      if (count <= 0) continue;
+      const r = licenciar(queda, creature, count);
+      queda = r.queda;
+      dejan.push({ quien: s.quien, creature, count, seVan: r.seVan });
+    }
+    return queda;
+  };
+  const supervivientesDelDefensor = conLoQueCabe('defender', superviviente('defender'));
+  const supervivientesDelAtacante = conLoQueCabe('attacker', superviviente('attacker'));
   // Lo que la batalla les mutó —el maná, y la tropa que queda en pie— vuelve a
   // los DOS héroes aquí, una vez y por la misma función, gane quien gane. Antes
   // se devolvía en tres sitios según quién perdiera, y el defensor que perdía
@@ -139,7 +191,13 @@ export function settleBattle(state: GameState, _ctx: GameContext): void {
     if (quien.kind !== 'hero') continue;
     ganarExperiencia(state, heroById(state, quien.heroId), st.ganado.experiencia, at);
   }
+  const idos = new Set(
+    dejan.flatMap((d) =>
+      d.seVan.flatMap((t) => (t.veterania === undefined ? [] : [t.veterania.id])),
+    ),
+  );
   for (const a of ascensos) {
+    if (idos.has(a.veterano)) continue;
     emit(state, {
       kind: 'troop_rank_up',
       creature: a.creature,
@@ -149,6 +207,8 @@ export function settleBattle(state: GameState, _ctx: GameContext): void {
       at,
     });
   }
+
+  for (const d of dejan) dejarAtras(state, d, at);
 
   if (esEmboscada(pending)) {
     const emboscado = heroById(state, pending.foe.heroId);
@@ -176,6 +236,37 @@ export function settleBattle(state: GameState, _ctx: GameContext): void {
   // vuelve a dar), antes de mirar si alguien ha perdido: `game_over` es el último.
   anotarLosSitios(state, sitiosAntes);
   checkDefeat(state);
+}
+
+/** Lo que deja un bando al cerrar: quién, de qué tipo y quiénes se van. */
+interface Dejado {
+  readonly quien: QuienVuelve;
+  readonly creature: string;
+  readonly count: number;
+  readonly seVan: readonly Troop[];
+}
+
+/**
+ * Deja atrás lo que no cupo y lo cuenta (`left_behind`): lo que llevaban puesto va
+ * a la mochila del héroe, como al licenciar (`dismiss`); el de una guarnición, que
+ * no tiene mochila, se pierde, y el hecho lo dice (P7, «Se pierde»).
+ */
+function dejarAtras(state: GameState, d: Dejado, at: Point): void {
+  const piezas = d.seVan.flatMap((t) => idsPuestos(t.veterania?.equipo));
+  const actor =
+    d.quien.kind === 'heroe' ? d.quien.heroe.owner : laGuarnicion(state, d.quien.sitio)?.dueño;
+  if (actor == null) throw new Error('lo que sobra de una batalla no es de nadie');
+  if (d.quien.kind === 'heroe') aLaMochila(d.quien.heroe, ...piezas);
+  emit(state, {
+    kind: 'left_behind',
+    hero: d.quien.kind === 'heroe' ? d.quien.heroe.id : null,
+    site: d.quien.kind === 'sitio' ? idDelSitio(d.quien.sitio) : null,
+    creature: d.creature,
+    count: d.count,
+    lost: d.quien.kind === 'heroe' ? [] : piezas,
+    actor,
+    at,
+  });
 }
 
 /**

@@ -48,6 +48,7 @@ import { type CifrasDeLaRueda, efectoDelTipo, type Punto } from './cifras-de-la-
 import {
   activeStack,
   bandoVencido,
+  cadaverEn,
   despliegueEnCursoBlocker,
   devolveraElGolpe,
   esPlantarse,
@@ -117,6 +118,7 @@ import {
   efectoColgado,
   type Lanzador,
   loAlcanza,
+  queLevanta,
   queSeApunta,
 } from './spells.js';
 import type { BattleAction, BattleEvent, BattleStack, BattleState, Side } from './types.js';
@@ -1191,6 +1193,12 @@ function lanzarHechizo(
     state.log.push({ ...hecho(null), diferido: true } as BattleEvent);
     return;
   }
+  if (h.objetivo === 'cadaver') {
+    if (apuntado === null || !('at' in apuntado)) throw new Error('a un cadáver se lanza con «at»');
+    state.log.push(hecho(null));
+    levantar(state, h, l, apuntado.at);
+    return;
+  }
   const afectados = afectadosDe(state, h, l, apuntado);
   if (queSeApunta(h) === 'unidad' && areaDe(h) === 0) {
     // A una sola unidad: el hecho de siempre, con lo que le hizo.
@@ -1206,6 +1214,59 @@ function lanzarHechizo(
   }
   state.log.push(hecho(null));
   aplicarAVarios(state, h, l, afectados);
+}
+
+/**
+ * Levanta del cadáver de `at` lo que diga `h` (`queLevanta`), del bando de `l`, en su
+ * casilla (08-11-2026, «Levantar zombi»; regla nuestra). Ya validado por su
+ * `*Blocker` (`apuntadoBlocker`): aquí solo se lanza si alguien se lo saltó.
+ *
+ * **El único `stacks.push` fuera de `createBattle`** (lo vigila
+ * `invariantes-batalla.test.ts`). El levantado es un stack nuevo de 1, novato, con
+ * las cifras resueltas al montar (`BattleState.levantables`), el `slot` siguiente al
+ * mayor de su bando (pierde los empates de iniciativa) y su id de siempre
+ * (`<bando>-<slot>`). Nace con el turno gastado (`acted`, S2): la cola de la ronda ya
+ * se montó sin él, y entra en la siguiente (`initiativeOrder`). No cuenta contra el
+ * tope de tropa: ese se mira al montar, y al acabar decide el cierre de la batalla
+ * qué cabe. El cadáver se gasta porque el levantado lo nombra (`levantadoDe`).
+ */
+function levantar(state: BattleState, h: Hechizo, l: Lanzador, at: Hex): void {
+  const cadaver = cadaverEn(state, at);
+  if (cadaver === null) throw new Error(`no hay ningún cadáver en (${at.col},${at.row})`);
+  const unidad = queLevanta(h, cadaver);
+  if (unidad === null) throw new Error(`«${h.nombre}» no levanta nada de ${cadaver.unit.name}`);
+  const r = state.levantables[l.bando][unidad];
+  if (r === undefined) {
+    throw new Error(`«${unidad}» no se resolvió al montar la batalla: no se puede levantar`);
+  }
+  const suyos = state.stacks.filter((x) => x.side === l.bando);
+  const slot = Math.max(-1, ...suyos.map((x) => x.slot)) + 1;
+  const id = `${l.bando}-${slot}`;
+  state.stacks.push({
+    id,
+    side: l.bando,
+    slot,
+    body: r.body,
+    unit: r.unit,
+    origen: { kind: 'catalogo', unidad, oro: r.oro, veterania: null, levantadoDe: cadaver.id },
+    initialCount: 1,
+    count: 1,
+    topHp: r.unit.hp,
+    hex: { ...at },
+    escalera: false,
+    retaliated: false,
+    acted: true,
+    // La moral de quien lo lanza; un no-muerto, 0, como al montar.
+    morale: hasTrait(r.unit, 'undead') ? 0 : l.stack.morale,
+    effects: [],
+    ganado: { experiencia: 0, bajas: 0, heroes: [] },
+    apuntado: null,
+    recargando: 0,
+    granada: null,
+    granadasLanzadas: 0,
+    hechizoEnElAire: null,
+  });
+  state.log.push({ kind: 'raised', stack: id, from: cadaver.id, spell: h.id, side: l.bando, at });
 }
 
 /** Aplica `h` a cada uno de `afectados`, con un `spell_hit` por alcanzado. */

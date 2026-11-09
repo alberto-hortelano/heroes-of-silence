@@ -387,13 +387,20 @@ export async function playAiGame(state: GameState, ctx: GameContext): Promise<Ga
  * bandos de los jugadores que no lleva ella (`sinLaIA`) pelea, pero no se rinde.
  */
 export function resolvePendingBattle(state: GameState, ctx: GameContext): BattleOutcome {
-  const pending = state.pendingBattle;
-  if (pending === null) throw new Error('no hay batalla pendiente');
-  const outcome = autoResolve(
-    pending.battle,
-    ctx.rng,
-    sidesOwnedBy(state, pending, sinLaIA(state)),
-  );
+  const outcome = jugarLaBatallaPendiente(state, ctx);
   settleBattle(state, ctx);
   return outcome;
+}
+
+/**
+ * Juega la batalla pendiente con la IA táctica hasta el final, **sin cerrarla**: la
+ * deja en `pendingBattle`, terminada. Lo que la persona aún elige al cerrar (lo que
+ * sobra, `sobrantesTrasLaBatalla`, 08-11-2026) se lo pregunta su «Continuar» tras
+ * «Resolver sola»; los demás la cierran en el acto (`resolvePendingBattle`). Por los
+ * bandos de los jugadores que no lleva ella (`sinLaIA`) pelea, pero no se rinde.
+ */
+export function jugarLaBatallaPendiente(state: GameState, ctx: GameContext): BattleOutcome {
+  const pending = state.pendingBattle;
+  if (pending === null) throw new Error('no hay batalla pendiente');
+  return autoResolve(pending.battle, ctx.rng, sidesOwnedBy(state, pending, sinLaIA(state)));
 }

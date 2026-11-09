@@ -340,6 +340,21 @@ export function renderLog(
           return html`<div${clase(mio, false)}>${
             mio ? 'Licenciados' : `${jugador(e.actor)} licencia`
           } ${e.count} × ${unidadDelJuego(e.creature).name}${aqui}</div>`;
+        // Lo que no cupo tras una batalla (08-11-2026, «Levantar zombi»): quién lo
+        // deja y, si es una guarnición, lo que se perdió con ellos (P7).
+        case 'left_behind': {
+          const quien =
+            e.site === null
+              ? mio
+                ? 'Tu héroe deja'
+                : `${jugador(e.actor)} deja`
+              : `La guarnición de ${sitioOCasilla(e.site, e.at, (x) => nombreDelSitio(x), 'un sitio')} deja`;
+          const pierde =
+            e.lost.length === 0
+              ? ''
+              : `; se pierde lo que llevaban: ${e.lost.map((id) => pieza(id).nombre).join(', ')}`;
+          return html`<div${clase(false, mio)}>${quien} ${e.count} × ${unidadDelJuego(e.creature).name}${aqui}: no cabe tras la batalla${pierde}</div>`;
+        }
         case 'hero_hired':
           return html`<div${clase(mio, false)}>${
             mio ? 'Héroe contratado' : `${jugador(e.actor)} contrata un héroe`

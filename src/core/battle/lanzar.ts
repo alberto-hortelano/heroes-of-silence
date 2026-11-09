@@ -19,6 +19,7 @@ import { lineaDelDisparo } from './a-distancia.js';
 import { hexDistance, hexEquals, isInside } from './board.js';
 import {
   activeStack,
+  cadaverEn,
   faseBlocker,
   hechizoDeLaBatalla,
   impedimentoBlocker,
@@ -35,6 +36,7 @@ import {
   type Lanzador,
   loAlcanza,
   objetivoBlocker as objetivoDelHechizoBlocker,
+  queLevanta,
   queSeApunta,
   resolverDisparador,
   resolverEfecto,
@@ -92,6 +94,7 @@ export function apuntadoBlocker(
       return `«${h.nombre}» no se apunta: va ${h.entrega.tipo === 'sobreSi' ? 'sobre quien lo lanza' : 'a todo el tablero'}`;
     return null;
   }
+  if (h.objetivo === 'cadaver') return cadaverBlocker(state, h, l, apuntado);
   if (apuntado === undefined) {
     if (que === 'casilla') return null;
     return state.stacks.some((t) => unidadBlocker(h, l, t, exigeHerida) === null)
@@ -113,6 +116,52 @@ export function apuntadoBlocker(
     return `«${h.nombre}» no se lanza a la casilla de quien lo lanza: no habría recta`;
   }
   return distanciaBlocker(h, l, at);
+}
+
+/**
+ * Por qué `h`, que apunta a un cadáver (`objetivo: cadaver`), no vale lanzado por `l`
+ * sobre `apuntado`, o `null`. En este orden: lo que se elige (una casilla), que no
+ * haya nadie vivo en ella, que haya un cadáver sin gastar, que no sea el del héroe,
+ * que de él salga algo (`queLevanta`) y la distancia. Sin `apuntado`, la pregunta
+ * del botón: ¿hay algún cadáver que se pueda levantar desde aquí?
+ */
+function cadaverBlocker(
+  state: BattleState,
+  h: Hechizo,
+  l: Lanzador,
+  apuntado: Apuntado | undefined,
+): string | null {
+  if (apuntado === undefined) {
+    return casillasConCadaver(state).some((at) => cadaverBlocker(state, h, l, { at }) === null)
+      ? null
+      : 'no hay ningún cadáver que levantar';
+  }
+  if (apuntado === null || !('at' in apuntado)) return `«${h.nombre}» se lanza a un cadáver`;
+  const at = apuntado.at;
+  const donde = `(${at.col},${at.row})`;
+  if (!isInside(at)) return `${donde} no es una casilla del tablero`;
+  const vivo = vivoEn(state, at);
+  if (vivo !== null) return `en ${donde} hay una unidad viva (${vivo.unit.name})`;
+  const cadaver = cadaverEn(state, at);
+  if (cadaver === null) {
+    return state.stacks.some((x) => !isAlive(x) && hexEquals(x.hex, at))
+      ? `el cadáver de ${donde} ya se levantó`
+      : `en ${donde} no hay ningún cadáver`;
+  }
+  if (cadaver.origen.kind === 'heroe') return 'el cuerpo del héroe no se levanta';
+  if (queLevanta(h, cadaver) === null) {
+    return `«${h.nombre}» no levanta nada del cadáver de ${cadaver.unit.name}`;
+  }
+  return distanciaBlocker(h, l, at);
+}
+
+/** Las casillas con algún muerto, sin repetir, en el orden de `stacks`. */
+function casillasConCadaver(state: BattleState): readonly Hex[] {
+  const out: Hex[] = [];
+  for (const s of state.stacks) {
+    if (!isAlive(s) && !out.some((h) => hexEquals(h, s.hex))) out.push(s.hex);
+  }
+  return out;
 }
 
 /** Por qué `t` no vale como la unidad elegida, o `null`: bando, vida, distancia y herida. */
@@ -153,6 +202,8 @@ export function afectadosDe(
   l: Lanzador,
   apuntado: Apuntado,
 ): readonly BattleStack[] {
+  // Un cadáver no alcanza a nadie vivo: lo que hace es levantar (`levantar`, `battle.ts`).
+  if (h.objetivo === 'cadaver') return [];
   const afecta = h.afecta ?? 'todos';
   const area = areaDe(h);
   const vivosEn = (casillas: readonly Hex[], sin: BattleStack | null): BattleStack[] =>
@@ -210,11 +261,13 @@ export function resueltosDe(
   readonly cargas: (d: DisparadorResuelto) => number | null;
 } {
   const conCargas = new Map<DisparadorResuelto, number | null>();
-  const efectos = h.efectos.map((e) => {
-    if (e.tipo !== 'disparador') return resolverEfecto(e, l.poder);
+  const efectos = h.efectos.flatMap((e): (EfectoResuelto | DisparadorResuelto)[] => {
+    // `levantar` no se aplica a nadie: lo hace `levantar` (`battle.ts`).
+    if (e.tipo === 'levantar') return [];
+    if (e.tipo !== 'disparador') return [resolverEfecto(e, l.poder)];
     const d = resolverDisparador(e, l.poder, l.stack.id);
     conCargas.set(d, e.cargas ?? null);
-    return d;
+    return [d];
   });
   return { efectos, cargas: (d) => conCargas.get(d) ?? null };
 }
@@ -326,8 +379,9 @@ export function previoDelPoder(
 
 /**
  * Las jugadas de lanzar `h` que se ofrecen (`legalActions`): sin apuntar, a cada
- * unidad que vale, o a la casilla de cada vivo que vale (vale cualquier casilla a
- * su alcance, y la prosa del agente lo dice). `vale` es el `*Blocker` de quien lo
+ * unidad que vale, a la casilla de cada vivo que vale (vale cualquier casilla a
+ * su alcance, y la prosa del agente lo dice) o, a un cadáver, a cada casilla con
+ * uno que se pueda levantar. `vale` es el `*Blocker` de quien lo
  * lanza con el objetivo.
  */
 export function jugadasDeLanzar(
@@ -341,6 +395,11 @@ export function jugadasDeLanzar(
     case 'unidad':
       return state.stacks.flatMap((t) => (vale(t.id) ? [{ target: t.id }] : []));
     case 'casilla':
+      // A un cadáver, una por casilla con muertos en la que vale; a una casilla,
+      // la de cada vivo.
+      if (h.objetivo === 'cadaver') {
+        return casillasConCadaver(state).flatMap((at) => (vale(undefined, at) ? [{ at }] : []));
+      }
       return state.stacks.flatMap((t) =>
         isAlive(t) && vale(undefined, t.hex) ? [{ at: t.hex }] : [],
       );

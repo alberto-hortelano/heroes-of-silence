@@ -187,6 +187,21 @@ type Cuerpo =
   | { kind: 'recruited'; town: string; creature: string; count: number }
   /** Un héroe licencia tropa en un castillo suyo, para hacer sitio a otra mejor. */
   | { kind: 'dismissed'; hero: string; creature: string; count: number }
+  /**
+   * Tras una batalla, el ejército de un héroe (`hero`) o la guarnición de un sitio
+   * (`site`) pasa de su límite —lo levantado de un cadáver no cuenta en el tablero—
+   * y deja `count` × `creature` (`settleBattle`, 08-11-2026, «Levantar zombi»).
+   * `lost`, lo que llevaban puesto y se pierde: el de quien deja un héroe va a su
+   * mochila; el de una guarnición, que no tiene mochila, se pierde (P7).
+   */
+  | {
+      kind: 'left_behind';
+      hero: string | null;
+      site: string | null;
+      creature: string;
+      count: number;
+      lost: readonly string[];
+    }
   | { kind: 'hero_hired'; hero: string; town: string }
   /**
    * El héroe que gana una batalla contra un grupo de asaltantes o toma una ciudad
@@ -373,6 +388,7 @@ export const SE_VE_POR: Readonly<Record<GameEvent['kind'], 'casilla' | 'casilla 
   built: 'casilla',
   recruited: 'casilla',
   dismissed: 'casilla',
+  left_behind: 'casilla',
   hero_hired: 'casilla',
   loot_found: 'casilla',
   item_bought: 'casilla',
@@ -470,6 +486,7 @@ export function visibleTo(e: GameEvent, p: PlayerId): boolean {
     case 'built':
     case 'recruited':
     case 'dismissed':
+    case 'left_behind':
     case 'hero_hired':
     case 'loot_found':
     case 'item_bought':

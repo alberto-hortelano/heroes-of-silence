@@ -30,6 +30,7 @@ import { DICHO_DE_LA_OBRA, SE_VE_EN_EL_PUESTO } from '../comun/dichos.js';
 import { type Html, html, NADA, unir } from '../comun/html.js';
 import type { VistaDeLaDefensa } from '../sesion/partida/defensa.js';
 import type { VistaDeLaGuarnicion } from '../sesion/partida/guarnicion.js';
+import type { VistaDeLoQueSobra } from '../sesion/partida/sobrantes.js';
 import {
   atributosDeApagado,
   filaDeCifra,
@@ -133,5 +134,35 @@ export function renderDefensa(v: VistaDeLaDefensa): Html {
     <div class="botones">
       <button data-action="defensa-de-la-ia">Como propone la IA</button>
       <button data-action="defensa-confirmar"${atributosDeApagado(v.motivo, 'primary')}>Defender</button>
+    </div>`;
+}
+
+/**
+ * Lo que sobra al volver de una batalla (`<dialog id="sobrantes">`, 08-11-2026,
+ * «Levantar zombi»): una fila por tipo con cuántos se dejan, la frase del núcleo en
+ * directo (`dejarBlocker`) y «Seguir», apagado mientras no valga. Viene marcado lo
+ * que propone la IA.
+ */
+export function renderLoQueSobra(v: VistaDeLoQueSobra): Html {
+  const filas = unir(
+    v.filas.map((f) => {
+      const cambio =
+        f.deja === f.propuesta
+          ? NADA
+          : html` <span class="veterania">(la IA: ${f.propuesta})</span>`;
+      return html`<div class="stack"><span>${f.nombre}${cambio}</span><span class="count">
+          <button data-action="sobra-menos" data-creature="${f.creature}"${atributosDeApagado(f.deja <= 0 ? 'no deja ninguno' : null)} aria-label="Uno menos de ${f.nombre}">−</button>
+          deja ${f.deja} de ${f.vuelven}
+          <button data-action="sobra-mas" data-creature="${f.creature}"${atributosDeApagado(f.deja >= f.vuelven ? 'ya los deja todos' : null)} aria-label="Uno más de ${f.nombre}">+</button>
+        </span></div>`;
+    }),
+  );
+  return html`<h3 id="titulo-de-lo-que-sobra">No cabe todo lo que vuelve</h3>
+    <p class="cost">Lo levantado en la batalla vuelve con ${v.quien}, y ya no cabe: caben ${v.cupo} individuos y ${v.tope} de liderazgo. Elige qué se deja, justo lo que sobra. Lo que llevaban puesto va a la mochila del héroe; el de una guarnición se pierde.</p>
+    <div class="stack-list">${filas}</div>
+    ${motivoDelRechazo(v.motivo)}
+    <div class="botones">
+      <button data-action="sobra-de-la-ia">Como propone la IA</button>
+      <button data-action="sobra-seguir"${atributosDeApagado(v.motivo, 'primary')}>Seguir</button>
     </div>`;
 }

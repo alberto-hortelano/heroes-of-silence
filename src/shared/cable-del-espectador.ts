@@ -175,6 +175,8 @@ type OrigenEnCable =
       readonly unidad: string;
       readonly veterania: VeteraniaEnCable | null;
       readonly salida?: Hex;
+      /** El cadáver del que se levantó (`levantadoDe`): con él, el espectador no lo pinta. */
+      readonly levantadoDe?: string;
     }
   | { readonly kind: 'heroe'; readonly desnudo: UnitInfo };
 

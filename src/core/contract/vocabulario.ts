@@ -445,6 +445,7 @@ export function hechoAlAgente(e: BattleEvent): HechoAlAgente {
     case 'power':
     case 'spell_hit':
     case 'triggered':
+    case 'raised':
     case 'retoque':
     case 'effect':
     case 'effect_end':

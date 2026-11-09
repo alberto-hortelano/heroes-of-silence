@@ -9,6 +9,7 @@ import { FACTION_IDS } from '../types.js';
 import {
   deLaListaBlocker,
   enteroBlocker,
+  esIdDeUnidad,
   esObjeto,
   listaBlocker,
   problemasDeObjeto,
@@ -205,6 +206,7 @@ const CAMPOS_DEL_EFECTO: Readonly<Record<TipoDeEfecto, readonly string[]>> = {
     'seAcabaSiMuere',
     'efectos',
   ],
+  levantar: ['tipo', 'vivos', 'de'],
 };
 
 /** Lo que no vale de una lista de efectos; `dentro`, la de un disparador. */
@@ -264,7 +266,40 @@ function problemasDelEfecto(v: unknown, campo: string, dentro: boolean): string[
       return dentro
         ? [`${aqui}: un disparador no lleva otro dentro`]
         : problemasDelDisparador(v, aqui);
+    case 'levantar':
+      return dentro ? [`${aqui}: un disparador no levanta`] : problemasDeLevantar(v, aqui);
   }
+}
+
+/** Lo que no vale de un id de unidad del catálogo en `campo` (que exista lo mira la carga). */
+function idDeUnidad(v: unknown, campo: string): string[] {
+  return typeof v === 'string' && esIdDeUnidad(v)
+    ? []
+    : [`${campo} tiene que ser el id de una unidad (minúsculas, cifras y guiones)`];
+}
+
+/**
+ * Lo que no vale de `levantar` por sí mismo: la unidad de los vivos y, si va, `de`
+ * (id de lo que cae → id de lo que se levanta). Que las unidades existan y que lo
+ * nombrado en `de` sea no-muerto lo dice `levantadosBlocker` (`unidad/formato.ts`),
+ * con el catálogo de unidades delante; que vaya con un cadáver, `problemasDelAlcance`.
+ */
+function problemasDeLevantar(v: Record<string, unknown>, aqui: string): string[] {
+  const out = idDeUnidad(v.vivos, `${aqui}.vivos`);
+  if (v.de === undefined) return out;
+  if (!esObjeto(v.de)) {
+    out.push(`${aqui}.de tiene que ser un objeto { "id que cae": "id que se levanta" }`);
+    return out;
+  }
+  const pares = Object.entries(v.de);
+  if (pares.length === 0) out.push(`${aqui}.de no nombra a nadie: sin nada, se quita`);
+  for (const [cae, sale] of pares) {
+    if (!esIdDeUnidad(cae)) {
+      out.push(`${aqui}.de: «${cae}» no es el id de una unidad (minúsculas, cifras y guiones)`);
+    }
+    out.push(...idDeUnidad(sale, `${aqui}.de.${cae}`));
+  }
+  return out;
 }
 
 function problemasDelDisparador(v: Record<string, unknown>, aqui: string): string[] {
@@ -336,12 +371,15 @@ function problemasDelAlcance(h: Record<string, unknown>): string[] {
     if (h.objetivo === undefined) out.push('falta «objetivo»');
     else out.push(...deLaLista(h.objetivo, OBJETIVOS, 'objetivo'));
   }
-  if (tipo === 'proyectil' && h.objetivo !== undefined && h.objetivo !== 'casilla') {
+  // Con un cadáver, lo dice `problemasDelCadaver` con su frase, y no dos veces.
+  const alCadaver = h.objetivo === 'cadaver';
+  if (tipo === 'proyectil' && h.objetivo !== undefined && h.objetivo !== 'casilla' && !alCadaver) {
     out.push('un proyectil se apunta a una casilla: «objetivo» tiene que ser "casilla"');
   }
-  if (e.diferido === true && h.objetivo !== 'casilla') {
+  if (e.diferido === true && h.objetivo !== 'casilla' && !alCadaver) {
     out.push('lo diferido sale sobre una casilla: «objetivo» tiene que ser "casilla"');
   }
+  if (alCadaver) out.push(...problemasDelCadaver(h, tipo));
 
   const area = h.area ?? 0;
   if (area === 'recta') {
@@ -352,19 +390,63 @@ function problemasDelAlcance(h: Record<string, unknown>): string[] {
   if (tipo === 'tablero' && h.area !== undefined) out.push('con «tablero» no hay área: son todos');
 
   const pideAfecta =
-    tipo === 'tablero' ||
-    tipo === 'proyectil' ||
-    h.objetivo === 'casilla' ||
-    (typeof area === 'number' && area > 0) ||
-    area === 'recta';
+    !alCadaver &&
+    (tipo === 'tablero' ||
+      tipo === 'proyectil' ||
+      h.objetivo === 'casilla' ||
+      (typeof area === 'number' && area > 0) ||
+      area === 'recta');
   if (pideAfecta && h.afecta === undefined) {
     out.push('alcanza a quien esté donde caiga: falta «afecta» (aliados, enemigos o todos)');
   }
-  if (!pideAfecta && h.afecta !== undefined) {
+  if (!pideAfecta && h.afecta !== undefined && !alCadaver) {
     out.push('va a una sola unidad elegida: sobra «afecta» (lo dice «objetivo»)');
   }
   if (h.afecta !== undefined) out.push(...deLaLista(h.afecta, AFECTA, 'afecta'));
   return out;
+}
+
+/** Las entregas con que se apunta a un cadáver: las que eligen una casilla y caen en el acto. */
+const ENTREGAS_DEL_CADAVER: readonly string[] = ['libre', 'contacto', 'alcance'];
+
+/**
+ * Lo que no vale de un hechizo que apunta a un cadáver (`objetivo: cadaver`): se
+ * elige una casilla a un alcance (libre, en contacto o a x casillas; el proyectil
+ * no, que da al primero vivo de la recta), cae en el acto (sin «diferido»: el
+ * cadáver podría ya no estar), es uno y lo levanta (sin área ni «afecta», que son
+ * de los vivos que alcanza) y su único efecto es `levantar`, sin duración (lo
+ * levantado no dura: se queda). Y `levantar` no va con otro objetivo.
+ */
+function problemasDelCadaver(h: Record<string, unknown>, tipo: string): string[] {
+  const out: string[] = [];
+  if (!ENTREGAS_DEL_CADAVER.includes(tipo)) {
+    out.push(
+      `a un cadáver se llega con la entrega ${ENTREGAS_DEL_CADAVER.map((t) => `«${t}»`).join(', ')}, no con «${tipo}»`,
+    );
+  }
+  if (esObjeto(h.entrega) && h.entrega.diferido === true) {
+    out.push('a un cadáver no se lanza diferido: al caer, el cadáver podría ya no estar');
+  }
+  if (h.area !== undefined && h.area !== 0) {
+    out.push('a un cadáver no hay área: se levanta uno');
+  }
+  if (h.afecta !== undefined) {
+    out.push('a un cadáver sobra «afecta»: no alcanza a nadie vivo');
+  }
+  const efectos = Array.isArray(h.efectos) ? h.efectos : [];
+  const levantan = efectos.filter((e) => esObjeto(e) && e.tipo === 'levantar').length;
+  if (levantan !== 1 || efectos.length !== 1) {
+    out.push('a un cadáver se lanza un solo efecto, «levantar»');
+  }
+  return out;
+}
+
+/** Que `levantar` vaya solo con el objetivo `cadaver`. */
+function problemasDeLevantarSinCadaver(h: Record<string, unknown>): string[] {
+  if (h.objetivo === 'cadaver' || !Array.isArray(h.efectos)) return [];
+  return h.efectos.some((e) => esObjeto(e) && e.tipo === 'levantar')
+    ? ['«levantar» solo va con el objetivo «cadaver»: se levanta de un cadáver']
+    : [];
 }
 
 /**
@@ -401,6 +483,7 @@ export function problemasDelHechizo(crudo: unknown, cual = 'el hechizo'): string
   }
   out.push(...problemasDelAlcance(h));
   out.push(...problemasDeEfectos(h.efectos, 'efectos', false));
+  out.push(...problemasDeLevantarSinCadaver(h));
   const { dura, problemas } = problemasDeLaDuracion(h);
   out.push(...problemas);
   if (h.seAcabaSiMuere !== undefined) {

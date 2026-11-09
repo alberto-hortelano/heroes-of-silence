@@ -43,6 +43,8 @@ const CUENTAN_CADA_CLIC: ReadonlySet<string> = new Set([
   'mover-en-el-reparto',
   'defensa-menos',
   'defensa-mas',
+  'sobra-menos',
+  'sobra-mas',
 ]);
 
 /**

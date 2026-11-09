@@ -21,7 +21,7 @@ import type { EquipoAtado } from '../equipo/atado.js';
 import { PIEZAS_DEL_CATALOGO } from '../equipo/pieza.js';
 import { equipoBaseBlocker } from '../hero/cuerpo-del-heroe.js';
 import { type CatalogoDeHechizos, HECHIZOS_DEL_JUEGO } from '../magia/catalogo.js';
-import { esIdDeHechizo, type Hechizo } from '../magia/formato.js';
+import { esIdDeHechizo, type Hechizo, levantarDe, RUTA_DE_LOS_HECHIZOS } from '../magia/formato.js';
 import { problemasComoPoder } from '../magia/validar.js';
 import {
   CREATURE_TRAITS,
@@ -575,7 +575,38 @@ export function leerCatalogos(
   const lista = validarCatalogo(unidades, eq);
   const motivo = hechizosDeUnidadesBlocker(lista, hechizos);
   if (motivo !== null) throw new Error(`${RUTA_DEL_CATALOGO_DE_UNIDADES}: ${motivo}`);
+  const levantados = levantadosBlocker(lista, hechizos);
+  if (levantados !== null) throw new Error(`${RUTA_DE_LOS_HECHIZOS}: ${levantados}`);
   return lista;
+}
+
+/**
+ * Por qué lo que levantan los hechizos de `cat` (`levantar`) no vale con las
+ * unidades `unidades`, o `null` (08-11-2026, «Levantar zombi»): que cada unidad que
+ * nombran exista y que lo nombrado en `de` (de qué cadáver sale otra cosa) sea
+ * no-muerto: el de un vivo lo dice `vivos`. Con los dos catálogos delante, que
+ * `problemasDelHechizo` no tiene. La leen la carga del juego y «Guardar».
+ */
+export function levantadosBlocker(
+  unidades: readonly Unidad[],
+  cat: CatalogoDeHechizos,
+): string | null {
+  const porId = new Map(unidades.map((u) => [u.id, u]));
+  for (const h of cat.values()) {
+    const e = levantarDe(h);
+    if (e === undefined) continue;
+    const falta = [e.vivos, ...Object.entries(e.de ?? {}).flat()].find((id) => !porId.has(id));
+    if (falta !== undefined) {
+      return `«${h.nombre}» nombra «${falta}», que no es ninguna unidad de ${RUTA_DEL_CATALOGO_DE_UNIDADES}`;
+    }
+    for (const cae of Object.keys(e.de ?? {})) {
+      const u = porId.get(cae) as Unidad;
+      if (!u.traits.includes('undead')) {
+        return `«${h.nombre}»: ${u.name} no es no-muerto, y de un vivo sale siempre lo de «vivos» (${e.vivos})`;
+      }
+    }
+  }
+  return null;
 }
 
 /**

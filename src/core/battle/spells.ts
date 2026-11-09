@@ -18,10 +18,11 @@ import {
   type Duracion,
   type EfectoSimple,
   type Hechizo,
+  levantarDe,
   rinde,
   sinObjetivo,
 } from '../magia/formato.js';
-import type { Hex } from '../types.js';
+import { type Hex, hasTrait } from '../types.js';
 import { allHexes, hexDistance } from './board.js';
 import {
   type BattleHero,
@@ -30,6 +31,7 @@ import {
   type EfectoResuelto,
   type HastaElTurno,
   MAX_ROUNDS,
+  queEs,
   type Side,
   type StackEffect,
 } from './types.js';
@@ -227,4 +229,22 @@ export function curaDelHechizo(
 /** Si el hechizo solo cura (lo que se le pregunta al botón de «Curar»: ¿hay a quién?). */
 export function soloCura(h: Hechizo): boolean {
   return h.efectos.every((e) => e.tipo === 'cura');
+}
+
+/**
+ * La unidad que `h` levanta del cadáver `cadaver`, o `null` si de ese no sale nada
+ * (08-11-2026, «Levantar zombi»; regla nuestra): del cuerpo del héroe, nada; de una
+ * unidad que nombra `de`, lo que diga; de un vivo (sin `undead`) de cualquier bando,
+ * `vivos`; de otro no-muerto, nada. **La única regla de qué sale de un cadáver**: la
+ * leen la regla de apuntar (`apuntadoBlocker`) y quien lo levanta (`levantar`).
+ */
+export function queLevanta(
+  h: Hechizo,
+  cadaver: Pick<BattleStack, 'origen' | 'unit'>,
+): string | null {
+  const e = levantarDe(h);
+  if (e === undefined || cadaver.origen.kind === 'heroe') return null;
+  const nombrado = e.de?.[queEs(cadaver)];
+  if (nombrado !== undefined) return nombrado;
+  return hasTrait(cadaver.unit, 'undead') ? null : e.vivos;
 }

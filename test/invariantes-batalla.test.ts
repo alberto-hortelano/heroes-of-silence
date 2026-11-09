@@ -1174,6 +1174,29 @@ describe('invariantes del proyecto', () => {
     const linea = Number(enLaPuerta[0]?.split(':')[1]?.split(' ')[0]);
     expect(permitidas.has(linea), enLaPuerta.join('\n')).toBe(true);
   });
+
+  it('un stack nuevo lo empujan solo `createBattle` y `levantar`', () => {
+    // 08-11-2026, «Levantar zombi»: el cierre de la batalla (`settleBattle`), el
+    // espectador (`mismaBatalla`) y el resumen cuentan con que los stacks solo
+    // nacen al montar y, a media pelea, al levantar un cadáver (al final, con el
+    // `slot` siguiente). Roto a mano: un `state.stacks.push(...)` en `lanzarHechizo`
+    // sale rojo.
+    const empuja = /\bstacks\.(push|unshift|splice)\(/;
+    const MONTAJE = ruta('src/core/battle/montaje.ts');
+    const MOTOR = ruta('src/core/battle/battle.ts');
+    const todos = [...CORE, ...CLIENTE, ...SERVIDOR].filter((r) => r !== MONTAJE && r !== MOTOR);
+    expect(infractoresDeCodigo(todos, empuja)).toEqual([]);
+    for (const [puerta, funcion] of [
+      [MONTAJE, 'createBattle'],
+      [MOTOR, 'levantar'],
+    ] as const) {
+      const lineas = infractoresDeCodigo([puerta], empuja);
+      expect(lineas, puerta).toHaveLength(1);
+      const permitidas = lineasDeLasDeclaraciones(puerta, [funcion]);
+      const linea = Number(lineas[0]?.split(':')[1]?.split(' ')[0]);
+      expect(permitidas.has(linea), lineas.join('\n')).toBe(true);
+    }
+  });
 });
 
 // ------------------------------------------------------------------ armadura (#262)

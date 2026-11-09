@@ -19,14 +19,24 @@ import { esDeDentro, type PaginaDeLaPartida } from './pagina.js';
 
 /** Instala el oyente del teclado (la cabecera del fichero). */
 export function instalarElTeclado(pagina: PaginaDeLaPartida): void {
-  const { elGuarnicion, elDefensa, elAviso, session, aventura, castillo, gestos, dentro } = pagina;
+  const {
+    elGuarnicion,
+    elDefensa,
+    elAviso,
+    elSobrantes,
+    session,
+    aventura,
+    castillo,
+    gestos,
+    dentro,
+  } = pagina;
   const { estado, pedirFotograma } = pagina;
   document.addEventListener('keydown', (ev) => {
     // Con la guarnición, la defensa o el aviso abiertos (modales), toda tecla es suya: Escape
     // las cierra por su `cancel`, que llega aunque el foco se haya ido al `body` tras
     // un clic, y aquí no debe cerrar también la base de detrás (H3 del QA de la
     // fase 1: la guarnición se cerraba y se salía al mapa).
-    if (elGuarnicion.open || elDefensa.open || elAviso.open) return;
+    if (elGuarnicion.open || elDefensa.open || elAviso.open || elSobrantes.open) return;
     // Lo que se escribe en un campo de texto o se pulsa en un cuadro es suyo, no un
     // atajo. Salvo Escape en la conversación: al abrirse se queda el foco (su primera
     // opción), y sin esto Escape no la cerraba nunca, aunque la barra lo anuncia

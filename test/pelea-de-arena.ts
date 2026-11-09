@@ -37,7 +37,12 @@ import {
 } from '../src/core/equipo/pieza.js';
 import { RUTA_DEL_HEROE } from '../src/core/hero/cuerpo-del-heroe.js';
 import type { Rng } from '../src/core/rng.js';
-import { type CatalogoDeUnidades, UNIDADES, unidad } from '../src/core/unidad/catalogo.js';
+import {
+  CATALOGO_DEL_JUEGO,
+  type CatalogoDeUnidades,
+  UNIDADES,
+  unidad,
+} from '../src/core/unidad/catalogo.js';
 import type { Unidad } from '../src/core/unidad/formato.js';
 import { RAIZ } from './comun.js';
 
@@ -194,12 +199,11 @@ export function peleaDelMotor(
       count: 1,
       ...(escalera === true ? { escalera: true } : {}),
     }));
+    // Lo que no está en ningún puesto, del catálogo del juego, como en la arena
+    // (`catalogoDeLaPelea`): lo que levanta un hechizo del libro (el zombi, el
+    // esqueleto; 08-11-2026) se resuelve al montar aunque no pelee.
     const catalogo: CatalogoDeUnidades = {
-      unidad: (id) => {
-        const u = porId.get(id);
-        if (u === undefined) throw new Error(`el bando no lleva ninguna unidad «${id}»`);
-        return u;
-      },
+      unidad: (id) => porId.get(id) ?? CATALOGO_DEL_JUEGO.unidad(id),
       equipo: EQUIPO_DEL_JUEGO,
     };
     return { army, hero, catalogo };

@@ -89,7 +89,24 @@ export function dichoDelEfecto(e: Efecto, poder?: number): string {
         e.cargas === undefined ? '' : ` (${e.cargas} ${e.cargas === 1 ? 'vez' : 'veces'})`;
       return `${cuando}, ${a}: ${hace}${dura}${seAcaba(e.seAcabaSiMuere)}${cargas}`;
     }
+    case 'levantar': {
+      const de = Object.entries(e.de ?? {}).map(
+        ([cae, sale]) => `; del de ${porSuId(cae)}, ${porSuId(sale)}`,
+      );
+      return `levanta ${porSuId(e.vivos)} del cadáver de un vivo${de.join('')}; de otro no-muerto o del héroe, nada`;
+    }
   }
+}
+
+/**
+ * Una unidad dicha por su id («esqueleto-guerrero» → «esqueleto guerrero»), y no por
+ * su nombre del catálogo: `magia/` no lee el catálogo de unidades, que llega aquí
+ * por `battle/effects.ts` (`unidad/nivel.ts` → `battle/armas.ts`) y cerraría un ciclo
+ * de importación; y la arena levanta con lo que hay en la pelea, que puede no ser el
+ * catálogo guardado.
+ */
+function porSuId(id: string): string {
+  return id.replace(/-/g, ' ');
 }
 
 function seAcaba(s: SeAcabaSiMuere | undefined): string {
@@ -109,6 +126,7 @@ const OBJETIVO_DICHO = {
   enemigo: 'un enemigo',
   cualquiera: 'una unidad',
   casilla: 'una casilla',
+  cadaver: 'un cadáver',
 };
 
 /** A dónde va, dicho: «a un enemigo a 5 casillas o menos y a los de alrededor». */

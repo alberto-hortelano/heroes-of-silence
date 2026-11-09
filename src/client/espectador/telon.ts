@@ -141,14 +141,16 @@ export function ritmoDeReproduccion(atrasados: number): number {
  * la primera (riesgo que leyó QA en H-7).
  *
  * Se deriva del contenido y no del orden: es la misma si **el registro nuevo
- * empieza por el viejo entero** y los stacks son los mismos. Una batalla
- * terminada ya no crece, así que lo que llegue después con más registro es otra.
+ * empieza por el viejo entero** y los stacks nuevos **empiezan por** los viejos
+ * (un cadáver levantado añade uno al final, `levantar`, 08-11-2026: contarlo como
+ * otra batalla reiniciaba la animación). Una batalla terminada ya no crece, así
+ * que lo que llegue después con más registro es otra.
  */
 export function mismaBatalla(anterior: BatallaEnCable | null, nueva: BatallaEnCable): boolean {
   if (anterior === null) return false;
   if (nueva.log.length < anterior.log.length) return false;
   if (anterior.finished !== null && nueva.log.length !== anterior.log.length) return false;
-  if (nueva.stacks.length !== anterior.stacks.length) return false;
+  if (nueva.stacks.length < anterior.stacks.length) return false;
   for (let i = 0; i < anterior.stacks.length; i++) {
     if (nueva.stacks[i]?.id !== anterior.stacks[i]?.id) return false;
   }

@@ -70,6 +70,13 @@ export type OrigenDelStack =
        * trae: viaja como la veteranía y `settleBattle` se la devuelve al volver.
        */
       readonly salida?: Hex;
+      /**
+       * El id del cadáver del que se levantó a media pelea (`levantar`, 08-11-2026,
+       * «Levantar zombi»), si no entró al montarla. **El único sitio del hecho**:
+       * que ese cadáver está gastado se deriva de aquí (`cadaverGastado`), sin
+       * marcarlo en él. Viaja al espectador, que deja de pintar el cadáver.
+       */
+      readonly levantadoDe?: string;
     }
   | {
       readonly kind: 'heroe';
@@ -174,10 +181,13 @@ export interface BattleStack {
    * Efectivos con los que ENTRÓ al tablero.
    *
    * Se escribe una vez y no se toca: es el minuendo de las bajas, que es lo
-   * único que las cuenta. `count` solo baja —ningún hechizo resucita: `heal`
-   * repone `topHp` y nada más (`spells.ts`)—, así que `initialCount - count`
-   * son los muertos exactos. El día que exista resurrección, esa resta pasa a
-   * ser un máximo y hará falta el `std::min` que el original ya escribe.
+   * único que las cuenta. `count` solo baja —la cura repone `topHp` y nada más
+   * (`spells.ts`), y nadie resucita—, así que `initialCount - count` son los
+   * muertos exactos. Levantar un cadáver (08-11-2026) no lo cambia: no devuelve
+   * la vida al stack caído, crea otro con su `initialCount` de 1 (`levantar`,
+   * `battle.ts`), que si cae cuenta como un muerto más. El día que exista
+   * resurrección, esa resta pasa a ser un máximo y hará falta el `std::min` que el
+   * original ya escribe.
    */
   readonly initialCount: number;
   /** Efectivos vivos. 0 = destruido. */
@@ -249,6 +259,17 @@ export interface BattleStack {
    * cae antes o la batalla acaba, se pierde. Lo escribe solo `battle.ts`.
    */
   hechizoEnElAire: HechizoEnElAire | null;
+}
+
+/**
+ * Una unidad del catálogo que se puede levantar de un cadáver, ya resuelta: su
+ * hoja, sus cifras de novato (`cifrasDeUnidad`) y su oro de catálogo, lo que
+ * `resolveUnit` pone en un stack que entra al montar.
+ */
+export interface Levantable {
+  readonly body: string;
+  readonly unit: UnitInfo;
+  readonly oro: number;
 }
 
 /** Un hechizo diferido en el aire: cuál, dónde caerá y con el poder de quien lo lanzó. */
@@ -432,6 +453,12 @@ export type BattleEvent =
     }
   /** Un disparador colgado de `stack` saltó (`cuando`), del hechizo `spell`. */
   | { kind: 'triggered'; stack: string; spell: string; cuando: CuandoSalta }
+  /**
+   * El hechizo `spell` levanta `stack`, nuevo, del bando `side`, del cadáver `from`
+   * en `at` (08-11-2026, «Levantar zombi»): va tras el `cast` o el `power` que lo
+   * lanzó. El cadáver queda gastado y deja de verse.
+   */
+  | { kind: 'raised'; stack: string; from: string; spell: string; side: Side; at: Hex }
   /**
    * La arena cambió a media pelea las cifras de `nombre` —un tipo entero o el
    * héroe de un lado— en estos `stacks` (`retocarEnBatalla`). No es una jugada:
@@ -636,6 +663,15 @@ export interface BattleState {
    * la arena.
    */
   libro: Readonly<Record<string, Hechizo>>;
+  /**
+   * Lo que se puede levantar de un cadáver en esta batalla, por bando y por id de
+   * unidad: las que nombran los `levantar` del libro, **resueltas al montarla**
+   * con el catálogo de cada bando (`createBattle`), como las cifras de cada stack:
+   * la batalla no lleva catálogo, y la arena levanta con las cifras de la página.
+   * Vacío sin ningún `levantar` en el libro. Lo lee `levantar` (`battle.ts`); lo
+   * rehace el retoque de la arena.
+   */
+  levantables: Readonly<Record<Side, Readonly<Record<string, Levantable>>>>;
   /**
    * El golpe de quien se ha plantado ante su objetivo y espera la
    * rueda: quién, contra quién y la carga de la carrera con que llegó (medida

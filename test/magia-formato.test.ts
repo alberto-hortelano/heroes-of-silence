@@ -39,28 +39,36 @@ function problemas(cambio: Record<string, unknown>): string[] {
 }
 
 describe('el catálogo de data/hechizos.json', () => {
-  it('lleva los 43 ejemplos del plan y todos valen', () => {
-    expect(todosLosHechizos()).toHaveLength(43);
+  it('lleva los 43 ejemplos del plan, Levantar zombi, y todos valen', () => {
+    expect(todosLosHechizos()).toHaveLength(44);
     expect(problemasDeLaLista(todosLosHechizos())).toEqual([]);
   });
 
-  it('el gremio enseña solo los cinco de siempre, en el orden del libro', () => {
+  it('el gremio enseña los cinco de siempre y, a los no muertos, Levantar zombi en el 2', () => {
     expect(hechizosDelGremio(5, FACTION_IDS).map((h) => h.id)).toEqual([
       'haste',
       'magic_arrow',
       'slow',
+      'levantar_zombi',
       'cure',
       'lightning_bolt',
     ]);
+    // «Nivel 2» (decisión del usuario, 08-11-2026), y solo a los no muertos.
+    expect(hechizosDelGremio(2, ['no-muertos']).map((h) => h.id)).toContain('levantar_zombi');
+    expect(hechizosDelGremio(1, ['no-muertos']).map((h) => h.id)).not.toContain('levantar_zombi');
+    expect(hechizosDelGremio(5, ['templarios']).map((h) => h.id)).not.toContain('levantar_zombi');
     expect(hechizosDelGremio(1, FACTION_IDS).map((h) => h.id)).toEqual([
       'haste',
       'magic_arrow',
       'slow',
     ]);
     expect(hechizosDelGremio(0, FACTION_IDS)).toEqual([]);
-    // Los cinco son de las cinco facciones (08-11-2026): el gremio de cada una enseña lo mismo.
+    // Los cinco son de las cinco facciones (08-11-2026): el gremio de cada una enseña
+    // lo mismo, salvo Levantar zombi, que es solo de los no muertos.
+    const sinLevantar = hechizosDelGremio(5, FACTION_IDS).filter((h) => h.id !== 'levantar_zombi');
     for (const f of FACTION_IDS) {
-      expect(hechizosDelGremio(5, [f]), f).toEqual(hechizosDelGremio(5, FACTION_IDS));
+      if (f === 'no-muertos') continue;
+      expect(hechizosDelGremio(5, [f]), f).toEqual(sinLevantar);
     }
   });
 
@@ -85,11 +93,12 @@ describe('el catálogo de data/hechizos.json', () => {
     expect(hechizosDelGremio(5, FACTION_IDS, cat).map((h) => h.id)).toEqual(['comun', 'elfico']);
   });
 
-  it('las facciones de hoy, a ojo: Curar de los templarios, el Zombi de los no muertos, los demás de las cinco', () => {
+  it('las facciones de hoy, a ojo: Curar de los templarios, los dos de zombis de los no muertos, los demás de las cinco', () => {
     expect(hechizo('curar').facciones).toEqual(['templarios']);
     expect(hechizo('zombi_pegajoso').facciones).toEqual(['no-muertos']);
+    expect(hechizo('levantar_zombi').facciones).toEqual(['no-muertos']);
     for (const h of todosLosHechizos()) {
-      if (h.id === 'curar' || h.id === 'zombi_pegajoso') continue;
+      if (['curar', 'zombi_pegajoso', 'levantar_zombi'].includes(h.id)) continue;
       expect(h.facciones, h.id).toEqual(FACTION_IDS);
     }
   });
@@ -325,6 +334,91 @@ describe('cada regla del hechizo muerde', () => {
 
   it('dice todos los problemas a la vez', () => {
     expect(problemas({ mana: -1, gremio: 9, efectos: [] }).length).toBe(3);
+  });
+});
+
+describe('a un cadáver y levantar (08-11-2026, «Levantar zombi»)', () => {
+  const LEVANTAR = { tipo: 'levantar', vivos: 'zombi', de: { zombi: 'esqueleto-guerrero' } };
+  const AL_CADAVER = {
+    entrega: { tipo: 'alcance', casillas: 4 },
+    objetivo: 'cadaver',
+    efectos: [LEVANTAR],
+  };
+
+  it('vale con libre, en contacto y a x casillas, y la frase dice qué sale de cada uno', () => {
+    expect(problemas(AL_CADAVER)).toEqual([]);
+    expect(problemas({ ...AL_CADAVER, entrega: { tipo: 'libre' } })).toEqual([]);
+    expect(problemas({ ...AL_CADAVER, entrega: { tipo: 'contacto' } })).toEqual([]);
+    expect(problemas({ ...AL_CADAVER, efectos: [{ tipo: 'levantar', vivos: 'zombi' }] })).toEqual(
+      [],
+    );
+    expect(queHaceElHechizo({ ...BASE, ...AL_CADAVER } as Hechizo)).toBe(
+      'A un cadáver a 4 casillas o menos: levanta zombi del cadáver de un vivo; del de zombi, esqueleto guerrero; de otro no-muerto o del héroe, nada',
+    );
+  });
+
+  it('el proyectil no llega a un cadáver; sobre sí y el tablero no eligen nada', () => {
+    expect(problemas({ ...AL_CADAVER, entrega: { tipo: 'proyectil' } })).toEqual([
+      '«Prueba»: a un cadáver se llega con la entrega «libre», «contacto», «alcance», no con «proyectil»',
+    ]);
+    expect(problemas({ ...AL_CADAVER, entrega: { tipo: 'tablero' } })).toContain(
+      '«Prueba»: con la entrega «tablero» no se elige nada: sobra «objetivo»',
+    );
+  });
+
+  it('ni diferido, ni área, ni «afecta», ni otro efecto con levantar', () => {
+    expect(problemas({ ...AL_CADAVER, entrega: { tipo: 'libre', diferido: true } })).toEqual([
+      '«Prueba»: a un cadáver no se lanza diferido: al caer, el cadáver podría ya no estar',
+    ]);
+    expect(problemas({ ...AL_CADAVER, area: 1 })).toEqual([
+      '«Prueba»: a un cadáver no hay área: se levanta uno',
+    ]);
+    expect(problemas({ ...AL_CADAVER, afecta: 'todos' })).toEqual([
+      '«Prueba»: a un cadáver sobra «afecta»: no alcanza a nadie vivo',
+    ]);
+    expect(
+      problemas({ ...AL_CADAVER, efectos: [LEVANTAR, { tipo: 'cura', cantidad: 3 }] }),
+    ).toEqual(['«Prueba»: a un cadáver se lanza un solo efecto, «levantar»']);
+    expect(problemas({ ...AL_CADAVER, efectos: [{ tipo: 'cura', cantidad: 3 }] })).toEqual([
+      '«Prueba»: a un cadáver se lanza un solo efecto, «levantar»',
+    ]);
+  });
+
+  it('levantar solo va con un cadáver, y nunca dentro de un disparador', () => {
+    expect(problemas({ efectos: [LEVANTAR] })).toEqual([
+      '«Prueba»: «levantar» solo va con el objetivo «cadaver»: se levanta de un cadáver',
+    ]);
+    const dentro = {
+      tipo: 'disparador',
+      cuando: 'alMorir',
+      a: 'alrededor',
+      radio: 1,
+      afecta: 'todos',
+      efectos: [LEVANTAR],
+    };
+    expect(problemas({ efectos: [dentro] })).toContain(
+      '«Prueba»: efectos[0] (disparador).efectos[0] (levantar): un disparador no levanta',
+    );
+  });
+
+  it('los ids de levantar tienen la forma de una unidad', () => {
+    expect(
+      problemas({ ...AL_CADAVER, efectos: [{ tipo: 'levantar', vivos: 'Zombi', de: {} }] }),
+    ).toEqual([
+      '«Prueba»: efectos[0] (levantar).vivos tiene que ser el id de una unidad (minúsculas, cifras y guiones)',
+      '«Prueba»: efectos[0] (levantar).de no nombra a nadie: sin nada, se quita',
+    ]);
+    expect(
+      problemas({
+        ...AL_CADAVER,
+        efectos: [{ tipo: 'levantar', vivos: 'zombi', de: { zombi: 3 } }],
+      }),
+    ).toEqual([
+      '«Prueba»: efectos[0] (levantar).de.zombi tiene que ser el id de una unidad (minúsculas, cifras y guiones)',
+    ]);
+    expect(
+      problemas({ ...AL_CADAVER, efectos: [{ tipo: 'levantar', vivos: 'zombi', resucita: true }] }),
+    ).toHaveLength(1);
   });
 });
 

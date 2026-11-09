@@ -232,6 +232,7 @@ function stackDelCable(s: StackEnCable): BattleStack {
           oro: oroDeUnidad(s.origen.unidad),
           veterania: hojaDelCable(s.origen.veterania),
           ...(s.origen.salida === undefined ? {} : { salida: s.origen.salida }),
+          ...(s.origen.levantadoDe === undefined ? {} : { levantadoDe: s.origen.levantadoDe }),
         },
       };
     }

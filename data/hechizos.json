@@ -1,5 +1,5 @@
 {
-  "_comment": "Hechizos (06-11-2026, el editor de magia de la arena; docs/agents/2026-11-06-editor-de-magia/). REGLA NUESTRA. El formato y su validación, en src/core/magia/ (formato.ts, validar.ts); lo edita la arena («Editar magia») y lo escribe «Guardar». Los cinco del gremio son los de antes (ids de siempre; daño y cura: base + porPoder × poder mágico, ×0,3 desde la escala baja del 26-10-2026, a ojo). «curar» es el poder Curar del monje (12 PV, inventado). Los demás, ejemplos con cifras INVENTADAS y a ojo, sin medir: gremio null = no los enseña ningún gremio (decisión por defecto, P3 del plan), solo la arena y los poderes. Coste (maná) a mano: no se sistematiza (decisión del usuario). Facciones (08-11-2026, docs/agents/2026-11-08-facciones-de-los-hechizos/): a ojo, todos de las cinco salvo «curar», de los templarios (es el poder del monje), y «zombi_pegajoso», de los no muertos (decisión del usuario). El gremio de una ciudad enseña solo los de su facción y una unidad solo usa como poder los de la suya.",
+  "_comment": "Hechizos (06-11-2026, el editor de magia de la arena; docs/agents/2026-11-06-editor-de-magia/). REGLA NUESTRA. El formato y su validación, en src/core/magia/ (formato.ts, validar.ts); lo edita la arena («Editar magia») y lo escribe «Guardar». Los cinco del gremio son los de antes (ids de siempre; daño y cura: base + porPoder × poder mágico, ×0,3 desde la escala baja del 26-10-2026, a ojo). «curar» es el poder Curar del monje (12 PV, inventado). Los demás, ejemplos con cifras INVENTADAS y a ojo, sin medir: gremio null = no los enseña ningún gremio (decisión por defecto, P3 del plan), solo la arena y los poderes. Coste (maná) a mano: no se sistematiza (decisión del usuario). Facciones (08-11-2026, docs/agents/2026-11-08-facciones-de-los-hechizos/): a ojo, todos de las cinco salvo «curar», de los templarios (es el poder del monje), y «zombi_pegajoso», de los no muertos (decisión del usuario). El gremio de una ciudad enseña solo los de su facción y una unidad solo usa como poder los de la suya. «levantar_zombi» (08-11-2026, docs/agents/2026-11-08-levantar-zombi/): de los no muertos, gremio 2 (decisión del usuario: «Nivel 2»); maná 6 y alcance 4, a ojo.",
   "hechizos": [
     {
       "id": "magic_arrow",
@@ -193,6 +193,30 @@
               ]
             }
           ]
+        }
+      ]
+    },
+    {
+      "id": "levantar_zombi",
+      "nombre": "Levantar zombi",
+      "descripcion": "Alza un zombi de tu bando del cadáver de un vivo, de cualquier bando; del cadáver de un zombi, un esqueleto guerrero. El cadáver se gasta, y lo levantado entra en la ronda siguiente.",
+      "mana": 6,
+      "gremio": 2,
+      "facciones": [
+        "no-muertos"
+      ],
+      "entrega": {
+        "tipo": "alcance",
+        "casillas": 4
+      },
+      "objetivo": "cadaver",
+      "efectos": [
+        {
+          "tipo": "levantar",
+          "vivos": "zombi",
+          "de": {
+            "zombi": "esqueleto-guerrero"
+          }
         }
       ]
     },

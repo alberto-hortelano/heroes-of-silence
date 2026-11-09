@@ -7,12 +7,13 @@
  * otras piezas: los pide por su dueño. Era parte de `Session` (`sesion/partida.ts`) hasta
  * R6 de la reorganización (07-11-2026); la sesión delega en ella.
  */
-import { resolvePendingBattle } from '@core/ai/turn.js';
+import { jugarLaBatallaPendiente } from '@core/ai/turn.js';
 import type { Baja } from '@core/battle/resumen.js';
 import type { BattleState, Side } from '@core/battle/types.js';
 import { lugarEn } from '@core/mundo/reglas.js';
 import { settleBattle } from '@core/state/cierre.js';
 import { nombreDelSitio, sitioSiExiste } from '@core/state/sitios.js';
+import type { Dejados } from '@core/state/sobrantes.js';
 import { unidadDelJuego } from '@core/unidad/catalogo.js';
 import { comoFrase } from '../batalla/control.js';
 import { ELIGE_EN_LA_RUEDA } from '../batalla/cruce.js';
@@ -62,6 +63,11 @@ interface DueñoDelCierre
    * Vuelve a la escena del lugar del héroe `heroId`, ya en su estado nuevo (`EnElLugar.volver`).
    */
   volverAlLugar(heroId: string): void;
+  /**
+   * Si a la persona le sobra algo al cerrar, abre el diálogo de lo que deja y dice
+   * `true` (`SobrantesEnPantalla.abrir`): la batalla no se cierra hasta «Seguir».
+   */
+  abrirLoQueSobra(): boolean;
 }
 
 export class CierreDeLaBatalla {
@@ -76,20 +82,30 @@ export class CierreDeLaBatalla {
       this.dueño.barra(comoFrase(ELIGE_EN_LA_RUEDA));
       return;
     }
-    // Delegar la batalla no es delegar el oro: la IA no se rinde por la persona.
-    const delLugar = this.dueño.lugarDeLaBatalla();
-    const antes = this.antesDeCerrar();
-    resolvePendingBattle(this.dueño.estado(), this.dueño.ctx());
-    this.trasCerrar(delLugar, antes);
+    // Delegar la batalla no es delegar el oro: la IA no se rinde por la persona. Ni
+    // lo que deja si no cabe todo (08-11-2026): eso se pregunta al cerrar, como tras
+    // «Continuar».
+    jugarLaBatallaPendiente(this.dueño.estado(), this.dueño.ctx());
+    this.continuar();
   }
 
-  /** Cierra la batalla terminada y vuelve al mapa (o al lugar donde se peleó). */
+  /**
+   * Cierra la batalla terminada y vuelve al mapa (o al lugar donde se peleó). Si a la
+   * persona le sobra algo, antes elige qué deja (`abrirLoQueSobra`), y la cierra su
+   * «Seguir» (`cerrar`).
+   */
   continuar(): void {
     const battle = this.dueño.batalla();
     if (battle === null || battle.finished === null) return;
+    if (this.dueño.abrirLoQueSobra()) return;
+    this.cerrar({});
+  }
+
+  /** Cierra la batalla terminada con lo que deja la persona (`settleBattle`) y vuelve. */
+  cerrar(dejados: Dejados): void {
     const delLugar = this.dueño.lugarDeLaBatalla();
     const antes = this.antesDeCerrar();
-    settleBattle(this.dueño.estado(), this.dueño.ctx());
+    settleBattle(this.dueño.estado(), this.dueño.ctx(), dejados);
     this.trasCerrar(delLugar, antes);
   }
 
@@ -177,6 +193,11 @@ export class CierreDeLaBatalla {
           else if (e.actor === viewer) partes.push(`tomas ${sitio(id)}`);
           break;
         }
+        case 'left_behind':
+          if (e.actor === viewer) {
+            partes.push(`dejas ${e.count} × ${unidadDelJuego(e.creature).name}, que no caben`);
+          }
+          break;
         case 'town_owner_changed':
           if (e.from === viewer) partes.push(`pierdes ${sitio(e.town)}`);
           else if (e.to === viewer) partes.push(`tomas ${sitio(e.town)}`);

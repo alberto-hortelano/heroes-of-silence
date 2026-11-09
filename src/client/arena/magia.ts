@@ -82,7 +82,41 @@ const NOMBRE_DE_EFECTO: Readonly<Record<TipoDeEfecto, string>> = {
   impide: 'Impedir',
   escudo: 'Escudo',
   disparador: 'Disparador',
+  levantar: 'Levantar',
 };
+
+/**
+ * Lo que no va dentro de un disparador: otro disparador, ni levantar (que va solo,
+ * con el objetivo «cadaver»). La validación lo dice igual; aquí no se ofrece.
+ */
+function seOfreceDentro(t: TipoDeEfecto): boolean {
+  return t !== 'disparador' && t !== 'levantar';
+}
+
+/** `de` de un `levantar` escrito en una línea: «zombi: esqueleto-guerrero, …». */
+function deEnUnaLinea(de: Readonly<Record<string, string>> | undefined): string {
+  return Object.entries(de ?? {})
+    .map(([cae, sale]) => `${cae}: ${sale}`)
+    .join(', ');
+}
+
+/**
+ * La inversa de `deEnUnaLinea`, sin juzgar: un trozo sin «:» queda con lo que se
+ * levanta vacío, y la validación dice que eso no es un id. Vacía, sin `de`.
+ */
+function deDeUnaLinea(linea: string): Record<string, string> | undefined {
+  const trozos = linea
+    .split(',')
+    .map((t) => t.trim())
+    .filter((t) => t !== '');
+  if (trozos.length === 0) return undefined;
+  return Object.fromEntries(
+    trozos.map((t) => {
+      const [cae = '', sale = ''] = t.split(':').map((x) => x.trim());
+      return [cae, sale];
+    }),
+  );
+}
 
 /** La duración como un valor del desplegable, y su inversa. */
 function claveDeDuracion(d: Duracion | undefined): string {
@@ -275,6 +309,11 @@ function camposDelEfecto(e: Efecto, ruta: string): Html {
         )}
         <div class="efectos-dentro">${listaDeEfectos(e.efectos, `${ruta}.efectos`, true)}</div>
       </div>`;
+    case 'levantar':
+      return html`<div class="levantar">
+        ${fila('De un vivo', 'El id de la unidad que se levanta del cadáver de un vivo (sin el rasgo no-muerto), de cualquier bando.', campoDeTexto(`${ruta}.vivos`, e.vivos))}
+        ${fila('De un no-muerto', 'Lo que sale del cadáver de cada no-muerto nombrado, «cae: sale» separados por comas (zombi: esqueleto-guerrero). Del que no se nombra, ni del héroe, no sale nada.', html`<input type="text" data-magia-ruta="${ruta}.de" data-magia-como="pares" value="${deEnUnaLinea(e.de)}">`)}
+      </div>`;
   }
 }
 
@@ -286,7 +325,7 @@ function listaDeEfectos(efectos: readonly Efecto[], ruta: string, dentro: boolea
         `${ruta}.${i}`,
         'tipo-de-efecto',
         e.tipo,
-        TIPOS_DE_EFECTO.filter((t) => !dentro || t !== 'disparador').map(
+        TIPOS_DE_EFECTO.filter((t) => !dentro || seOfreceDentro(t)).map(
           (t) => [t, NOMBRE_DE_EFECTO[t]] as const,
         ),
       )} ${nota(V.efectos[e.tipo])}
@@ -295,7 +334,7 @@ function listaDeEfectos(efectos: readonly Efecto[], ruta: string, dentro: boolea
     </div>`,
   );
   const anadir = html`<select data-magia-anadir="${ruta}"><option value="" selected>+ Añadir efecto…</option>${unir(
-    TIPOS_DE_EFECTO.filter((t) => !dentro || t !== 'disparador').map(
+    TIPOS_DE_EFECTO.filter((t) => !dentro || seOfreceDentro(t)).map(
       (t) => html`<option value="${t}">${NOMBRE_DE_EFECTO[t]}</option>`,
     ),
   )}</select>`;
@@ -537,6 +576,8 @@ function conElValor(h: Hechizo, ruta: string, como: string, t: Element): Hechizo
       return conCampo(h, ruta, v === '0' ? undefined : v === 'recta' ? 'recta' : Number(v));
     case 'duracion':
       return conCampo(h, ruta, duracionDeClave(v, campoDe(h, ruta) as Duracion | undefined));
+    case 'pares':
+      return conCampo(h, ruta, deDeUnaLinea(v));
     case 'tipo-de-efecto':
       return conTipoDeEfecto(h, ruta, v as TipoDeEfecto);
     case 'base':

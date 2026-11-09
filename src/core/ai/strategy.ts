@@ -11,16 +11,21 @@ import { PIEZAS_DE_ARMERIA, pieza } from '../equipo/pieza.js';
 import { destinoDeEquipo, equipoDe, type Portador, pedidoDeEquipo } from '../equipo/portador.js';
 import { conEquipo } from '../equipo/vestir.js';
 import { HEROE } from '../hero/cuerpo-del-heroe.js';
-import { armyPower, fuerzaDe, poderDe, unitPower, ventajaClara } from '../hero/fuerza.js';
+import {
+  armyPower,
+  fuerzaDe,
+  laMasBarata,
+  poderDe,
+  unitPower,
+  ventajaClara,
+} from '../hero/fuerza.js';
 import { rangoDeTropa } from '../hero/rango.js';
 import {
   capacidadDe,
-  elQueSeIria,
   sinIndividuos,
   troopRoom,
   troopSummary,
   troopsThatFit,
-  troopUnit,
   withTroops,
 } from '../hero/troop.js';
 import { aPunto, chebyshev } from '../map/geometria.js';
@@ -663,50 +668,6 @@ function planCambio(
   }
   if (firme.cuantos === 0) return null;
   return poder * firme.cuantos > saleFirme ? firme : null;
-}
-
-/**
- * El tipo de criatura que se licencia primero, con lo que pesa el individuo
- * que se iría: el que dice `elQueSeIria` —la misma regla que aplica
- * `dismiss`—, entre los que pegan menos que `poder`.
- *
- * Se ordena por **veteranía, luego oro, luego fuerza**, y el orden importa: lo
- * novato y barato se va antes que lo veterano, así que la IA no tira a un
- * piquero de rango 3 mientras le quede un campesino que tirar. Sin esa primera
- * clave, el veterano —que vale lo mismo en oro que un novato de su tipo— se iba
- * a la primera, y la experiencia no le servía de nada a quien la gana. A
- * igualdad de todo, el id menor, para que no decida el orden del ejército.
- */
-function laMasBarata(
-  army: Army,
-  poder: number,
-): { readonly creature: string; readonly poder: number } | null {
-  let mejor: {
-    readonly creature: string;
-    readonly rango: number;
-    readonly oro: number;
-    readonly poder: number;
-  } | null = null;
-  const vistos = new Set<string>();
-  for (const { creature: id } of army) {
-    if (vistos.has(id)) continue;
-    vistos.add(id);
-    // El que se iría de este tipo, con la MISMA regla que la acción.
-    const t = elQueSeIria(army, id)!;
-    const suyo = unitPower(troopUnit(t));
-    if (suyo >= poder) continue;
-    const rango = rangoDeTropa(t.veterania);
-    const oro = unidadDelJuego(id).oro;
-    const gana =
-      mejor === null ||
-      rango < mejor.rango ||
-      (rango === mejor.rango &&
-        (oro < mejor.oro ||
-          (oro === mejor.oro &&
-            (suyo < mejor.poder || (suyo === mejor.poder && id < mejor.creature)))));
-    if (gana) mejor = { creature: id, rango, oro, poder: suyo };
-  }
-  return mejor === null ? null : { creature: mejor.creature, poder: mejor.poder };
 }
 
 // ---------------------------------------------------------------- equipo

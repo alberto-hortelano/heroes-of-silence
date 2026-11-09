@@ -523,6 +523,40 @@ export function vivoEn(state: BattleState, hex: Hex): BattleStack | null {
 }
 
 /**
+ * Si del cadáver `s` ya se levantó alguien (`OrigenDelStack.levantadoDe`): un
+ * cadáver gastado no vale para otro lanzamiento y no se pinta. Se deriva del
+ * levantado, el único que lo escribe: el cadáver no se marca (08-11-2026).
+ */
+export function cadaverGastado(state: BattleState, s: Pick<BattleStack, 'id'>): boolean {
+  return state.stacks.some((x) => x.origen.kind === 'catalogo' && x.origen.levantadoDe === s.id);
+}
+
+/**
+ * Los cadáveres de `hex` que siguen en el suelo (sin gastar), **del último en caer
+ * al primero**, por el orden de su `perished` en el registro. Sobre un muerto puede
+ * pararse otro y morir allí (uno por casilla cuenta solo a los vivos), así que
+ * puede haber varios. Lo leen `cadaverEn` y la regla de apuntar a un cadáver.
+ */
+function cadaveresEn(state: BattleState, hex: Hex): readonly BattleStack[] {
+  const cayo = new Map<string, number>();
+  state.log.forEach((e, i) => {
+    if (e.kind === 'perished') cayo.set(e.stack, i);
+  });
+  return state.stacks
+    .filter((x) => !isAlive(x) && hexEquals(x.hex, hex) && !cadaverGastado(state, x))
+    .sort((a, b) => (cayo.get(b.id) ?? -1) - (cayo.get(a.id) ?? -1));
+}
+
+/**
+ * El cadáver que se levanta en `hex`: **el último en caer** que no esté gastado
+ * (S3 de «Levantar zombi»: si ese no se puede levantar, se rechaza, no se busca otro
+ * debajo), o `null` si no queda ninguno.
+ */
+export function cadaverEn(state: BattleState, hex: Hex): BattleStack | null {
+  return cadaveresEn(state, hex)[0] ?? null;
+}
+
+/**
  * Por qué `target` no vale como blanco de `s`: muerto o de su bando. `verbo` es
  * lo que se iba a hacer («atacar», «disparar»). Lo comparten el golpe, el disparo
  * y la frase de `ataqueBlocker`.

@@ -16,9 +16,11 @@
  */
 
 import type { Army, GrupoDeTropa, Hero, UnitInfo } from '../types.js';
+import { unidadDelJuego } from '../unidad/catalogo.js';
 import { poderBruto } from '../unidad/nivel.js';
 import { heroUnit } from './hero.js';
-import { ejercitoDe, troopUnit } from './troop.js';
+import { rangoDeTropa } from './rango.js';
+import { ejercitoDe, elQueSeIria, troopUnit } from './troop.js';
 
 /**
  * Fuerza bruta de un individuo: lo que pega por lo que aguanta, **con todo lo que
@@ -120,4 +122,53 @@ export const MARGEN_CONTRA_NEUTRALES = 1.6;
 /** Si `mia` le saca el margen a `suya`: **la** regla de «se cree capaz». */
 export function ventajaClara(mia: number, suya: number): boolean {
   return mia > suya * MARGEN_CONTRA_NEUTRALES;
+}
+
+/**
+ * El tipo de criatura que se licencia primero, con lo que pesa el individuo
+ * que se iría: el que dice `elQueSeIria` —la misma regla que aplica
+ * `dismiss`—, entre los que pegan menos que `poder`.
+ *
+ * Se ordena por **veteranía, luego oro, luego fuerza**, y el orden importa: lo
+ * novato y barato se va antes que lo veterano, así que la IA no tira a un
+ * piquero de rango 3 mientras le quede un campesino que tirar. Sin esa primera
+ * clave, el veterano —que vale lo mismo en oro que un novato de su tipo— se iba
+ * a la primera, y la experiencia no le servía de nada a quien la gana. A
+ * igualdad de todo, el id menor, para que no decida el orden del ejército.
+ *
+ * Vivía en `ai/strategy.ts` hasta el 08-11-2026 («Levantar zombi»): con `poder`
+ * infinito es también **la regla de la IA para lo que sobra tras una batalla**
+ * (`loQueDejaLaIA`, `state/sobrantes.ts`), y fuera de `ai/` nadie del núcleo
+ * importa la IA. Aquí y no en `troop.ts`, que este módulo ya importa.
+ */
+export function laMasBarata(
+  army: Army,
+  poder: number,
+): { readonly creature: string; readonly poder: number } | null {
+  let mejor: {
+    readonly creature: string;
+    readonly rango: number;
+    readonly oro: number;
+    readonly poder: number;
+  } | null = null;
+  const vistos = new Set<string>();
+  for (const { creature: id } of army) {
+    if (vistos.has(id)) continue;
+    vistos.add(id);
+    // El que se iría de este tipo, con la MISMA regla que la acción.
+    const t = elQueSeIria(army, id)!;
+    const suyo = unitPower(troopUnit(t));
+    if (suyo >= poder) continue;
+    const rango = rangoDeTropa(t.veterania);
+    const oro = unidadDelJuego(id).oro;
+    const gana =
+      mejor === null ||
+      rango < mejor.rango ||
+      (rango === mejor.rango &&
+        (oro < mejor.oro ||
+          (oro === mejor.oro &&
+            (suyo < mejor.poder || (suyo === mejor.poder && id < mejor.creature)))));
+    if (gana) mejor = { creature: id, rango, oro, poder: suyo };
+  }
+  return mejor === null ? null : { creature: mejor.creature, poder: mejor.poder };
 }

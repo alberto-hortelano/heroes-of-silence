@@ -103,6 +103,7 @@ import { GuarnicionEnPantalla, type VistaDeLaGuarnicion } from './partida/guarni
 import { EnElLugar, type TrasElegir } from './partida/lugar.js';
 import { MarchaEnElMapa, type MarchaEnPantalla, type RoutePreview } from './partida/marcha.js';
 import { MoradaEnPantalla } from './partida/morada.js';
+import { SobrantesEnPantalla, type VistaDeLoQueSobra } from './partida/sobrantes.js';
 import { TropaEnPantalla } from './partida/tropa.js';
 import type { VistaDelAyuntamiento } from './vistas/ayuntamiento.js';
 import type { VistaDeLaMorada } from './vistas/morada.js';
@@ -1615,7 +1616,37 @@ export class Session extends SesionDeBatalla {
     },
     trasLaBatalla: () => this.ataque.trasLaBatalla(),
     volverAlLugar: (heroId) => this.lugar.volver(heroId),
+    abrirLoQueSobra: () => this.loQueSobra.abrir(),
   });
+
+  /**
+   * Lo que sobra tras una batalla de la persona (08-11-2026, «Levantar zombi»):
+   * `SobrantesEnPantalla` (`sesion/partida/sobrantes.ts`), en la que delegan estos.
+   */
+  private readonly loQueSobra = new SobrantesEnPantalla({
+    ...this.dueñoDeLasPiezas,
+    cerrar: (dejados) => this.cierre.cerrar(dejados),
+  });
+
+  /** El diálogo de lo que sobra, o `null` (`SobrantesEnPantalla.vista`). */
+  get sobrantes(): VistaDeLoQueSobra | null {
+    return this.loQueSobra.vista;
+  }
+
+  /** Deja uno más (o uno menos) de `creature` (`SobrantesEnPantalla.cambiar`). */
+  cambiarLoQueSobra(creature: string, cambio: 1 | -1): void {
+    this.loQueSobra.cambiar(creature, cambio);
+  }
+
+  /** «Como propone la IA» (`SobrantesEnPantalla.loDeLaIA`). */
+  loQueSobraDeLaIA(): void {
+    this.loQueSobra.loDeLaIA();
+  }
+
+  /** «Seguir» (`SobrantesEnPantalla.confirmar`): cierra la batalla con lo dejado. */
+  confirmarLoQueSobra(): void {
+    this.loQueSobra.confirmar();
+  }
 
   /**
    * Resuelve el resto de la batalla con la IA en ambos bandos (`CierreDeLaBatalla.resolverSola`).

@@ -32,8 +32,11 @@ export const ENTREGAS = [
 ] as const;
 export type TipoDeEntrega = (typeof ENTREGAS)[number];
 
-/** Qué se elige al lanzar: una unidad de un bando, cualquiera, o una casilla. */
-export const OBJETIVOS = ['aliado', 'enemigo', 'cualquiera', 'casilla'] as const;
+/**
+ * Qué se elige al lanzar: una unidad de un bando, cualquiera, una casilla o el
+ * cadáver de una casilla (08-11-2026, «Levantar zombi»: «se hace sobre un cadáver»).
+ */
+export const OBJETIVOS = ['aliado', 'enemigo', 'cualquiera', 'casilla', 'cadaver'] as const;
 type Objetivo = (typeof OBJETIVOS)[number];
 
 /** De los que alcanza, a quién: relativo al bando de quien lo lanza. */
@@ -131,7 +134,24 @@ export interface Disparador {
   readonly efectos: readonly EfectoSimple[];
 }
 
-export type Efecto = EfectoSimple | Disparador;
+/**
+ * Levanta una unidad del catálogo en la casilla del cadáver elegido, del bando de
+ * quien lo lanza, y el cadáver se gasta (08-11-2026, «Levantar zombi»; regla nuestra).
+ * Qué sale de cada cadáver lo dice el propio efecto, no el motor ni el catálogo de
+ * unidades: el de una unidad que nombra `de` (su id), lo que diga ahí; el de un vivo
+ * (sin el rasgo `undead`) que no nombra, `vivos`; el resto —otro no-muerto, el
+ * cuerpo del héroe— no se levanta. Va solo con el objetivo `cadaver`, y no dentro de
+ * un disparador (no es un `EfectoSimple`).
+ */
+interface Levantar {
+  readonly tipo: 'levantar';
+  /** La unidad que sale del cadáver de un vivo. */
+  readonly vivos: string;
+  /** Lo que sale del cadáver de cada unidad nombrada (un no-muerto), por su id. */
+  readonly de?: Readonly<Record<string, string>>;
+}
+
+export type Efecto = EfectoSimple | Disparador | Levantar;
 export type TipoDeEfecto = Efecto['tipo'];
 
 export const TIPOS_DE_EFECTO = [
@@ -142,10 +162,16 @@ export const TIPOS_DE_EFECTO = [
   'impide',
   'escudo',
   'disparador',
+  'levantar',
 ] as const satisfies readonly TipoDeEfecto[];
 
 /** Los que se hacen en el acto (el resto dura). */
-export const INSTANTANEOS: readonly TipoDeEfecto[] = ['danio', 'cura', 'disipar'];
+export const INSTANTANEOS: readonly TipoDeEfecto[] = ['danio', 'cura', 'disipar', 'levantar'];
+
+/** El efecto `levantar` de `h`, o `undefined`: el de un hechizo que apunta a un cadáver. */
+export function levantarDe(h: Pick<Hechizo, 'efectos'>): Levantar | undefined {
+  return h.efectos.find((e): e is Levantar => e.tipo === 'levantar');
+}
 
 /** Un hechizo, tal como se escribe en `data/hechizos.json`. */
 export interface Hechizo {
@@ -187,9 +213,12 @@ export function esDiferido(h: Pick<Hechizo, 'entrega'>): boolean {
   );
 }
 
-/** Si se apunta a una casilla (y no a una unidad, ni a nada). */
+/**
+ * Si se apunta a una casilla (y no a una unidad, ni a nada): la casilla o la del
+ * cadáver, que se elige igual, con `at` (el cliente y el contrato no cambian).
+ */
 export function apuntaACasilla(h: Pick<Hechizo, 'objetivo'>): boolean {
-  return h.objetivo === 'casilla';
+  return h.objetivo === 'casilla' || h.objetivo === 'cadaver';
 }
 
 /** Si se lanza sin elegir nada: sobre sí o sobre el tablero entero. */
@@ -261,6 +290,8 @@ export const VOCABULARIO_DE_LA_MAGIA: {
     enemigo: 'una unidad del otro bando',
     cualquiera: 'una unidad de cualquier bando',
     casilla: 'una casilla (el área se centra en ella)',
+    cadaver:
+      'el cadáver de una casilla sin nadie vivo encima: el último que cayó en ella, que se gasta',
   },
   afecta: {
     aliados: 'solo a los del bando de quien lo lanza',
@@ -275,6 +306,8 @@ export const VOCABULARIO_DE_LA_MAGIA: {
     impide: 'no puede hacer eso mientras dura',
     escudo: 'se come el daño que llega (tras la armadura) hasta agotarse',
     disparador: 'cuando le pasa algo a quien lo lleva, aplica sus efectos',
+    levantar:
+      'levanta una unidad del catálogo en la casilla del cadáver, del bando de quien lo lanza; el cadáver se gasta',
   },
   cifras: {
     ataque: 'ataque',

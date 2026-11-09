@@ -226,6 +226,22 @@ export function instalarElClic(pagina: PaginaDeLaPartida): void {
       case 'defensa-de-la-ia':
         session.dejarLaDefensaDeLaIA();
         break;
+      case 'sobra-mas':
+      case 'sobra-menos':
+        // Como los de la defensa: solo editan hasta «Seguir».
+        if (target.getAttribute('aria-disabled') === 'true') break;
+        session.cambiarLoQueSobra(
+          target.getAttribute('data-creature') as string,
+          action === 'sobra-mas' ? 1 : -1,
+        );
+        break;
+      case 'sobra-de-la-ia':
+        session.loQueSobraDeLaIA();
+        break;
+      case 'sobra-seguir':
+        if (target.getAttribute('aria-disabled') === 'true') break;
+        session.confirmarLoQueSobra();
+        break;
       case 'aviso-defender':
         session.defenderElAtaque();
         break;
