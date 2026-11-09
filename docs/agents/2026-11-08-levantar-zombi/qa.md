@@ -143,3 +143,94 @@ arena, el editor, el cierre con lo que sobra, el banco y el agente hacen lo que 
 reservas: H1, el retoque de un levantado a media pelea, que no funciona y habla en jerga de la casa;
 H2 a H4, frases que confunden; y el diálogo de lo que sobra, que no se ha visto en la página de la
 partida.
+
+## Vuelta 2
+
+QA, 09-11-2026, sobre `187f4a2a` (la corrección de H1-H4). No he tocado código. Árbol limpio al
+empezar y al acabar (`git status --short` vacío). `data/` igual byte a byte (`sha256sum -c` de los
+28 ficheros, OK tras el «Guardar» rechazado). Solo los criterios que tocan H1-H4, más una pasada
+adversarial sobre lo cambiado.
+
+**Cómo**: Playwright con Chromium sin pantalla. Vite propio en el :4795, lanzado dos veces con `set -m`
+en su propia línea (PID = PGID 113636 y luego 116729, `cwd` en este worktree) y matado por su grupo.
+Las dos veces, `ss -ltnp | grep :4795` daba «libre». El `:3636` ajeno sigue escuchando y no lo he
+tocado. **Arena**: `/arena/?seed=7`, el mismo montaje de la vuelta 1, hecho con clics (un héroe a
+cada lado, Conocimiento 5 en el izquierdo; a la derecha tres goblins y un esqueleto guerrero; la
+derecha en «Yo»; «Luchar»; «Listo» en los dos despliegues). Todas las jugadas, con clics reales. El
+espejo `SesionDeArena` solo dice dónde pulsar, y cada retoque de la página se le aplica igual
+(`espejo.retocar`). Así no se desincroniza: en toda la pelea no salió ningún «DESINCRONÍA».
+**Editor de magia**: el mismo vite, con clics y teclado. Guiones en el scratchpad, fuera del repo.
+
+### Criterios
+
+| Hallazgo | Criterio | | Evidencia |
+|---|---|---|---|
+| H1 | «Editar» un levantado que no venía en el montaje cambia su tipo | ✅ | s7, ronda 4, turno del zombi `attacker-1` (levantado en la ronda 3, en (8,4)). La ficha abre con PV 85; PV 222 → «Cambiado: vale ya en esta pelea.» en el editor y en la barra; el campo se queda en 222 (`qa2-03`). |
+| H1 | Un segundo retoque compara con el primero | ✅ | En el mismo turno, PV 222 → 40. La ficha abre con 222. El parte dice «Cambian las cifras de Zombie a media pelea (vida 85 → 222)» y después «(vida 222 → 40)» (`qa2-04`). |
+| H1 | Lo que se levanta después nace con lo retocado | ✅ | Ronda 5: el segundo zombi, `attacker-2`, se levanta del goblin caído en (7,5). Nace con **40 PV**, y su fila dice «▶ Zombie B 40 PV · tú Editar» (`qa2-05`). En el espejo, `levantables`: `{zombi: 40, esqueleto-guerrero: 30}`. |
+| H1 | Un tipo que pelea y además se levanta: el retoque alcanza a los dos | ✅ | Ronda 6: el héroe derecho mata a `attacker-1` con Rayo, y de su cadáver se levanta un Esqueleto guerrero, `attacker-3`, en (8,4). Además ya peleaba `defender-3`, del montaje. «Editar» en el levantado, PV 30 → 77. Las dos filas dicen 77 PV: «▶ Esqueleto guerrero 77 PV» (el levantado, del bando izquierdo) y «◀ Esqueleto guerrero 77 PV» (el del montaje, del derecho). En el registro: `Esqueleto guerrero [defender-3,attacker-3] vida 30 → 77` (`qa2-06`). |
+| H1 | Volver a retocar el zombi con uno vivo y otro muerto | ✅ | Ronda 6, zombi 40 → 60, desde «Editar» en `attacker-2`. El parte dice «vida 40 → 60». El muerto (`attacker-1`) queda con `hp` 60 y `count` 0, y el vivo con 60/60 (`qa2-07`, `qa2-08`). Sin errores de consola en toda la pelea. |
+| H2 | Botón apagado por distancia | ✅ | Ronda 3: el héroe en (3,4) y el único cadáver en (8,4), a 5 casillas (alcance 4). El botón sale apagado con `title` «ningún cadáver que se pueda levantar está a su alcance (4 casillas)» (`qa2-01`). Es la misma frase que da `castBlocker` sin apuntar en el espejo. Sin cadáveres (ronda 2), sigue diciendo «no hay ningún cadáver que levantar». A 2 casillas, encendido: «Cuesta 6 de maná». Pulsarlo apagado no elige nada ni cambia la barra. La rama «en contacto» no se alcanza con los datos de hoy (`levantar_zombi` es de alcance); la cubre `test/levantar.test.ts`. |
+| H3 | La ficha del editor dice lo mismo que «Guardar» | ✅ | «+ Nuevo hechizo», objetivo cadáver, efecto «Levantar». Con `vivos` = `no-existe`, la ficha dice ««Alzar QA2» nombra «no-existe», que no es ninguna unidad de data/unidades.json» (no «Vale»), y la lista, «SOLO ARENA · NO VALE» (`qa2-09`). «Guardar» se niega con «No se ha guardado: data/hechizos.json: » más **la misma frase** (`qa2-12`). Con `de` = «goblin-lancero: zombi»: ««Alzar QA2»: Goblin lancero no es no-muerto, y de un vivo sale siempre lo de «vivos» (zombi)» (`qa2-10`). Con `de` = «zombi: no-existe-2»: «… nombra «no-existe-2» …». Vuelto a `zombi`, «Vale» y desaparece el «no vale». Con `vivos` = una unidad **nueva, sin guardar** (`templario-escudo-2`, creada con «Crear» en la misma página): «Vale» (`qa2-11`). En la lista, ningún hechizo del juego sale «no vale»: solo el de la prueba. |
+| H4 | La ayuda del panel dice qué se pulsa | ✅ | Con «Levantar zombi» elegido: «Levantar zombi: pulsa la casilla del cadáver que levantar. Escape cancela.» (`qa2-02`). Con «Flecha mágica»: «… pulsa sobre la unidad objetivo …», como antes. La barra de abajo sigue diciendo «pulsa la casilla donde lanzarlo». No es mentira (el ingeniero lo declara como desviación). |
+
+### Tests
+
+- `pnpm vitest run test/levantar.test.ts test/magia-arena.test.ts test/magia-cliente.test.ts` → «3
+  passed · 41 passed». Son los tests de H1-H4. Los vuelvo a correr sobre el árbol del commit (el
+  ingeniero los corrió antes de commitear) y porque la rama «en contacto» de H2 solo la prueban
+  ellos.
+- Lo demás (`typecheck`, `lint`, `arena*`, `paneles`, `escenas`, `session`, `magia-motor`, los
+  invariantes, `documentacion`, `exportaciones`, `banco`) lo dejó en verde el ingeniero
+  (`implementacion.md`, «Tras QA, vuelta 1 → Verificación»). Lo cito y no lo repito: desde entonces
+  no ha cambiado nada en `src/` ni en `test/`.
+
+### Hallazgos de la vuelta 2
+
+**N1 — menor: en la arena, el zombi que se levanta no tiene las cifras de la página, y «Editar» lo
+destapa.**
+Pasos: `/arena/?seed=7`, el montaje de arriba. Antes de «Luchar», «+ der.» en el Zombie, abrir su
+ficha, PV 85 → 100, y quitarlo del bando: queda editado en la página, sin guardar y sin pelear.
+«Luchar»; en la ronda 3 se levanta un zombi del goblin caído.
+- El levantado pelea con **85 PV**, los del juego, y no con los 100 de la página («▶ Zombie 85 PV»,
+  `qa2-14`).
+- «Editar» sobre él abre la ficha con **PV 100**. Al cambiar solo el ataque, 2 → 3, el parte dice
+  «Cambian las cifras de Zombie a media pelea (ataque 2 → 3; vida 85 → 100)»: un cambio de vida que
+  la persona no ha hecho en ese gesto (`qa2-15`).
+
+La causa: `catalogoDeLaPelea` (`src/core/arena/montaje.ts`) busca lo que se levanta en
+`CATALOGO_DEL_JUEGO` cuando no viene en el montaje, y `catalogoDelMontaje` solo recibe las unidades
+de los bandos. `fichaDelTipoAntes` (la corrección de H1) lee ese mismo catálogo, así que la batalla
+es coherente consigo misma. Lo que no cuadra es la batalla con la página.
+
+Lo que espera quien juega: en la arena pelea lo de la página, guardado o no. Es lo que ya hace el
+veredicto de la ficha de magia tras H3 (`unidades()` = las de la página, sin guardar incluidas).
+El fallo no viene de 187f4a2a: el levantado ya nacía con 85 desde /simplify. Pero H1 lo hace
+visible, porque ahora «Editar» abre la ficha de la página. Solo pasa si se edita el zombi sin
+montarlo; sin editarlo, todo cuadra. No bloquea.
+
+### Workarounds de la vuelta 2
+
+- **El espejo `SesionDeArena`**, como en la vuelta 1: solo calcula los píxeles y la unidad activa,
+  y cada retoque se le repite con `retocar`. No afecta al usuario.
+- **Los goblins y el héroe derecho terminan turno sin hacer nada**, salvo el Rayo que mata al
+  primer zombi. Así es como lo jugaría una persona que lleva los dos bandos («Yo» a los dos lados).
+  No es estado sintético.
+
+### No probado en la vuelta 2
+
+- **El `title` del botón apagado en pantalla**: Chromium sin pantalla no dibuja el tooltip nativo.
+  Leí el atributo, que es lo que enseña al pasar el ratón. Que el motivo de un hechizo apagado solo
+  se vea en el tooltip es de antes de esta tarea.
+- **Retocar con el mismo valor**: rellenar el campo con lo que ya tenía no dispara `change`, así que
+  la página no hace nada (`qa2-04b`). El «Sin cambios» de la sesión no lo vi en pantalla.
+- **H2 «en contacto»**: ningún hechizo del juego levanta en contacto. Solo lo cubre el test.
+
+### Veredicto de la vuelta 2
+
+**Apto.** H1-H4 están arreglados y se ven en el flujo real: el retoque de un levantado, dos veces;
+lo que se levanta después, que nace con lo retocado; un tipo que pelea y además se levanta, retocado
+en los dos bandos; el botón por distancia; la ficha del editor con la frase de «Guardar»; y la ayuda
+del panel. Sin errores de consola en la pelea. En el editor de magia, el único error de consola es el
+400 del «Guardar» que rechacé a propósito. N1 es menor y viene de antes de este commit. Se puede
+arreglar ahora o dejar en el backlog: no bloquea.
