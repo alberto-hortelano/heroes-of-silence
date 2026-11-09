@@ -25,7 +25,7 @@ import type { Session } from '../../sesion/partida.js';
 import { filaDeCifra } from '../../views/cifras.js';
 import { renderLog } from '../../views/cronica.js';
 import { historiaDelHeroe, modificadoresEnPantalla, nota } from '../../views/notas.js';
-import { filaDeTropa, filaLiderazgo, renderArmy } from '../ejercito.js';
+import { botonDeLicenciar, filaDeTropa, filaLiderazgo, renderArmy } from '../ejercito.js';
 
 /**
  * Lo que dice la barra de arriba cuando la partida ha terminado.
@@ -321,10 +321,11 @@ function renderEquipoDelHeroe(hero: Hero, elegida: string | null): Html {
 }
 
 /**
- * La tropa del héroe en el mapa, con lo que lleva cada uno y, si hay una pieza
- * elegida, un «Equipar» por fila. En la fila de un individuo con hoja se le pone
- * a ÉL (`veteran`); en la de novatos, al primero sin equipar de ese tipo
- * (`creature`), que es a quien se la pone el núcleo (`quienRecibe`).
+ * La tropa del héroe en el mapa, con lo que lleva cada uno, el «−1» que licencia
+ * uno de cada tipo (`botonDeLicenciar`, en cualquier casilla desde el 09-11-2026)
+ * y, si hay una pieza elegida, un «Equipar» por fila. En la fila de un individuo
+ * con hoja se le pone a ÉL (`veteran`); en la de novatos, al primero sin equipar
+ * de ese tipo (`creature`), que es a quien se la pone el núcleo (`quienRecibe`).
  */
 function renderTropaEquipable(hero: Hero, elegida: string | null): Html {
   if (hero.army.length === 0) return renderArmy(hero.army);
@@ -340,7 +341,12 @@ function renderTropaEquipable(hero: Hero, elegida: string | null): Html {
       : html` <button data-action="equip" data-hero="${hero.id}" data-creature="${g.creature}">Equipar</button>`;
   };
   const filas = unir(
-    troopSummary(hero.army).map((g) => filaDeTropa(g, { boton: boton(g), quitarDe: hero.id })),
+    troopSummary(hero.army).map((g) =>
+      filaDeTropa(g, {
+        boton: html`${botonDeLicenciar(hero.id, hero.army, g)}${boton(g)}`,
+        quitarDe: hero.id,
+      }),
+    ),
   );
   return html`<div class="stack-list">${filas}</div>`;
 }

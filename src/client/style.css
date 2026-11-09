@@ -399,6 +399,10 @@ button.primary:hover:not(:disabled) { background: var(--boton-primario-encima); 
   text-align: left;
 }
 .stack .count { color: var(--titulo); font-variant-numeric: tabular-nums; }
+/* La fila de tropa (`filaDeTropa`): el recuento y sus botones («−1», «Equipar») en una línea;
+   el que se parte es el nombre (09-11-2026: con «Orko con hacha y escudo» el «Equipar» caía
+   debajo del «−1»). */
+.stack .count.en-linea { flex-shrink: 0; white-space: nowrap; }
 .stack.empty { opacity: 0.45; font-style: italic; }
 .stack.primary { background: var(--boton-encima); border-color: var(--resalte); color: var(--tinta-clara); font-weight: 400; }
 /* Un veterano: su nivel y lo que le falta, debajo del nombre. */

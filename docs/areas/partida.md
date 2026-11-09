@@ -34,6 +34,18 @@ El detalle que vivía en `CLAUDE.md` hasta la fase Doc de la reorganización de 
 
 `elQueSeIria` (`hero/troop.ts`)
 
+**Dónde se licencia** (09-11-2026, decisión del usuario: «un boton para descartar tropas
+independiente de esta pantalla»): en **cualquier casilla** del mapa, en el turno de su bando y fuera
+de una batalla; antes, solo en un castillo propio. `dismissBlocker` (`state/heroes.ts`) ya no mira
+dónde está el héroe, solo la cuenta y la criatura; el turno, la partida acabada y la batalla
+pendiente o en curso los pone `applyAdventureAction` para toda acción de aventura, y el «de otro
+bando», el `case 'dismiss'`. Lo que llevaba puesto quien se va vuelve a la mochila del héroe, esté
+donde esté. El héroe puede quedarse sin tropa, como antes. En el cliente, el «−1» de cada fila es
+`botonDeLicenciar` (`partida/ejercito.ts`, solo en la fila de quien se iría): lo pintan la base y la
+morada (`renderTropaLicenciable`) y el panel del héroe en el mapa, junto a los «Equipar». El agente,
+la misma regla (la prosa de `dismiss` en `contract/formato.ts`). La IA de respaldo sigue licenciando
+solo en un castillo, al cambiar tropa (`planCambio`).
+
 ### Construir un héroe
 
 `heroeRecienHecho`

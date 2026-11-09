@@ -295,8 +295,8 @@ export type AdventureAction =
     }
   | { readonly type: 'build'; readonly town: string; readonly building: string }
   /**
-   * Licenciar `count` individuos de `creature` del ejército de un héroe que
-   * está en un castillo suyo (`dismissBlocker`). Es lo que deja cambiar una
+   * Licenciar `count` individuos de `creature` del ejército de un héroe, esté
+   * donde esté del mapa (`dismissBlocker`). Es lo que deja cambiar una
    * tropa barata por una mejor: el cupo y el liderazgo se llenan con lo primero
    * que se recluta, y sin esto un héroe se quedaba con ella para siempre.
    */

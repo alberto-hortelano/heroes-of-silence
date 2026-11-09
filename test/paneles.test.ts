@@ -5,11 +5,15 @@ import { Session } from '../src/client/sesion/partida.js';
 import { heroUnit, maxMana } from '../src/core/hero/hero.js';
 import { umbral } from '../src/core/hero/rango.js';
 import { tiposDeHeroe } from '../src/core/hero/tipos-de-heroe.js';
+import { castilloSuyoDelHeroe } from '../src/core/state/consultas.js';
 import { ascenderVeterano } from '../src/core/state/heroes.js';
 import { conMiles, conSigno } from '../src/core/texto.js';
+import type { Veterania } from '../src/core/types.js';
 import { nivelDeUnidad } from '../src/core/unidad/nivel.js';
 import { ponVeteranoEnLaBase } from '../tools/qa/agente/veterano-en-la-base.js';
+import { TROPA, TROPA_BARATA } from './comun.js';
 import { meAtacan } from './escenas-paneles.js';
+import { fueraDeSuBase } from './partida-de-prueba.js';
 
 /** «(+2)» o «(−1)»: lo que cambia el equipo una cifra del héroe, como lo dice la ficha. */
 const conCambio = (base: number, total: number): string => `(${conSigno(total - base)})`;
@@ -103,6 +107,65 @@ describe('la ficha del héroe cuenta lo que lleva puesto (I4)', () => {
     expect(desnudo.attack).toBeGreaterThan(heroe.attack);
     const ficha = `${desnudo.attack} ${conCambio(desnudo.attack, puesto.attack)} / ${desnudo.defense}${puesto.defense === desnudo.defense ? '' : ` ${conCambio(desnudo.defense, puesto.defense)}`}`;
     expect(marcadoDe(renderSide(session))).toContain(`<span>${ficha}</span>`);
+  });
+});
+
+describe('el «−1» en el panel del héroe en el mapa (licenciar en cualquier casilla, 09-11-2026)', () => {
+  /** Las filas de la tropa del panel, una por grupo: lo que va tras «Tropa ·». */
+  const filasDeLaTropa = (session: Session): string[] => {
+    const marcado = marcadoDe(renderSide(session));
+    const tropa = marcado.slice(marcado.indexOf('<h3>Tropa ·'));
+    return tropa.split('<div class="stack">').slice(1);
+  };
+  const veterano = (id: string): Veterania => ({
+    id,
+    experiencia: 30,
+    batallas: 1,
+    bajas: 0,
+    heroes: [],
+    equipo: { arma: 'maza' },
+  });
+
+  it('fuera del castillo, un «−1» por tipo en la fila de quien se iría, junto a los «Equipar»; pulsarlo licencia', () => {
+    const session = new Session(12);
+    const heroe = fueraDeSuBase(session.state, session.viewer);
+    expect(castilloSuyoDelHeroe(session.state, heroe)).toBeUndefined();
+    session.selectedHeroId = heroe.id;
+    // Un veterano con dos novatos de su tipo detrás (se iría un novato) y otro
+    // veterano solo (se iría él). Los veteranos llevan maza: su «×» dice su id,
+    // y así se sabe de quién es cada fila.
+    heroe.army = [
+      { creature: TROPA_BARATA, veterania: veterano('v-1') },
+      { creature: TROPA_BARATA },
+      { creature: TROPA_BARATA },
+      { creature: TROPA, veterania: veterano('v-2') },
+    ];
+    const deVeterano = (id: string) => (f: string) => f.includes(`data-veteran="${id}"`);
+    const licencia = (creature: string) =>
+      `data-action="dismiss" data-hero="${heroe.id}" data-creature="${creature}"`;
+
+    let filas = filasDeLaTropa(session);
+    expect(filas).toHaveLength(3);
+    expect(filas.filter((f) => f.includes('data-action="dismiss"'))).toHaveLength(2);
+    expect(filas.find(deVeterano('v-1'))).not.toContain('data-action="dismiss"');
+    const novatos = filas.find((f) => f.includes(licencia(TROPA_BARATA)));
+    expect(novatos).toBeDefined();
+    expect(novatos).not.toContain('data-veteran=');
+    expect(filas.find(deVeterano('v-2'))).toContain(licencia(TROPA));
+
+    // Con una pieza elegida, el «−1» y el «Equipar» conviven en la fila.
+    heroe.mochila = ['daga'];
+    session.selectItem('daga');
+    filas = filasDeLaTropa(session);
+    const conLosDos = filas.find((f) => f.includes(licencia(TROPA_BARATA)));
+    expect(conLosDos).toContain('data-action="equip"');
+    expect(filas.find(deVeterano('v-2'))).toContain('data-action="equip"');
+
+    session.dismiss(heroe.id, TROPA_BARATA, 1);
+    expect(session.status).toBe('');
+    expect(heroe.army).toHaveLength(3);
+    expect(heroe.army.filter((t) => t.creature === TROPA_BARATA)).toHaveLength(2);
+    expect(marcadoDe(renderSide(session))).toContain('<h3>Tropa · 3 individuos</h3>');
   });
 });
 

@@ -388,13 +388,13 @@ function aplicar(
       const hero = heroById(state, action.hero);
       const player = currentPlayer(state);
       if (hero.owner !== player.id) throw new Error(`${hero.name} no es de tu bando`);
-      const noSe = dismissBlocker(state, hero, action.creature, action.count);
+      const noSe = dismissBlocker(hero, action.creature, action.count);
       if (noSe !== null) throw new Error(`no se puede licenciar: ${noSe}`);
       const { queda, seVan } = licenciar(hero.army, action.creature, action.count);
       hero.army = queda;
-      // Lo que llevaban puesto vuelve a la mochila: se licencia en un castillo
-      // propio, con el héroe delante, y tirar una espada con quien se va no lo
-      // pidió nadie (decisión del usuario sobre el plan).
+      // Lo que llevaban puesto vuelve a la mochila, esté donde esté el héroe:
+      // tirar una espada con quien se va no lo pidió nadie (decisión del usuario
+      // sobre el plan, y otra vez el 09-11-2026 al licenciar en cualquier casilla).
       aLaMochila(hero, ...seVan.flatMap((t) => idsPuestos(t.veterania?.equipo)));
       emit(state, {
         kind: 'dismissed',
