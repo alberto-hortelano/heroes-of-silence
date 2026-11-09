@@ -98,29 +98,16 @@ function seOfreceDentro(t: TipoDeEfecto): boolean {
   return t !== 'disparador' && t !== 'levantar';
 }
 
-/** `de` de un `levantar` escrito en una línea: «zombi: esqueleto-guerrero, …». */
-function deEnUnaLinea(de: Readonly<Record<string, string>> | undefined): string {
-  return Object.entries(de ?? {})
-    .map(([cae, sale]) => `${cae}: ${sale}`)
-    .join(', ');
+/** Los pares de `de` de un `levantar` (qué no-muerto cae, qué sale de él), en orden. */
+function paresDe(de: unknown): [string, string][] {
+  return Object.entries((de ?? {}) as Readonly<Record<string, string>>);
 }
 
-/**
- * La inversa de `deEnUnaLinea`, sin juzgar: un trozo sin «:» queda con lo que se
- * levanta vacío, y la validación dice que eso no es un id. Vacía, sin `de`.
- */
-function deDeUnaLinea(linea: string): Record<string, string> | undefined {
-  const trozos = linea
-    .split(',')
-    .map((t) => t.trim())
-    .filter((t) => t !== '');
-  if (trozos.length === 0) return undefined;
-  return Object.fromEntries(
-    trozos.map((t) => {
-      const [cae = '', sale = ''] = t.split(':').map((x) => x.trim());
-      return [cae, sale];
-    }),
-  );
+/** Los pares otra vez como `de`; sin ninguno, sin `de`. */
+function deLosPares(
+  pares: readonly (readonly [string, string])[],
+): Record<string, string> | undefined {
+  return pares.length === 0 ? undefined : Object.fromEntries(pares);
 }
 
 /** La duración como un valor del desplegable, y su inversa. */
@@ -154,6 +141,56 @@ function duracionDeClave(clave: string, antes: Duracion | undefined): Duracion |
 
 function opcion(valor: string, texto: string, actual: string): Html {
   return html`<option value="${valor}"${valor === actual ? html` selected` : NADA}>${texto}</option>`;
+}
+
+/**
+ * Las opciones de un desplegable de unidades (las de la página, guardadas o no), por
+ * facción y por nombre. Un id que no es ninguna sale arriba y elegido, para que la
+ * ficha diga por qué no vale en vez de enseñar otra unidad (09-11-2026: «el selector
+ * de unidades de levantar es un campo de texto y no un selector»).
+ */
+function opcionesDeUnidades(unidades: readonly Unidad[], actual: string): Html {
+  const huerfana =
+    actual !== '' && !unidades.some((u) => u.id === actual)
+      ? opcion(actual, `«${actual}» (no es ninguna unidad)`, actual)
+      : NADA;
+  const grupos = FACTION_IDS.map((f) => {
+    const suyas = unidades
+      .filter((u) => u.faction === f)
+      .sort((a, b) => a.name.localeCompare(b.name, 'es'));
+    return suyas.length === 0
+      ? NADA
+      : html`<optgroup label="${NOMBRE_DE_FACCION[f]}">${unir(suyas.map((u) => opcion(u.id, u.name, actual)))}</optgroup>`;
+  });
+  return html`${huerfana}${unir(grupos)}`;
+}
+
+/** Los campos de un `levantar`: de un vivo, una unidad; de cada no-muerto nombrado, la suya. */
+function camposDeLevantar(
+  e: { readonly vivos: string; readonly de?: Readonly<Record<string, string>> },
+  ruta: string,
+  unidades: readonly Unidad[],
+): Html {
+  const pares = paresDe(e.de);
+  const noMuertos = unidades.filter((u) => u.traits.includes('undead'));
+  const nombrados = new Set(pares.map(([cae]) => cae));
+  const filas = pares.map(([cae, sale], i) => {
+    const caen = noMuertos.filter((u) => u.id === cae || !nombrados.has(u.id));
+    return html`<div class="par-de-levantar">
+      <select data-magia-ruta="${ruta}.de" data-magia-como="par-cae" data-magia-par="${i}" title="El no-muerto que cae">${opcionesDeUnidades(caen, cae)}</select>
+      → <select data-magia-ruta="${ruta}.de" data-magia-como="par-sale" data-magia-par="${i}" title="Lo que sale de su cadáver">${opcionesDeUnidades(unidades, sale)}</select>
+      <button data-magia="quitar-par" data-magia-ruta="${ruta}.de" data-magia-par="${i}" title="Quitar este no-muerto">×</button>
+    </div>`;
+  });
+  const libres = noMuertos.filter((u) => !nombrados.has(u.id));
+  const anadir =
+    libres.length === 0
+      ? NADA
+      : html`<select data-magia-ruta="${ruta}.de" data-magia-como="par-nuevo"><option value="" selected>+ Añadir un no-muerto…</option>${opcionesDeUnidades(libres, '')}</select>`;
+  return html`<div class="levantar">
+    ${fila('De un vivo', 'La unidad que se levanta del cadáver de un vivo (sin el rasgo no-muerto), de cualquier bando.', html`<select data-magia-ruta="${ruta}.vivos" data-magia-como="opcion">${opcionesDeUnidades(unidades, e.vivos)}</select>`)}
+    <div class="fila-magia" role="group" aria-label="De un no-muerto"><span class="rotulo">De un no-muerto ${nota('Lo que sale del cadáver de cada no-muerto nombrado. Del que no se nombra, ni del héroe, no sale nada.')}</span><div class="pares-de-levantar">${unir(filas)}${anadir}</div></div>
+  </div>`;
 }
 
 /** Una fila de la ficha: rótulo con su nota y el campo. */
@@ -234,7 +271,7 @@ function campoDeDuracion(ruta: string, d: Duracion | undefined, dentro: boolean)
 }
 
 /** Los campos de un efecto, por su tipo. */
-function camposDelEfecto(e: Efecto, ruta: string): Html {
+function camposDelEfecto(e: Efecto, ruta: string, unidades: readonly Unidad[]): Html {
   switch (e.tipo) {
     case 'danio':
       return html`${campoDeCantidad(`${ruta}.cantidad`, e.cantidad)} <label><input type="checkbox" data-magia-ruta="${ruta}.armadura" data-magia-como="siempre-bool"${e.armadura ? html` checked` : NADA}> la armadura lo para ${nota('Sin marcar, el daño llega entero: no lo resta la armadura.')}</label>`;
@@ -312,18 +349,20 @@ function camposDelEfecto(e: Efecto, ruta: string): Html {
             ['lanzador', 'quien lo lanzó'],
           ]),
         )}
-        <div class="efectos-dentro">${listaDeEfectos(e.efectos, `${ruta}.efectos`, true)}</div>
+        <div class="efectos-dentro">${listaDeEfectos(e.efectos, `${ruta}.efectos`, true, unidades)}</div>
       </div>`;
     case 'levantar':
-      return html`<div class="levantar">
-        ${fila('De un vivo', 'El id de la unidad que se levanta del cadáver de un vivo (sin el rasgo no-muerto), de cualquier bando.', campoDeTexto(`${ruta}.vivos`, e.vivos))}
-        ${fila('De un no-muerto', 'Lo que sale del cadáver de cada no-muerto nombrado, «cae: sale» separados por comas (zombi: esqueleto-guerrero). Del que no se nombra, ni del héroe, no sale nada.', html`<input type="text" data-magia-ruta="${ruta}.de" data-magia-como="pares" value="${deEnUnaLinea(e.de)}">`)}
-      </div>`;
+      return camposDeLevantar(e, ruta, unidades);
   }
 }
 
 /** Una lista de efectos con su «Añadir»; `dentro`, la de un disparador (sin otro dentro). */
-function listaDeEfectos(efectos: readonly Efecto[], ruta: string, dentro: boolean): Html {
+function listaDeEfectos(
+  efectos: readonly Efecto[],
+  ruta: string,
+  dentro: boolean,
+  unidades: readonly Unidad[],
+): Html {
   const filas = efectos.map(
     (e, i) => html`<div class="efecto" data-efecto-de-la-ficha="${ruta}.${i}">
       <div class="cabecera-efecto">${desplegable(
@@ -335,7 +374,7 @@ function listaDeEfectos(efectos: readonly Efecto[], ruta: string, dentro: boolea
         ),
       )} ${nota(V.efectos[e.tipo])}
       <button data-magia="quitar-efecto" data-magia-ruta="${ruta}.${i}" title="Quitar este efecto">×</button></div>
-      ${camposDelEfecto(e, `${ruta}.${i}`)}
+      ${camposDelEfecto(e, `${ruta}.${i}`, unidades)}
     </div>`,
   );
   const anadir = html`<select data-magia-anadir="${ruta}"><option value="" selected>+ Añadir efecto…</option>${unir(
@@ -389,7 +428,7 @@ function fichaDe(h: Hechizo, p: PaginaDeMagia, problemas: readonly string[]): Ht
     ${fila('Dura', 'Cuánto dura lo que deja.', campoDeDuracion('duracion', h.duracion, false))}
     ${fila('Se acaba si cae quien lo lanzó', 'Lo que dejó se va si cae quien lo lanzó.', html`<input type="checkbox" data-magia-ruta="seAcabaSiMuere" data-magia-como="lanzador"${h.seAcabaSiMuere === 'lanzador' ? html` checked` : NADA}>`)}
     <h3>Efectos</h3>
-    <div class="efectos">${listaDeEfectos(h.efectos, 'efectos', false)}</div>
+    <div class="efectos">${listaDeEfectos(h.efectos, 'efectos', false, p.unidades())}</div>
     <h3>Lo que hace</h3>
     <p class="lo-que-hace">${queHaceElHechizo(h, p.poder())}</p>
     ${lista}
@@ -551,6 +590,15 @@ export function montarEditorDeMagia(
         p.avisar(`«${h.nombre}» borrado: «Guardar» lo quita de data/hechizos.json.`);
         return;
       }
+      case 'quitar-par': {
+        const ruta = b.getAttribute('data-magia-ruta');
+        const i = Number(b.getAttribute('data-magia-par'));
+        if (ruta === null) return;
+        cambiarElElegido((h) =>
+          conCampo(h, ruta, deLosPares(paresDe(campoDe(h, ruta)).filter((_, j) => j !== i))),
+        );
+        return;
+      }
       case 'quitar-efecto': {
         const ruta = b.getAttribute('data-magia-ruta');
         if (ruta === null) return;
@@ -596,8 +644,22 @@ function conElValor(h: Hechizo, ruta: string, como: string, t: Element): Hechizo
       return conCampo(h, ruta, v === '0' ? undefined : v === 'recta' ? 'recta' : Number(v));
     case 'duracion':
       return conCampo(h, ruta, duracionDeClave(v, campoDe(h, ruta) as Duracion | undefined));
-    case 'pares':
-      return conCampo(h, ruta, deDeUnaLinea(v));
+    case 'par-cae':
+    case 'par-sale': {
+      const i = Number(t.getAttribute('data-magia-par'));
+      const pares = paresDe(campoDe(h, ruta));
+      const par = pares[i];
+      if (par === undefined) throw new Error(`no hay par ${i} en «${ruta}»`);
+      pares[i] = como === 'par-cae' ? [v, par[1]] : [par[0], v];
+      return conCampo(h, ruta, deLosPares(pares));
+    }
+    case 'par-nuevo': {
+      if (v === '') return h;
+      // De entrada sale lo mismo que de un vivo: luego se elige otra cosa.
+      const vivos = campoDe(h, `${ruta.slice(0, -'.de'.length)}.vivos`);
+      const sale = typeof vivos === 'string' ? vivos : v;
+      return conCampo(h, ruta, deLosPares([...paresDe(campoDe(h, ruta)), [v, sale]]));
+    }
     case 'tipo-de-efecto':
       return conTipoDeEfecto(h, ruta, v as TipoDeEfecto);
     case 'base':
