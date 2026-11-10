@@ -92,7 +92,7 @@ export type DefeatReason = 'lost_base' | 'nothing_left';
 type Con<T, X> = T extends unknown ? T & X : never;
 
 /** Quién protagoniza el hecho y en qué casilla pasa. */
-type Origen = {
+export type Origen = {
   /**
    * El jugador que lo hace, o `null` si no lo hace nadie.
    *

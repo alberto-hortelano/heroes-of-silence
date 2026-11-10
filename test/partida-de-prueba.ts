@@ -6,17 +6,52 @@
  * (Venían de `test/helpers.ts`, repartido en la fase T de la reorganización,
  * 06-11-2026.)
  */
+import { adventureActionSchema } from '../src/core/contract/esquemas.js';
+import { type AccionDelAgente, accionDelAgente } from '../src/core/contract/vocabulario.js';
 import { Casillas } from '../src/core/map/casillas.js';
 import { pointKey, VECINAS } from '../src/core/map/geometria.js';
 import { findPath, isEnterable, objectAt } from '../src/core/map/map.js';
 import { estructura } from '../src/core/map/regiones.js';
 import type { MapObject } from '../src/core/map/tipos.js';
+import { createRng } from '../src/core/rng.js';
 import { baseOf, heroesOf } from '../src/core/state/consultas.js';
 import { applyAdventureAction } from '../src/core/state/game.js';
 import { dueñoDeLaCiudad, ponerLaGuarnicion, sitioDeLaCiudad } from '../src/core/state/sitios.js';
-import type { GameContext, GameState } from '../src/core/state/tipos.js';
+import type { AdventureAction, GameContext, GameState } from '../src/core/state/tipos.js';
 import type { Town } from '../src/core/town/town.js';
 import type { Army, Equipo, Hero, PlayerId, Point, Stack, Troop } from '../src/core/types.js';
+
+/**
+ * Lo que escribe el agente en su turno de mapa, como lo juega el núcleo: el zod y
+ * `accionDelAgente`, que lanza con el motivo si la jugada no se entiende.
+ */
+export function traducidaDelAgente(state: GameState, escrito: unknown): AdventureAction {
+  // El `as`, el del director: zod escribe `veteran?: string | undefined`.
+  return accionDelAgente(adventureActionSchema.parse(escrito) as AccionDelAgente, state);
+}
+
+/**
+ * Lo que escribe el agente, por su puerta entera —el zod, la traducción y el
+ * núcleo— y jugado por quien tiene el turno. Lanza con el motivo del rechazo.
+ */
+export function jugarDelAgente(state: GameState, escrito: unknown): void {
+  applyAdventureAction(
+    state,
+    traducidaDelAgente(state, escrito),
+    { rng: createRng(1) },
+    state.current,
+  );
+}
+
+/** El motivo con que lanza `hacer`, o «no lanzó»: para comparar un rechazo con `expect`. */
+export function motivoDe(hacer: () => void): string {
+  try {
+    hacer();
+  } catch (e) {
+    return (e as Error).message;
+  }
+  return 'no lanzó';
+}
 
 /**
  * Vacía la guarnición con la que nace la base de cada jugador

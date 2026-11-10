@@ -8,7 +8,11 @@ El detalle que vivía en `CLAUDE.md` hasta la fase Doc de la reorganización de 
 
 ### Los golpes y los poderes en el contrato (19-10-2026)
 
-`HIT_DE_GOLPE` (`offensive`, `strong`, `feint`, `defensive`, `quick`, `guard_break`, `normal` y los fusionados `offensive_strong`, `defensive_feint`, `quick_guard_break`), `hitsDeLaRueda(forma)`, `golpeDelHit(hit, forma)` (lanza diciendo cuáles valen en la rueda de la batalla), la rueda dicha, `ruedaAlAgente` (`wheel`: `types`, `ring`, `center`, `crossing`), `accionDeBatallaDelAgente` (lo que manda el agente: `attack.hit` → el golpe, `power` → el poder), `accionAlAgente` (la lista legal al revés) y `hechoAlAgente` (el `cruce` del registro con `hit` y `response`), en `contract/vocabulario.ts` con los huecos; la petición de respuesta, `serializeBattleResponse` (recibe solo los dos ids: no puede contar el golpe del otro; lo vigila `invariantes-batalla.test.ts`, «el agente elige en la rueda»)
+`HIT_DE_GOLPE` (`offensive`, `strong`, `feint`, `defensive`, `quick`, `guard_break`, `normal` y los fusionados `offensive_strong`, `defensive_feint`, `quick_guard_break`), `hitsDeLaRueda(forma)`, `golpeDelHit(hit, forma)` (lanza diciendo cuáles valen en la rueda de la batalla), la rueda dicha, `ruedaAlAgente` (`wheel`: `types`, `ring`, `center`, `crossing`), `accionDeBatallaDelAgente` (lo que manda el agente: `attack.hit` → el golpe, `power` → el poder), y `accionAlAgente` (la lista legal al revés), en `contract/vocabulario.ts` con los huecos; el registro lo traduce `hechoAlAgente` (`contract/hechos.ts`, abajo: el `cruce` es `clash`, con `hit`, `response` y `point`); la petición de respuesta, `serializeBattleResponse` (recibe solo los dos ids: no puede contar el golpe del otro; lo vigila `invariantes-batalla.test.ts`, «el agente elige en la rueda»)
+
+### Los hechos que lee el agente (10-11-2026)
+
+`hechoAlAgente` (el registro de la batalla, `log` de `battle_turn`) y `cronicaAlAgente` (la crónica, `recentEvents`; por dentro, `hechoDeLaCronicaAlAgente`), en `contract/hechos.ts`: **el paso único** entre los hechos del núcleo y el agente. `cronicaAlAgente` es `cronicaPara` (la niebla, `state/events.ts`) más la traducción, y hacia el agente nadie más del contrato ni del servidor llama a `cronicaPara` (lo vigila `test/invariantes-partida.test.ts`, «la crónica sale hacia el agente por un solo sitio»). Las tablas de los enumerados (`CUANDO_AL_AGENTE`, `EFECTO_AL_AGENTE`, `VENCE_AL_AGENTE`, `UPGRADE_DE_MEJORA`, `HIT_DE_GOLPE`), en `contract/vocabulario.ts`. **El origen de un efecto** (`source` del hecho `effect`, de su `effect_end` y de `stacks[].effects`) pasa por `origenAlAgente` (10-11-2026, QA H1): un id de hechizo, de poder o de rasgo va tal cual, y el golpe de la rueda que lo colgó, con su palabra de `HIT_DE_GOLPE` (llegaba `"romperGuardia"` junto a un `clash.hit: "guard_break"`); el guardia de las fugas mira `source` solo contra los golpes. El detalle, en «Los hechos, traducidos», abajo.
 
 ### Por qué una marcha no llegó (veredicto del agente)
 
@@ -30,7 +34,7 @@ paso. Los textos libres del agente (`lineaLegible`) no admiten invisibles salvo
 los que unen un emoji, ni dependen de la tabla Unicode del Node para lo sin asignar.
 Una marcha que no llega entra como parcial y dice por qué: le faltaron puntos
 (`march_cut`), vio un grupo que la emboscaría (`march_halted`) o la emboscaron
-antes del destino (`battle_started` con `faltan`).
+antes del destino (`battle_started` con `faltan`; el agente lo lee como `remaining`).
 
 - **Las guarniciones** (04-11-2026): `leave_troops` y `take_troops` (`{ hero, creature, count,
   veteran? }`, `accionDelAgente` las traduce a `dejar_tropa` y `recoger_tropa`) con el héroe parado
@@ -44,16 +48,33 @@ antes del destino (`battle_started` con `faltan`).
   lo dice (OCUPACIÓN, y en `map_generate` dónde va cada ciudad). Su defensa la elige la IA por él (`defense_set` en
   `recentEvents`; su jugada, backlog), y la prosa (GUARNICIONES, DEFENSA) lo dice. La batalla contra
   una guarnición sin héroe llega con `foe: { kind: "garrison", site }` (en inglés, como los demás), y
-  la prosa de la aventura y la de `battle_turn` dicen qué es. `repartir_tropa` (la pantalla de la
-  persona) no está en su contrato: que no pueda cambiar uno por otro con los dos llenos, backlog.
-  `pnpm qa` deja y recoge una vez y falla si no cruzan.
+  la prosa de la aventura y la de `battle_turn` dicen qué es. **El reparto** (10-11-2026,
+  `docs/agents/2026-11-10-contrato-del-agente-al-dia/`): `distribute_troops` (`{ hero, withHero }`,
+  cada línea `{ creature, count }` o `{ veteran }`; `accionDelAgente` la traduce a `repartir_tropa`,
+  la de la pantalla de la persona) dice todo lo que va con el héroe y se juzga solo el reparto final
+  (`repartirTropaBlocker`): cambia uno por otro con los dos llenos. Una línea que no dice a quién, un
+  `count` que no es un entero de 1 en adelante (el zod lo deja pasar como número: QA H2) o
+  un `veteran` con otro tipo al lado descarta esa jugada al traducir (`lineaBlocker`, `veteranoBlocker`, la misma
+  comprobación de `leave_troops`), con el prefijo «no se puede repartir la tropa:» de los demás; lo
+  estructural (sin `withHero`, más de 32 líneas) es respuesta mal formada, como en toda jugada. **`leave_troops` y `take_troops` conviven** con ella: son la jugada
+  de un solo tipo, la IA usa sus gemelas del núcleo y `pnpm qa` las exige. `pnpm qa` deja y recoge
+  una vez, reparte dos (uno que mueve a un novato y otro que lo devuelve) y falla si no cruzan
+  (`troops_left`, `troops_taken` y `troops_exchanged` en su crónica).
 
 - **Los puestos** (04-11-2026, fase 3): cada nodo de `knownMap` lleva `upgrade` (`none`, `palisade`
   o `wall`, `UPGRADE_DE_MEJORA`), el último que vio como su `owner`, y la prosa (PUESTOS, y la de la
-  muralla) dice tras qué muralla se pelea en el paso, en una línea. **La jugada de mejorar no está en su
-  contrato** (backlog; `mejorar_el_puesto` sale de `AccionDelAgente`), ni la traducción de los hechos
-  de aventura: `outpost_upgraded` le llega con `to` en español (backlog, con `power` y `retoque`). `pnpm qa` exige el
-  `upgrade` en todo nodo que llegue (en la semilla del arnés el agente no ve ninguno, y lo dice).
+  muralla) dice tras qué muralla se pelea en el paso, en una línea. **La jugada de mejorar**
+  (10-11-2026): `upgrade_outpost` (`{ hero, upgrade }`), con un héroe suyo parado en un paso suyo;
+  `upgrade` es texto (no un enum: una obra mal escrita descarta esa jugada, no el turno) y **la misma
+  palabra** que el `upgrade` del nodo y que el del hecho `outpost_upgraded` (`UPGRADE_DE_MEJORA`; la
+  inversa, `obraDelUpgrade`, que lanza con `none` y con lo que no es una obra). La juzga
+  `mejorarBlocker`, cuyos motivos nombran la obra en español («la siguiente obra es la muralla»: que
+  los `*Blocker` reciban el vocabulario de quien pregunta, backlog), y la prosa lo avisa. `pnpm qa`
+  exige el `upgrade` en todo nodo que llegue, busca una semilla en que un héroe del agente amanezca en
+  un paso suyo con oro para la obra y **su hecho llegue a la crónica de un turno** (la ventana es de
+  25: en la primera semilla que salió, la 5, la obra del día 2 ya no estaba en la del día 3), manda
+  la obra dos veces y exige el `outpost_upgraded`, el nodo con esa misma palabra y el rechazo de la
+  repetida con su motivo (`exigeElPuesto`).
 
 - **La muralla** (04-11-2026, fase 2 del puesto fronterizo): el `battle_turn` trae `walls` (`null`
   sin muralla; si no, `material`, los muros en `tiles`, las puertas en `gates` con `open` y las
@@ -64,13 +85,40 @@ antes del destino (`battle_started` con `faltan`).
   al revés `accionAlAgente`, las dos con un `switch` exhaustivo sobre `BattleAction['type']` **sin
   `default`** (antes el `default` las dejaba pasar en español), y `hechoAlAgente`, también sin
   `default` y con su tipo escrito (`HechoAlAgente`: un hecho nuevo sin su caso no compila), cuenta
-  `ladder_placed` y `gate_*` con `escaleraAlAgente` y `puertaAlAgente`, las mismas de `walls` (`power`
-  y `retoque` siguen con campos en español: backlog). **La prosa de la muralla va solo en el turno de
+  `ladder_placed` y `gate_*` con `escaleraAlAgente` y `puertaAlAgente`, las mismas de `walls` (desde el
+  10-11-2026 vive en `contract/hechos.ts` y traduce todo el registro). **La prosa de la muralla va solo en el turno de
   una batalla con muralla** (`PROSA_DE_LA_MURALLA`, que `formatoDeLaRespuesta` añade al formato de
   `battle_turn` si `walls` no es null; la regla, `reglaDeLaMuralla`, la de la arena): eran ~2,2 KB en
   cada turno, también contra monstruos. Se descartan una a una con su `*Blocker`. `pnpm qa` busca una
   semilla donde el agente mande alguna en una batalla con `walls` y falla si ninguna entra
   (`exigeLaMuralla`), y también si un turno con `walls` llega sin la prosa o uno sin ellos la trae.
+
+- **Los hechos, traducidos** (10-11-2026, #292, `docs/agents/2026-11-10-contrato-del-agente-al-dia/`):
+  ningún hecho llega al agente con claves ni enumerados en español. El núcleo emite como siempre y el
+  espectador lee `state.log` crudo (`vista-espectador.ts`); la traducción es del contrato, al servir
+  (`contract/hechos.ts`), con dos `switch` **sin `default`** y con el tipo de retorno escrito, y cada
+  hecho que cambia construido campo a campo, sin `...resto`. Sin alias: los nombres de antes no
+  valen. **De batalla**: `cruce` → `clash` (`hit`, `response`, `point`; no `crossing`, que es un campo
+  de `wheel`); `punto` → `point`; `parado` → `blocked`; `cuarto` → `quarter`; `diferido` → `deferred`;
+  `poder` → `power`; `cura` → `healed`; `triggered.cuando` → `when` (`turn_start`, `turn_end`,
+  `struck`, `strikes`, `death`); `effect`: su `effect` por `EFECTO_AL_AGENTE` (`armor`, `strength`,
+  `agility`, `prevents`, `ward`, `trigger`; `speed`, `attack` y `defense` igual), `dicho` → `summary`,
+  `vence` → `expires` (`turn_start`, `turn_end`), `turnoDe` → `turnOf`; `retoque` (solo de la arena) →
+  `retouch` (`name`, `changes`); **`move.corre` se quita** (es del lienzo: ninguna regla lo lee).
+  **De la crónica**: `faltan` → `remaining` (`march_cut`, `battle_started`); `lugar` → `place` (y
+  `from: "place"`, `foe: { kind: "place", place, encounter, option: { point, node, option } }`);
+  `place_state`: `name`, `state`, `stateName`; `world_mark.marca` → `mark`; `site_occupied.by`, con
+  la forma de `occupiedBy` (`ocupanteAlAgente`: `{ hero, owner }` o `{ garrison }`);
+  `troop_rank_up.veterano` → `veteran`; `outpost_upgraded.to` → `upgrade` (`palisade`, `wall`). **Dos
+  vistas se alinearon** con sus hechos y solo esas (decisión del usuario, «Sí, con las vistas»):
+  `stacks[].effects[].kind` (por `EFECTO_AL_AGENTE`) y `kind: "place"` en `knownMap`; el barrido de
+  las demás vistas (`traits: "infiltrarse"`…), backlog. **El guardia**:
+  `test/hechos-del-agente.test.ts`, con una muestra de cada hecho (`satisfies Record<kind, …>`: uno
+  nuevo sin muestra no compila) con todos sus opcionales, una **lista cerrada de claves**
+  (`CLAVES_DE_LOS_HECHOS`, en `test/fugas-de-los-hechos.ts`) y el registro de una batalla de verdad;
+  la crónica de una partida de la IA la mira `test/cronica.test.ts`, que ya la juega. Visto morder
+  con `corre` devuelto en el `move`, con `faltan` en `march_cut` y con una clave de más en un hecho
+  que pasa tal cual (`aimed`) y en `battle_ended`.
 
 - **La infiltración** (05-11-2026): cada héroe lleva `infiltrates` y, si es `false`,
   `infiltrationBlocker` (`infiltracionBlocker`); `creature_stats` trae el rasgo `infiltrarse` en
@@ -97,7 +145,7 @@ antes del destino (`battle_started` con `faltan`).
   enemigo a su alcance; vale cualquier casilla a su alcance) y cada stack, si recarga, `reloading`
   (los turnos que le faltan; mientras, ni un `aim` suyo), y si lleva granada, `grenades` (las que le
   quedan) y `grenadeRange`, y la que está en el aire, `grenadeAt` (también los del rival); el registro
-  cuenta `thrown` y un `blast` por alcanzado (`target`, `damage`, `cuarto`). `creature_stats` dice
+  cuenta `thrown` y un `blast` por alcanzado (`target`, `damage`, `quarter`). `creature_stats` dice
   `reload` (solo con un arma de fuego), o `grenadeCharges` y `grenadeRange`. La prosa de `battle_turn` lleva ARMAS DE
   FUEGO y GRANADAS. `pnpm qa` dice si un `throw` del agente cruzó, sin exigirlo.
 
@@ -160,7 +208,8 @@ antes del destino (`battle_started` con `faltan`).
   dice que la noche la pone la narrativa y que las tierras de los no muertos son más nocturnas. Lo
   cruza `pnpm qa` (una tormenta y un «granizo», y el fotograma del espectador).
 
-- **Los lugares de un mundo, aún no** (F4): el agente los ve en `knownMap` (`kind: "lugar"`, con
+- **Los lugares de un mundo, aún no** (F4): el agente los ve en `knownMap` (`kind: "place"`, la
+  palabra de sus hechos, desde el 10-11-2026; con
   su `name`; su estado no viaja) y su prosa le dice que no hay jugada para entrar. La acción del núcleo
   (`elegir_en_lugar`) no está en su contrato. El espectador los pinta con su marcador y tampoco ve su
   estado.

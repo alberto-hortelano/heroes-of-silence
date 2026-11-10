@@ -40,17 +40,21 @@ import { LADO_MAXIMO_DEL_PLAN, LADO_MINIMO_DEL_PLAN } from '../map/generar/plan.
 import { BARRERAS_DEL_PUEBLO } from '../map/map.js';
 import { LADO_DEL_RECINTO, SEPARACION_DE_CIUDADES } from '../map/recinto.js';
 import { BARRERAS, BARRERAS_DE_DESNIVEL, NIVELES } from '../map/terrain.js';
+import { OBRAS_DE_UN_PUESTO } from '../map/tipos.js';
 import { CLIMA, PEDIDOS_QUE_SE_MIRAN, TIEMPOS } from '../state/clima.js';
 import { REGLA_DEL_PUEBLO } from '../state/renta.js';
 import { MURALLAS_DEL_MAPA, OBRAS_DEL_PUESTO } from '../state/sitios.js';
 import { MAX_HEROES_PER_PLAYER } from '../state/tipos.js';
-import { enumerar } from '../texto.js';
+import { conMiles, enumerar } from '../texto.js';
 import { HUECOS, TIPOS_FUSIONADOS, TODOS_LOS_GOLPES } from '../types.js';
 import { unidadesDelJuego } from '../unidad/catalogo.js';
 import {
   CRUCE_AL_AGENTE,
+  CUANDO_AL_AGENTE,
+  EFECTO_AL_AGENTE,
   HIT_DE_GOLPE,
   JUGADA_DE_MURALLA,
+  LUGAR_AL_AGENTE,
   ruedaAlAgente,
   SLOT_DE_HUECO,
   SLOTS,
@@ -68,6 +72,9 @@ const PODERES_EN_PROSA = [...new Set(unidadesDelJuego().flatMap((u) => u.poderes
   })
   .join(', ');
 
+/** Entre comillas y con comas, como se citan los valores en la prosa. */
+const citados = (valores: readonly string[]): string => valores.map((v) => `"${v}"`).join(', ');
+
 /** Unos tipos en el contrato: «"offensive", "strong"». */
 const enHits = (tipos: readonly (keyof typeof HIT_DE_GOLPE)[]): string[] =>
   tipos.map((t) => `"${HIT_DE_GOLPE[t]}"`);
@@ -80,7 +87,7 @@ const enHits = (tipos: readonly (keyof typeof HIT_DE_GOLPE)[]): string[] =>
 const RUEDAS_EN_PROSA = LAS_TRES_RUEDAS.map((f) => {
   const w = ruedaAlAgente(f);
   const centro = w.center ? 'con "normal" en el centro' : 'sin centro';
-  return `la de ${w.types}, ${w.ring.map((h) => `"${h}"`).join(', ')}, ${centro} y "crossing": "${w.crossing}"`;
+  return `la de ${w.types}, ${citados(w.ring)}, ${centro} y "crossing": "${w.crossing}"`;
 }).join('; ');
 
 /**
@@ -132,6 +139,21 @@ import { COMO_SE_LEE_EL_MAPA } from './mapa-conocido.js';
 import { CATALOGO_DE_EQUIPO_EN_PROSA } from './vistas.js';
 
 /**
+ * Las obras de un puesto como las pide `upgrade_outpost`, de sus tablas: las que
+ * valen («"palisade" | "wall"») y, en su orden, con lo que cuesta cada una
+ * («"palisade", 1.500 de oro; después "wall", 4.000»).
+ */
+const OBRAS_QUE_SE_PIDEN = OBRAS_DE_UN_PUESTO.map((o) => `"${UPGRADE_DE_MEJORA[o]}"`).join(' | ');
+const OBRAS_CON_SU_PRECIO = OBRAS_DE_UN_PUESTO.map(
+  (o, i) =>
+    `"${UPGRADE_DE_MEJORA[o]}", ${conMiles(OBRAS_DEL_PUESTO[o].precio)}${i === 0 ? ' de oro' : ''}`,
+).join('; después ');
+
+/** Cuándo salta un disparador y qué clase de efecto cuelga, como los lee el agente: de sus tablas. */
+const CUANDOS_EN_PROSA = citados(Object.values(CUANDO_AL_AGENTE));
+const EFECTOS_EN_PROSA = citados(Object.values(EFECTO_AL_AGENTE));
+
+/**
  * Descripción del formato de respuesta que viaja DENTRO de cada petición.
  * Es prosa deliberadamente: el agente lee esto en el mismo mensaje que el
  * estado, y no tiene que ir a buscar nada.
@@ -153,6 +175,8 @@ Acciones válidas (el turno termina solo, no hace falta enviar end_turn):
   { "type": "leave_troops", "hero": "<id>", "creature": "<id>", "count": 1, "veteran": "<id de veterano>" }
   { "type": "take_troops",  "hero": "<id>", "creature": "<id>", "count": N }
   { "type": "take_troops",  "hero": "<id>", "creature": "<id>", "count": 1, "veteran": "<id de veterano>" }
+  { "type": "distribute_troops", "hero": "<id>", "withHero": [ { "creature": "<id>", "count": N }, { "veteran": "<id de veterano>" } ] }
+  { "type": "upgrade_outpost", "hero": "<id>", "upgrade": ${OBRAS_QUE_SE_PIDEN} }
   { "type": "buy_item",  "town": "<id>", "item": "<id de pieza>" }
   { "type": "equip",     "hero": "<id>", "item": "<id de pieza>" }
   { "type": "equip",     "hero": "<id>", "item": "<id de pieza>", "veteran": "<id de veterano>" }
@@ -238,6 +262,16 @@ Notas:
   el veterano que digas con "veteran"). La guarnición de cualquier sitio cabe
   en ${GARRISON_LEADERSHIP} de liderazgo y "you.combat.troopCap" individuos, y la del ejército
   en su "leadership"; lo que no cabe se rechaza diciendo cuántos caben.
+  Para CAMBIAR tropa entre los dos de una vez, "distribute_troops": "withHero"
+  es TODO lo que se queda con el héroe (una línea por tipo con "creature" y
+  "count" novatos, y una por veterano con "veteran") y lo que no nombras, de su
+  ejército o de la guarnición, queda guardando. Se juzga solo el reparto final,
+  así que cambia uno por otro aunque los dos estén llenos, que con
+  "leave_troops" y "take_troops" no cabe; para mover un solo tipo, bastan esas
+  dos. Un reparto que no cuadra (más individuos de los que hay entre los dos,
+  un veterano que no está, más de lo que cabe en cualquiera de los dos) se
+  rechaza entero con su motivo. "recentEvents" lo cuenta con
+  "troops_exchanged" ("left" lo que dejó, "taken" lo que se llevó).
   "you.garrisons" dice qué guarda cada paso y cada pueblo
   tuyo, y lo tuyo que se quedó en un sitio que ya no es tuyo (la de tus
   ciudades, en "towns[].garrison"); de ese sitio puedes RECOGERLA, no dejar
@@ -259,7 +293,8 @@ Notas:
   { "hero", "owner" } o { "garrison": dueño }), en "towns[].occupied" (y esa
   ciudad trae "income" 0 y "canBuildNow" y "recruitable" vacíos: no hay nada que
   hacer en ella) y en "income" ("occupied" de cada ciudad y pueblo, con 0 de oro), y lo cuentan
-  "site_occupied" y "site_freed" en "recentEvents". Se RECUPERA moviendo un
+  "site_occupied" ("by": el ocupante, con la forma de "occupiedBy") y
+  "site_freed" en "recentEvents". Se RECUPERA moviendo un
   héroe tuyo a su casilla: es una batalla contra el ocupante, tras la muralla
   del sitio; si ganas, vuelve a darte lo suyo. Si el ocupante se va, también.
   Ocupar no quita el sitio a nadie: un héroe tuyo parado en una ciudad o un
@@ -267,6 +302,14 @@ Notas:
   antes), pero no es tuyo, ni reclutas, ni construyes, ni dejas tropa en él.
 - PUESTOS: el "upgrade" de un "node" de "knownMap" es la obra de ese paso (la
   última que viste) y la muralla de su batalla: "${UPGRADE_DE_MEJORA.ninguna}", "${UPGRADE_DE_MEJORA.empalizada}" o "${UPGRADE_DE_MEJORA.muralla}".
+  Un héroe tuyo PARADO en un paso tuyo hace su siguiente obra con
+  "upgrade_outpost": "upgrade" es esa misma palabra, la de la obra que quieres
+  (${OBRAS_CON_SU_PRECIO}). De una
+  en una y en ese orden, sin bajar; es inmediata y se paga al hacerla. Saltarse
+  una, repetirla, no tener el oro o no estar en un paso tuyo se rechaza con su
+  motivo, que nombra la obra como la lee la persona («empalizada», «muralla»).
+  "recentEvents" lo cuenta con "outpost_upgraded" ("site", "upgrade", "cost") y
+  el nodo de "knownMap" pasa a decir ese "upgrade".
 - DEFENSA: si atacan a un héroe tuyo en un sitio tuyo con guarnición, defiende
   él (siempre pelea) con lo más fuerte que quepa en su ejército de entre su
   tropa y la guarnición: lo elige el juego por ti (aún no hay jugada para
@@ -412,7 +455,7 @@ ${CATALOGO_DE_EQUIPO_EN_PROSA}
   que devuelve la tool "map": para elegir el "to" de un "move_hero" no hace
   falta pedirla, ya lo tienes delante.
 ${COMO_SE_LEE_EL_MAPA}
-- Un objeto "lugar" del mapa (con su "name") es un sitio de la historia del
+- Un objeto "${LUGAR_AL_AGENTE}" del mapa (con su "name") es un sitio de la historia del
   mundo, con su gente y sus diálogos. Tú todavía NO entras en ellos: no hay
   jugada para eso. Se puede pisar y cruzar como cualquier casilla.
 - "enemyHeroes" son los que ves AHORA, cerca de un héroe, una ciudad o un nodo
@@ -529,8 +572,8 @@ Notas:
   tu golpe lo elige la IA a ciegas por ti; uno que no es de la lista descarta
   el "attack" como cualquier acción ilegal. Cuando el rival golpea a una unidad
   tuya, se te pide la respuesta con "battle_response". El registro cuenta cada
-  cruce con el hecho "cruce" ("hit" de quien pegó, "response" de quien
-  respondió). Tras golpear con ${CON_FINTA_EN_PROSA}, el turno de esa
+  cruce con el hecho "clash" ("hit" de quien pegó, "response" de quien
+  respondió, "point" el punto del cruce en que cae). Tras golpear con ${CON_FINTA_EN_PROSA}, el turno de esa
   unidad sigue solo para andar (o "end_turn"). El disparo no pasa por la rueda: su tirada la fija la distancia a la casilla apuntada.
 - DISPARO DIFERIDO (regla nuestra, nueva y aún sin validar): un tirador
   ("shooter": true) sin moverse y sin un enemigo al lado APUNTA con "aim" a una
@@ -581,7 +624,7 @@ Notas:
   BANDO QUE SEA, también a quien la lanzó si sigue cerca; la armadura se resta como
   siempre. Sin dado. Si quien la lanzó muere antes, no explota. El registro lo
   cuenta con "thrown" ("at") y un "blast" por alcanzado ("at", "target", "damage",
-  "cuarto"; "target" null si no dio a nadie).
+  "quarter"; "target" null si no dio a nadie).
 - "power" usa un PODER de la unidad activa ("stacks[].powers": ${PODERES_EN_PROSA}):
   un hechizo de "spell_list" que lanza ella, sin maná, con "target" (una unidad), "at" (una
   casilla) o nada, como diga el hechizo. Gasta su turno entero y solo sin haberse movido; los que
@@ -597,13 +640,21 @@ Notas:
   la ronda siguiente, y el cadáver se gasta (el registro lo cuenta con "raised": "stack" el
   nuevo, "from" el cadáver); "self" y "all", nada. El héroe lanza desde la casilla de su cuerpo: «en contacto» es a
   una casilla de él y «a x casillas», hasta x. Uno diferido ("cast" con
-  "diferido" en el registro, "spellAt" en el stack del cuerpo) cae al empezar el
+  "deferred" en el registro, "spellAt" en el stack del cuerpo) cae al empezar el
   siguiente turno de quien lo lanzó. Lo que deja un hechizo va en
   "stacks[].effects" con su "summary" en palabras: cifras, lo que impide
   (golpear, disparar, contraatacar, moverse, lanzar) y disparadores (al empezar o
   terminar su turno, al ser golpeado, al golpear, al morir). Lo que hace un
   hechizo a cada uno de varios lo cuenta un "spell_hit"; un disparador que salta,
-  un "triggered".
+  un "triggered" ("when": ${CUANDOS_EN_PROSA}).
+  Lo que deja colgado, un "effect" del registro: su "effect" es la misma palabra
+  que el "kind" de "stacks[].effects" (${EFECTOS_EN_PROSA}).
+  Su "source" (también el de "effect_end", cuando se va, y el de
+  "stacks[].effects") dice quién lo puso: el id del hechizo o del poder, el
+  rasgo que lo causó ("fear") o, si lo dejó la rueda del golpe, el golpe con su palabra de "hit" ("defensive",
+  "guard_break"…).
+  En todo el registro, "blocked" es lo que paró la armadura (ya restado de
+  "damage") y "healed" los PV que repuso una cura.
 - La lista "legalActions" de la petición ya trae TODAS las acciones legales;
   elegir una de ellas nunca falla.
 - Si tu acción NO es legal se descarta y juega la IA de reglas en su lugar, que
@@ -655,7 +706,7 @@ o "resources" se rechaza).
 El mapa es una RED DE NODOS, y eso se comprueba:
 - Una REGIÓN es una zona por la que se anda libre, cerrada por muro. Cada una se
   declara en "regions" con un "id", un "name" y una casilla suya en "at".
-- Un MURO es un tramo RECTO de una barrera: ${BARRERAS.map((b) => `"${b}"`).join(', ')}
+- Un MURO es un tramo RECTO de una barrera: ${citados(BARRERAS)}
   (los de "palette.wallTerrains"). Las cinco cierran igual —ninguna se pisa—,
   pero son accidentes distintos y no da lo mismo cuál pongas: el río es "water",
   la cordillera "mountain", el bosque denso "forest", el acantilado o desnivel
@@ -682,7 +733,7 @@ El mapa es una RED DE NODOS, y eso se comprueba:
 - Una región es de quien tenga TODOS sus nodos, y solo da renta unida a su base.
   Los pueblos ("villages": {"name", "at"}) dentro de una región no se toman: son
   de quien tenga su región, y por eso no llevan dueño. Uno EN EL MURO, sobre
-  ${BARRERAS_DEL_PUEBLO.map((b) => `"${b}"`).join(', ')} y tocando dos regiones, es un nodo, como un paso: ABRE su
+  ${citados(BARRERAS_DEL_PUEBLO)} y tocando dos regiones, es un nodo, como un paso: ABRE su
   casilla de muro, se toma pisándolo y se cruza por él (sobre "water" o "wall"
   se rechaza: ahí el paso es un puente o una puerta). Uno sobre el muro que solo
   toca una región, o uno entre dos regiones sin muro debajo, se rechaza; uno que
@@ -695,7 +746,7 @@ El mapa es una RED DE NODOS, y eso se comprueba:
   se pinta. Cada barrera tiene que admitir los niveles de las regiones que toca:
   un acantilado ("cliff") es el borde de una meseta y va SOLO entre regiones a
   distinto nivel; "forest" y "wall" van SOLO entre regiones al mismo nivel;
-  ${BARRERAS_DE_DESNIVEL.map((b) => `"${b}"`).join(', ')} valen entre dos niveles. Se mira por tramo de barrera
+  ${citados(BARRERAS_DE_DESNIVEL)} valen entre dos niveles. Se mira por tramo de barrera
   seguido (las casillas de una misma barrera que se tocan, también en diagonal;
   un nodo o una ciudad lo corta), con todas las regiones que ese tramo toca: un acantilado que solo toca
   regiones a un nivel, o uno dentro de una sola región, se rechaza; un bosque o

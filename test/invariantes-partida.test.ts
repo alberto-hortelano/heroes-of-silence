@@ -81,6 +81,26 @@ describe('invariantes del proyecto', () => {
     ).toEqual([]);
   });
 
+  it('la crónica sale hacia el agente por un solo sitio: `cronicaAlAgente`, en `contract/hechos.ts`', () => {
+    // El contrato del agente, al día (10-11-2026, #292): los hechos de la crónica
+    // se traducen al servirlos (`hechoDeLaCronicaAlAgente`), y `recentEvents` salía
+    // de `cronicaPara` a secas en dos sitios de `contract/aventura.ts`, con sus
+    // claves en español (`faltan`, `lugar`, `veterano`…). Si alguien del contrato o
+    // del servidor vuelve a llamarla, sirve la crónica sin traducir. El espectador
+    // no la llama: lee `state.log` con `sinSello`, crudo a propósito.
+    // Roto a mano: `recentEvents: cronicaPara(state, playerId, 10)` en `aventura.ts` sale rojo.
+    const PUERTA = ruta('src/core/contract/hechos.ts');
+    const llama = /\bcronicaPara\s*\(/;
+    const hacia = [...CORE.filter((r) => r.startsWith('src/core/contract/')), ...SERVIDOR];
+    expect(
+      infractoresDeCodigo(
+        hacia.filter((r) => r !== PUERTA),
+        llama,
+      ),
+    ).toEqual([]);
+    expect(infractoresDeCodigo([PUERTA], llama)).toHaveLength(1);
+  });
+
   it('la crónica se escribe por un solo sitio: `emit`, en `state/cronica.ts`, y la importan solo los módulos de la partida', () => {
     // `state.log` es de solo lectura, así que escribir en él exige un `as`
     // VISIBLE, y esa es toda la fuerza del candado. Cuando `emit` no estaba

@@ -59,7 +59,10 @@ import {
   ejercito,
   forzarBatalla,
   guarnecer,
+  jugarDelAgente,
+  motivoDe,
   pegadoA,
+  traducidaDelAgente,
   unPaso,
   unPuebloDe,
 } from './partida-de-prueba.js';
@@ -788,9 +791,10 @@ describe('el contrato del agente', () => {
         state,
       );
     expect(leave(TROPA, 1)).toEqual({ type: 'dejar_tropa', hero: hero.id, veterano: 'v-1' });
-    expect(() => leave(TROPA, 2)).toThrow('un veterano es uno solo: no se mueven 2');
+    // El texto entero (`new Error`): sin el prefijo que llevan los del reparto.
+    expect(() => leave(TROPA, 2)).toThrow(new Error('un veterano es uno solo: no se mueven 2'));
     expect(() => leave(JINETE, 1)).toThrow(
-      `el veterano "v-1" es de tipo "${TROPA}", no "${JINETE}"`,
+      new Error(`el veterano "v-1" es de tipo "${TROPA}", no "${JINETE}"`),
     );
     // Uno que no está pasa tal cual: el núcleo dice que no lo lleva.
     expect(
@@ -799,6 +803,161 @@ describe('el contrato del agente', () => {
         state,
       ),
     ).toEqual({ type: 'dejar_tropa', hero: hero.id, veterano: 'v-otro' });
+  });
+
+  /** El héroe del jugador 0 en su base, con el ejército y la guarnición llenos, de dos tipos. */
+  function llenosEnLaBase() {
+    const state = newGame({ seed: 3 });
+    const hero = heroesOf(state, 0)[0]!;
+    const base = baseOf(state, 0)!;
+    hero.at = { ...base.at };
+    const tope = state.combate.tope;
+    hero.army = ejercito({ creature: TROPA, count: tope - 1 });
+    guarnecer(state, base, ejercito({ creature: TROPA_BARATA, count: tope }));
+    return { state, hero, base, tope };
+  }
+
+  it('«distribute_troops» cambia uno por otro con los dos llenos, en una jugada, y lo cuenta `recentEvents`', () => {
+    // El contrato del agente, al día (10-11-2026), criterio 2.
+    expect(RESPONSE_FORMAT.adventure_turn).toContain('"type": "distribute_troops"');
+    expect(RESPONSE_FORMAT.adventure_turn).toContain('"withHero"');
+    const { state, hero, base, tope } = llenosEnLaBase();
+    // De uno en uno no cabe: es lo que la jugada nueva resuelve.
+    expect(() =>
+      jugarDelAgente(state, { type: 'leave_troops', hero: hero.id, creature: TROPA, count: 1 }),
+    ).toThrow(/no cabe: la guarnición de .* ya lleva/);
+    jugarDelAgente(state, {
+      type: 'distribute_troops',
+      hero: hero.id,
+      withHero: [
+        { creature: TROPA, count: tope - 2 },
+        { creature: TROPA_BARATA, count: 1 },
+      ],
+    });
+    expect(hero.army.filter((t) => t.creature === TROPA)).toHaveLength(tope - 2);
+    expect(hero.army.filter((t) => t.creature === TROPA_BARATA)).toHaveLength(1);
+    const guardan = guarnicionDeLaCiudad(state, base);
+    expect(guardan.filter((t) => t.creature === TROPA)).toHaveLength(1);
+    expect(guardan.filter((t) => t.creature === TROPA_BARATA)).toHaveLength(tope - 1);
+    // Nadie nace ni se pierde.
+    expect(hero.army.length + guardan.length).toBe(2 * tope - 1);
+    const hechos = (serializeAdventureTurn(state, 0) as { recentEvents: { kind: string }[] })
+      .recentEvents;
+    expect(hechos.at(-1)).toEqual({
+      kind: 'troops_exchanged',
+      actor: 0,
+      at: base.at,
+      hero: hero.id,
+      site: base.id,
+      left: [{ creature: TROPA, count: 1 }],
+      taken: [{ creature: TROPA_BARATA, count: 1 }],
+    });
+  });
+
+  it('«distribute_troops» con un veterano: la línea va con `veteran`, como en `leave_troops`', () => {
+    const { state, hero, base, tope } = llenosEnLaBase();
+    const veterano = conSuEquipo(TROPA, {}, 'v-1');
+    hero.army = [...ejercito({ creature: TROPA, count: tope - 2 }), veterano];
+    const escrito = (linea: object) => ({
+      type: 'distribute_troops',
+      hero: hero.id,
+      withHero: [{ creature: TROPA, count: tope - 2 }, linea],
+    });
+    const traducida = (linea: object) => traducidaDelAgente(state, escrito(linea));
+    expect(traducida({ veteran: 'v-1' })).toEqual({
+      type: 'repartir_tropa',
+      hero: hero.id,
+      enElHeroe: [{ creature: TROPA, count: tope - 2 }, { veterano: 'v-1' }],
+    });
+    // Lo que escriba al lado del veterano se juzga al traducir, como en `leave_troops`.
+    expect(traducida({ veteran: 'v-1', creature: TROPA, count: 1 })).toMatchObject({
+      enElHeroe: [{ creature: TROPA, count: tope - 2 }, { veterano: 'v-1' }],
+    });
+    // Con el prefijo de los demás rechazos del reparto (QA, H3); `leave_troops`, sin él.
+    expect(() => traducida({ veteran: 'v-1', creature: JINETE })).toThrow(
+      new Error(
+        `no se puede repartir la tropa: el veterano "v-1" es de tipo "${TROPA}", no "${JINETE}"`,
+      ),
+    );
+    expect(() => traducida({ veteran: 'v-1', count: 2 })).toThrow(
+      new Error('no se puede repartir la tropa: un veterano es uno solo: no se mueven 2'),
+    );
+    // Dejar al veterano guardando: se le deja de nombrar y entra uno de la guarnición.
+    jugarDelAgente(state, {
+      type: 'distribute_troops',
+      hero: hero.id,
+      withHero: [
+        { creature: TROPA, count: tope - 2 },
+        { creature: TROPA_BARATA, count: 1 },
+      ],
+    });
+    expect(hero.army).not.toContain(veterano);
+    expect(guarnicionDeLaCiudad(state, base)).toContain(veterano);
+  });
+
+  it('un «distribute_troops» que no cuadra se rechaza con su motivo y sin tocar nada', () => {
+    const { state, hero, base, tope } = llenosEnLaBase();
+    const intenta = (withHero: unknown) => {
+      const antes = JSON.stringify({ a: hero.army, t: guarnicionDeLaCiudad(state, base) });
+      const motivo = motivoDe(() =>
+        jugarDelAgente(state, { type: 'distribute_troops', hero: hero.id, withHero }),
+      );
+      expect(JSON.stringify({ a: hero.army, t: guarnicionDeLaCiudad(state, base) })).toBe(antes);
+      return motivo;
+    };
+    // Crea individuos: más de los que hay entre los dos.
+    expect(intenta([{ creature: TROPA, count: tope }])).toMatch(
+      /^no se puede repartir la tropa: entre .* hay \d+ × .* sin veteranía, no \d+$/,
+    );
+    // Pasa el tope del héroe.
+    expect(
+      intenta([
+        { creature: TROPA, count: tope - 1 },
+        { creature: TROPA_BARATA, count: 1 },
+      ]),
+    ).toMatch(
+      new RegExp(
+        `^no se puede repartir la tropa: el ejército de .* no cabe: serían ${tope} de ${tope - 1} individuos`,
+      ),
+    );
+    // Lo que no se nombra queda guardando, y no cabe: nadie se pierde por no nombrarlo.
+    expect(intenta([])).toMatch(/lo que se queda no cabe en la guarnición de .*: serían/);
+    // Un veterano que no está, y el reparto que no mueve a nadie.
+    expect(intenta([{ veteran: 'v-no-esta' }])).toContain('llevan al veterano "v-no-esta"');
+    expect(intenta([{ creature: TROPA, count: tope - 1 }])).toMatch(/el reparto no mueve a nadie/);
+    // Una línea que no dice a quién: el motivo es de la traducción, en las palabras del contrato.
+    // Con el prefijo de los demás rechazos del reparto (QA, H3).
+    expect(intenta([{}])).toBe(
+      'no se puede repartir la tropa: una línea de "withHero" lleva "creature" y "count", o "veteran": esta no dice a quién',
+    );
+    expect(intenta([{ creature: TROPA }])).toContain('esta no dice a quién');
+    // Un `count` que no es un entero de 1 en adelante: el 0 de «ninguno de estos»
+    // descarta esta jugada con su motivo, no el turno (QA, H2).
+    for (const count of [0, -1, 1.5]) {
+      expect(intenta([{ creature: TROPA, count }])).toBe(
+        `no se puede repartir la tropa: el "count" de "${TROPA}" es ${count}: va un entero de 1 en adelante (lo que no se queda con el héroe no se escribe)`,
+      );
+    }
+    // Fuera de un sitio suyo.
+    hero.at = pegadoA(state, base.at);
+    expect(intenta([{ creature: TROPA, count: 1 }])).toMatch(
+      /no está en ninguna ciudad, paso ni pueblo/,
+    );
+    // Y lo que el esquema no deja pasar: es la respuesta la que está mal formada.
+    const mal = (a: object) => adventureActionSchema.safeParse(a).success;
+    expect(mal({ type: 'distribute_troops', hero: 'h' })).toBe(false);
+    expect(mal({ type: 'distribute_troops', hero: 'h', withHero: 'todos' })).toBe(false);
+    expect(
+      mal({ type: 'distribute_troops', hero: 'h', withHero: [{ creature: TROPA, count: '2' }] }),
+    ).toBe(false);
+    expect(
+      mal({ type: 'distribute_troops', hero: 'h', withHero: Array(33).fill({ veteran: 'v' }) }),
+    ).toBe(false);
+    // El `count` que es un número pasa el esquema: lo juzga la traducción, arriba.
+    expect(
+      mal({ type: 'distribute_troops', hero: 'h', withHero: [{ creature: TROPA, count: 0 }] }),
+    ).toBe(true);
+    expect(mal({ type: 'distribute_troops', hero: 'h', withHero: [] })).toBe(true);
   });
 
   it('«you.garrisons» trae lo que guarda cada paso y pueblo suyo, y no lo del rival', () => {

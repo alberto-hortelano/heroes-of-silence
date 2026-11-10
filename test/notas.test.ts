@@ -328,6 +328,20 @@ describe('notas para el agente', () => {
     ).toBe('recruit 5× goblin-lancero en t2');
     // Y sigue cubriendo las de batalla con las mismas palabras de siempre.
     expect(describeAccion({ type: 'attack', target: 'd0' })).toBe('ataque a d0');
+    // El reparto y la obra del puesto, como las escribió el agente.
+    expect(describeAccion({ type: 'upgrade_outpost', hero: 'h1', upgrade: 'wall' })).toBe(
+      'upgrade_outpost "wall" con h1',
+    );
+    expect(
+      describeAccion({
+        type: 'distribute_troops',
+        hero: 'h1',
+        withHero: [{ creature: 'goblin-lancero', count: 2 }, { veteran: 'veterano-3' }, {}],
+      }),
+    ).toBe('distribute_troops de h1: con él, 2× goblin-lancero, veterano-3, ?× ?');
+    expect(describeAccion({ type: 'distribute_troops', hero: 'h1', withHero: [] })).toBe(
+      'distribute_troops de h1: con él, nadie',
+    );
   });
 
   it('cuando no llega respuesta se dice, en vez de callar', () => {

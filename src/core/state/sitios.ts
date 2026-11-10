@@ -59,6 +59,7 @@ import {
   OBRA_SIGUIENTE,
   OBRAS_DE_UN_PUESTO,
   type ObraDelPuesto,
+  obraDesconocida,
 } from '../map/tipos.js';
 import { oroBlocker, type Town } from '../town/town.js';
 import {
@@ -555,7 +556,7 @@ function laMejoraPedida(
   if (comoLlega !== null && !esObraDelPuesto(comoLlega)) {
     return {
       kind: 'no',
-      motivo: `«${String(comoLlega)}» no es una obra de un puesto; valen ${OBRAS_DE_UN_PUESTO.join(', ')}`,
+      motivo: obraDesconocida(`«${String(comoLlega)}»`, OBRAS_DE_UN_PUESTO),
     };
   }
   // «El puesto de …» y no el nombre del paso: «la puerta de la muralla de (17,6)

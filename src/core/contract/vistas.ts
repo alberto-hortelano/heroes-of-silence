@@ -102,7 +102,14 @@ export const CATALOGO_DE_EQUIPO_EN_PROSA: string = EQUIPO.map((p) => {
  * su id y su dueño; una guarnición, con su dueño (`null`, la neutral).
  */
 export function ocupanteView(ocupante: Ocupante | null) {
-  if (ocupante === null) return null;
+  return ocupante === null ? null : ocupanteAlAgente(ocupante);
+}
+
+/**
+ * Un ocupante, que lo hay, en las palabras del contrato: la forma de `occupiedBy` y
+ * la del `by` del hecho `site_occupied` (`contract/hechos.ts`), que son la misma.
+ */
+export function ocupanteAlAgente(ocupante: Ocupante) {
   return ocupante.kind === 'heroe'
     ? { hero: ocupante.heroId, owner: ocupante.dueño }
     : { garrison: ocupante.dueño };

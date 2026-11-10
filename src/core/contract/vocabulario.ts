@@ -31,16 +31,24 @@ import {
 } from '../battle/formas-de-la-rueda.js';
 import type {
   BattleAction,
-  BattleEvent,
+  CuandoVence,
+  EffectKind,
   JugadaDeMuralla,
   PuertaDeMuralla,
   TipoDeEscala,
   TipoDePuerta,
 } from '../battle/types.js';
-import type { MejoraDelPuesto } from '../map/tipos.js';
-import { tipoDelVeterano } from '../state/sitios.js';
+import type { CuandoSalta } from '../magia/formato.js';
+import {
+  type MejoraDelPuesto,
+  OBRAS_DE_UN_PUESTO,
+  type ObraDelPuesto,
+  obraDesconocida,
+} from '../map/tipos.js';
+import { type LineaDelReparto, tipoDelVeterano } from '../state/sitios.js';
 import type { AdventureAction, GameState } from '../state/tipos.js';
 import {
+  esTipoDeGolpe,
   type Hex,
   HUECOS,
   type Hueco,
@@ -62,8 +70,8 @@ export const UPGRADE_DE_MEJORA = {
   muralla: 'wall',
 } as const satisfies Readonly<Record<MejoraDelPuesto, string>>;
 
-/** Lo que puede valer el `upgrade` de un nodo en el contrato. */
-type Upgrade = (typeof UPGRADE_DE_MEJORA)[MejoraDelPuesto];
+/** Lo que puede valer el `upgrade` de un nodo en el contrato, y el del hecho `outpost_upgraded`. */
+export type Upgrade = (typeof UPGRADE_DE_MEJORA)[MejoraDelPuesto];
 
 /** Los tres, en el orden de la tabla: lo que el arnés de QA admite en un nodo. */
 const UPGRADES: readonly Upgrade[] = Object.values(UPGRADE_DE_MEJORA);
@@ -71,6 +79,26 @@ const UPGRADES: readonly Upgrade[] = Object.values(UPGRADE_DE_MEJORA);
 /** Si `valor` es un `upgrade` del contrato (`UPGRADES`). */
 export function esUpgrade(valor: unknown): valor is Upgrade {
   return (UPGRADES as readonly unknown[]).includes(valor);
+}
+
+/**
+ * La obra de un `upgrade` del agente (`upgrade_outpost`, 10-11-2026), o excepción
+ * con las que valen: la inversa de `UPGRADE_DE_MEJORA` sin `none`, que no es una
+ * obra que se haga. Lanza y no devuelve `null`, como `huecoDelSlot`: quien la llama
+ * (`accionDelAgente`) está dentro del `try` del director, que descarta esa jugada
+ * con este motivo y sigue con las demás.
+ */
+function obraDelUpgrade(upgrade: string): ObraDelPuesto {
+  const obra = OBRAS_DE_UN_PUESTO.find((o) => UPGRADE_DE_MEJORA[o] === upgrade);
+  if (obra === undefined) {
+    throw new Error(
+      obraDesconocida(
+        `"${upgrade}"`,
+        OBRAS_DE_UN_PUESTO.map((o) => UPGRADE_DE_MEJORA[o]),
+      ),
+    );
+  }
+  return obra;
 }
 
 // ---------------------------------------------------------------- los huecos
@@ -116,9 +144,8 @@ function huecoDelSlot(slot: string): Hueco {
 export type AccionDelAgente =
   | Exclude<
       AdventureAction,
-      // `repartir_tropa` es de la pantalla de la guarnición: el agente deja y recoge
-      // (que no pueda cambiar uno por otro con los dos llenos va a backlog). Y
-      // `mejorar_el_puesto`, del diálogo del puesto: su jugada del agente, backlog.
+      // La forma del núcleo de estas no viaja: las de la tropa y la del puesto van
+      // abajo con sus nombres del contrato.
       {
         readonly type:
           | 'unequip'
@@ -147,12 +174,90 @@ export type AccionDelAgente =
       readonly creature: string;
       readonly count: number;
       readonly veteran?: string;
-    };
+    }
+  /**
+   * Repartir de una vez la tropa entre el héroe y la guarnición (`repartir_tropa`,
+   * 10-11-2026): `withHero` dice todo lo que va con él; lo demás queda guardando.
+   * Cada línea, `{ creature, count }` novatos o un `{ veteran }` (con `creature` y
+   * `count` al lado, si los escribe, juzgados como en `leave_troops`).
+   */
+  | {
+      readonly type: 'distribute_troops';
+      readonly hero: string;
+      readonly withHero: readonly LineaDelAgente[];
+    }
+  /**
+   * Hacer la obra `upgrade` del puesto donde está el héroe (`mejorar_el_puesto`,
+   * 10-11-2026): texto, la palabra del `upgrade` del nodo en `knownMap` y del hecho
+   * `outpost_upgraded` (`UPGRADE_DE_MEJORA`); la traduce `obraDelUpgrade`.
+   */
+  | { readonly type: 'upgrade_outpost'; readonly hero: string; readonly upgrade: string };
+
+/** Una línea de `distribute_troops` como la escribe el agente (todo opcional: se juzga al traducir). */
+interface LineaDelAgente {
+  readonly creature?: string | undefined;
+  readonly count?: number | undefined;
+  readonly veteran?: string | undefined;
+}
+
+/**
+ * Lo que el agente escribe junto a un `veteran` (`creature`, `count`) se mira aquí,
+ * con la partida: un veterano es uno solo, y de su tipo (`tipoDelVeterano`). Lo que
+ * no escribió no se juzga. El motivo, o `null`: lo lanza quien pregunta, cada uno
+ * con su prefijo (`leave_troops` y `take_troops` sin ninguno; el reparto, con el
+ * de los demás rechazos del reparto: `lineaDelReparto`).
+ */
+function veteranoBlocker(
+  state: GameState,
+  hero: string,
+  veteran: string,
+  creature: string | undefined,
+  count: number | undefined,
+): string | null {
+  if (count !== undefined && count !== 1) return `un veterano es uno solo: no se mueven ${count}`;
+  const tipo = tipoDelVeterano(state, hero, veteran);
+  if (creature !== undefined && tipo !== null && tipo !== creature) {
+    return `el veterano "${veteran}" es de tipo "${tipo}", no "${creature}"`;
+  }
+  return null;
+}
+
+/**
+ * Por qué una línea de `distribute_troops` no vale, o `null`. Aquí y no en el zod
+ * (QA de «el contrato del agente, al día», H2, 10-11-2026): en un reparto que
+ * enumera lo que se queda con el héroe, escribir `count: 0` para «ninguno de estos»
+ * es un error natural, y en el esquema se llevaba el turno entero.
+ */
+function lineaBlocker(state: GameState, hero: string, l: LineaDelAgente): string | null {
+  if (l.veteran !== undefined) return veteranoBlocker(state, hero, l.veteran, l.creature, l.count);
+  if (l.creature === undefined || l.count === undefined) {
+    return 'una línea de "withHero" lleva "creature" y "count", o "veteran": esta no dice a quién';
+  }
+  if (!Number.isInteger(l.count) || l.count < 1) {
+    return `el "count" de "${l.creature}" es ${l.count}: va un entero de 1 en adelante (lo que no se queda con el héroe no se escribe)`;
+  }
+  return null;
+}
+
+/**
+ * Una línea de `distribute_troops` como la del núcleo (`LineaDelReparto`); lanza
+ * con `lineaBlocker` y el prefijo de los rechazos del reparto que juzga el núcleo
+ * (`repartirTropa`, `state/sitios.ts`): el agente lee todos igual (QA, H3).
+ */
+function lineaDelReparto(state: GameState, hero: string, l: LineaDelAgente): LineaDelReparto {
+  const noVale = lineaBlocker(state, hero, l);
+  if (noVale !== null) throw new Error(`no se puede repartir la tropa: ${noVale}`);
+  return l.veteran !== undefined
+    ? { veterano: l.veteran }
+    : // `lineaBlocker` ya dijo que las dos están: el compilador no lo sigue hasta aquí.
+      { creature: l.creature as string, count: l.count as number };
+}
 
 /**
  * La acción del agente tal como la juega el núcleo: cambia el `slot` de `unequip`
- * y de `equip`, del inglés del contrato al hueco de dentro, y `leave_troops` y
- * `take_troops` a `dejar_tropa` y `recoger_tropa`. Lo demás pasa tal cual.
+ * y de `equip`, del inglés del contrato al hueco de dentro, `leave_troops` y
+ * `take_troops` a `dejar_tropa` y `recoger_tropa`, `distribute_troops` a
+ * `repartir_tropa` y `upgrade_outpost` a `mejorar_el_puesto`. Lo demás pasa tal cual.
  *
  * Con `veteran`, el núcleo mueve a ese individuo y nada más (`PedidoDeTropa`), así
  * que lo que el agente escribe al lado se mira aquí, con la partida (`state`): uno
@@ -169,13 +274,18 @@ export function accionDelAgente(a: AccionDelAgente, state: GameState): Adventure
       if (a.veteran === undefined) {
         return { type, hero: a.hero, creature: a.creature, count: a.count };
       }
-      if (a.count !== 1) throw new Error(`un veterano es uno solo: no se mueven ${a.count}`);
-      const tipo = tipoDelVeterano(state, a.hero, a.veteran);
-      if (tipo !== null && tipo !== a.creature) {
-        throw new Error(`el veterano "${a.veteran}" es de tipo "${tipo}", no "${a.creature}"`);
-      }
+      const noVale = veteranoBlocker(state, a.hero, a.veteran, a.creature, a.count);
+      if (noVale !== null) throw new Error(noVale);
       return { type, hero: a.hero, veterano: a.veteran };
     }
+    case 'distribute_troops':
+      return {
+        type: 'repartir_tropa',
+        hero: a.hero,
+        enElHeroe: a.withHero.map((l) => lineaDelReparto(state, a.hero, l)),
+      };
+    case 'upgrade_outpost':
+      return { type: 'mejorar_el_puesto', hero: a.hero, obra: obraDelUpgrade(a.upgrade) };
     case 'equip': {
       const { slot, ...resto } = a;
       return slot === undefined ? resto : { ...resto, hueco: huecoDelSlot(slot) };
@@ -206,6 +316,23 @@ export const HIT_DE_GOLPE = {
 
 /** Un tipo de la rueda como lo nombra el contrato del agente (`HIT_DE_GOLPE`). */
 export type Hit = (typeof HIT_DE_GOLPE)[TipoDeGolpe];
+
+/**
+ * **El origen de un efecto (`source`) como lo lee el agente**: en el núcleo
+ * (`StackEffect.source`) es el id del hechizo o del poder que lo puso, el rasgo
+ * (`fear`) o, si lo colgó la rueda del golpe, el tipo con que se golpeó
+ * (`deLaRueda`, `battle/golpe.ts`). Los ids pasan tal cual; el golpe, con su
+ * palabra de `HIT_DE_GOLPE`, la misma de `clash.hit` y de la jugada. La única
+ * traducción: la llaman el hecho `effect`, su `effect_end` y `stacks[].effects`.
+ *
+ * QA de «el contrato del agente, al día», H1 (10-11-2026): llegaba `"defensivo"`
+ * y `"romperGuardia"` en el mismo registro donde ese golpe era `"defensive"` y
+ * `"guard_break"`. Un hechizo cuyo id fuera el de un golpe en español se leería
+ * como el golpe: en el núcleo ya son el mismo origen (`mismoOrigen`, `battle/effects.ts`).
+ */
+export function origenAlAgente(source: string): string {
+  return esTipoDeGolpe(source) ? HIT_DE_GOLPE[source] : source;
+}
 
 /**
  * Los de la rueda `forma`, en su orden (el anillo desde arriba en el sentido del
@@ -389,70 +516,55 @@ export function accionAlAgente(a: BattleAction): AccionDeBatallaDelAgente {
   }
 }
 
-type DeLaTraduccion = 'cruce' | 'ladder_placed' | 'gate_opened' | 'gate_closed';
+// ---------------------------------------------------------------- los hechos
 
 /**
- * Un hecho del registro como lo lee el agente (`hechoAlAgente`): los que se traducen
- * con sus nombres del contrato, y los demás tal cual. Escrito, y no inferido, para que
- * un hecho nuevo del núcleo sin su caso no compile (la función no tiene `default`).
+ * Cuándo salta un disparador (`triggered.when`), en las palabras del contrato. Las
+ * tres tablas de aquí las lee `contract/hechos.ts`, que traduce los hechos; `satisfies`
+ * hace que un valor nuevo del núcleo sin su palabra no compile.
  */
-type HechoAlAgente =
-  | Exclude<BattleEvent, { kind: DeLaTraduccion }>
-  | (Omit<Extract<BattleEvent, { kind: 'cruce' }>, 'golpe' | 'respuesta'> & {
-      readonly hit: Hit;
-      readonly response: Hit;
-    })
-  | {
-      readonly kind: 'ladder_placed';
-      readonly stack: string;
-      readonly foot: Hex;
-      readonly wall: Hex;
-    }
-  | {
-      readonly kind: 'gate_opened' | 'gate_closed';
-      readonly stack: string;
-      readonly gate: PuertaDeMuralla;
-    };
+export const CUANDO_AL_AGENTE = {
+  empezarSuTurno: 'turn_start',
+  terminarSuTurno: 'turn_end',
+  alSerGolpeado: 'struck',
+  alGolpear: 'strikes',
+  alMorir: 'death',
+} as const satisfies Readonly<Record<CuandoSalta, string>>;
+
+/** Cuándo salta un disparador como lo nombra el contrato (`CUANDO_AL_AGENTE`). */
+export type When = (typeof CUANDO_AL_AGENTE)[CuandoSalta];
 
 /**
- * Un hecho del registro de la batalla como lo lee el agente: el cruce, con los
- * dos tipos en los nombres del contrato (`hit` el de quien pegó, `response` el
- * de quien respondió), que son los que él manda; la escalera puesta, con su pie
- * (`foot`) y su muro (`wall`), y la puerta abierta o cerrada, con la puerta
- * (`gate`): los nombres con que él las juega. Lo demás, tal cual.
+ * Qué clase de efecto cuelga de un stack, en las palabras del contrato: el `effect`
+ * del hecho `effect` y el `kind` de `stacks[].effects` (una sola tabla, o el hecho y
+ * la vista dirían dos palabras). El escudo es `ward` y no `shield`, que es un hueco.
  */
-export function hechoAlAgente(e: BattleEvent): HechoAlAgente {
-  switch (e.kind) {
-    case 'cruce': {
-      const { golpe, respuesta, ...resto } = e;
-      return { ...resto, hit: HIT_DE_GOLPE[golpe], response: HIT_DE_GOLPE[respuesta] };
-    }
-    case 'ladder_placed':
-      return { kind: e.kind, stack: e.stack, ...escaleraAlAgente(e) };
-    case 'gate_opened':
-    case 'gate_closed':
-      return { kind: e.kind, stack: e.stack, gate: puertaAlAgente(e.puerta) };
-    // Tal cual. `power` (`poder`) y `retoque` (`nombre`, `cambios`) llevan aún campos
-    // en español: renombrarlos cambia el contrato (backlog del simplify de la fase 2).
-    case 'round_start':
-    case 'move':
-    case 'attack':
-    case 'aimed':
-    case 'shoot':
-    case 'thrown':
-    case 'blast':
-    case 'cast':
-    case 'power':
-    case 'spell_hit':
-    case 'triggered':
-    case 'raised':
-    case 'retoque':
-    case 'effect':
-    case 'effect_end':
-    case 'perished':
-    case 'climbed':
-    case 'surrender':
-    case 'finished':
-      return e;
-  }
-}
+export const EFECTO_AL_AGENTE = {
+  speed: 'speed',
+  attack: 'attack',
+  defense: 'defense',
+  armadura: 'armor',
+  fuerza: 'strength',
+  agilidad: 'agility',
+  impide: 'prevents',
+  escudo: 'ward',
+  disparador: 'trigger',
+} as const satisfies Readonly<Record<EffectKind, string>>;
+
+/** Una clase de efecto como la nombra el contrato (`EFECTO_AL_AGENTE`). */
+export type Effect = (typeof EFECTO_AL_AGENTE)[EffectKind];
+
+/** Cuándo vence un efecto de la rueda (`effect.expires`), con las palabras de `CUANDO_AL_AGENTE`. */
+export const VENCE_AL_AGENTE = {
+  empezar: CUANDO_AL_AGENTE.empezarSuTurno,
+  terminar: CUANDO_AL_AGENTE.terminarSuTurno,
+} as const satisfies Readonly<Record<CuandoVence, When>>;
+
+/** Cuándo vence un efecto como lo nombra el contrato (`VENCE_AL_AGENTE`). */
+export type Expires = (typeof VENCE_AL_AGENTE)[CuandoVence];
+
+/**
+ * Cómo se dice en el contrato un lugar de un mundo (`lugar` por dentro): el `kind`
+ * del objeto en `knownMap`, el del rival de su batalla y el `from` de lo que da.
+ */
+export const LUGAR_AL_AGENTE = 'place';

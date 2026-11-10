@@ -19,12 +19,13 @@ import { marcadoDe } from '../src/client/comun/html.js';
 import { renderLog } from '../src/client/views/cronica.js';
 import { playAiGame, resolvePendingBattle } from '../src/core/ai/turn.js';
 import { serializeAdventureTurn } from '../src/core/contract/aventura.js';
+import { cronicaAlAgente, hechoDeLaCronicaAlAgente } from '../src/core/contract/hechos.js';
 import type { MapPlan } from '../src/core/map/generar/plan.js';
 import type { MapObject } from '../src/core/map/tipos.js';
 import { createRng } from '../src/core/rng.js';
 import { heroById } from '../src/core/state/consultas.js';
 import type { GameEvent } from '../src/core/state/events.js';
-import { visibleTo } from '../src/core/state/events.js';
+import { cronicaPara, sinSello, visibleTo } from '../src/core/state/events.js';
 import { applyAdventureAction } from '../src/core/state/game.js';
 import { newGame } from '../src/core/state/setup.js';
 import { dueñoDeLaCiudad, sitioSiExiste } from '../src/core/state/sitios.js';
@@ -38,6 +39,7 @@ import {
 import type { Point } from '../src/core/types.js';
 import { unidadDelJuego } from '../src/core/unidad/catalogo.js';
 import { FACCION_A, FACCION_B, NO_MUERTO, PESADA, TROPA, TROPA_BARATA } from './comun.js';
+import { fugasDe, fugasDeTodos } from './fugas-de-los-hechos.js';
 import { ejercito, sinGuarnicionDeSalida } from './partida-de-prueba.js';
 
 const MI_CASTILLO: Point = { x: 2, y: 6 };
@@ -383,6 +385,20 @@ describe('la crónica pasa por la niebla', () => {
     // Y que la partida haya dado de sí: si solo saliera `hero_moved`, lo de
     // arriba no probaría gran cosa.
     expect(new Set(state.log.map((e) => e.kind)).size).toBeGreaterThanOrEqual(15);
+
+    // Y esos mismos hechos, como los lee el agente (10-11-2026, #292): ninguno con
+    // una clave ni un enumerado en español (`fugas-de-los-hechos.ts`). Aquí y no en
+    // `hechos-del-agente.test.ts`, que mira muestras: lo que una muestra olvide lo
+    // traen los hechos que el núcleo escribe de verdad, y la partida ya está jugada.
+    expect(fugasDeTodos(state.log.map(sinSello), hechoDeLaCronicaAlAgente)).toEqual([]);
+    // Y por la puerta: lo mismo que deja pasar la niebla, uno a uno y traducido.
+    for (const p of state.players) {
+      const cruda = cronicaPara(state, p.id, 25);
+      const servida = cronicaAlAgente(state, p.id, 25);
+      expect(servida).toEqual(cruda.map(hechoDeLaCronicaAlAgente));
+      expect(servida).toHaveLength(cruda.length);
+      expect(fugasDe(servida)).toEqual([]);
+    }
   });
 
   it('las dos formas de «quién mira ahora» dicen lo mismo, casilla a casilla', () => {

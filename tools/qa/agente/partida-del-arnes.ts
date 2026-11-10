@@ -252,6 +252,25 @@ export function faltaParaElArnes(
     faltan.push('un grupo de asaltantes en el knownMap de un turno');
   if (!conOcasion('dismiss')) faltan.push('un «dismiss» con un turno después para verlo');
   if (!conOcasion('buy_item')) faltan.push('un «buy_item» con un turno después para verlo');
+  // El reparto y la obra del puesto, como los exige `pnpm qa` (`exigeElPuesto` y
+  // el reparto): su hecho en la crónica de un turno de mapa, y no solo la jugada
+  // con un turno después. La ventana de `recentEvents` es de 25 hechos y el hecho
+  // puede salirse antes del turno siguiente (en la semilla 5, la marcha del propio
+  // héroe y la batalla del rival sacaron la obra del día 2 de la del día 3). El
+  // reparto, con el héroe en su ciudad; la obra, con un héroe que amanece en un
+  // paso suyo y el oro para hacerla.
+  const loCuenta = (hecho: string) =>
+    escuchadas.some(
+      (p) =>
+        p.kind === 'adventure_turn' &&
+        (p.payload.recentEvents ?? []).some((e: { kind: string }) => e.kind === hecho),
+    );
+  if (!conOcasion('distribute_troops') || !loCuenta('troops_exchanged'))
+    faltan.push('un «distribute_troops» con un turno después donde la crónica lo cuente');
+  if (!conOcasion('upgrade_outpost') || !loCuenta('outpost_upgraded'))
+    faltan.push(
+      'un «upgrade_outpost» (un héroe del agente en un paso suyo, con oro) y un turno después donde la crónica lo cuente',
+    );
   // El equipo, como lo exige `pnpm qa` (`cruzaElEquipo`): un individuo con algo
   // puesto en un turno de mapa, y no solo un «equip» con turno después. Con las
   // minas por región (#195) la semilla 4 equipaba al novato y lo perdía en la
@@ -378,7 +397,7 @@ export function semillaDelArnes(): Promise<SemillaDelArnes> {
   return primeraSemilla(
     TURNOS_DEL_ARNES,
     (m) => faltaParaElArnes(m),
-    `la primera que en ${TURNOS_DEL_ARNES} turnos da ocasión de ver dos tramos, asaltantes, licencia, compra, equipo, ascenso, dos respuestas de la rueda, un golpe con su «hit» y una jugada de la muralla`,
+    `la primera que en ${TURNOS_DEL_ARNES} turnos da ocasión de ver dos tramos, asaltantes, licencia, compra, equipo, ascenso, un reparto de tropa, la obra de un puesto, dos respuestas de la rueda, un golpe con su «hit» y una jugada de la muralla`,
   );
 }
 
