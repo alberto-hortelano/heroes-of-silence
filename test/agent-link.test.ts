@@ -23,7 +23,12 @@ import { baseOf } from '../src/core/state/consultas.js';
 import { applyAdventureAction } from '../src/core/state/game.js';
 import { caminoHasta } from '../src/core/state/marcha.js';
 import { newGame } from '../src/core/state/setup.js';
-import { dueñoDeLaCiudad, guarnicionDeLaCiudad } from '../src/core/state/sitios.js';
+import {
+  dueñoDeLaCiudad,
+  guarnicionDeLaCiudad,
+  ponerLaGuarnicion,
+  sitioPorId,
+} from '../src/core/state/sitios.js';
 import {
   type GameContext,
   type GameState,
@@ -1561,6 +1566,104 @@ describe('el agente sabe cómo le fue', () => {
     for (const p of turnos) {
       expect(agent.results.find((r) => r.requestId === p.requestId)?.ok).toBe(true);
     }
+  });
+
+  it('mejora el puesto y reparte la tropa en un turno; la repetida se descarta con su motivo y el turno siguiente lo trae todo con las palabras de la jugada', async () => {
+    // El contrato del agente, al día (10-11-2026), criterios 1-3 y 5 por el
+    // circuito: el zod del enlace, `accionDelAgente`, el núcleo, el veredicto y
+    // `recentEvents`. El agente es el 1, que en serpiente juega dos turnos seguidos
+    // (cierra el día 1 y abre el 2): el segundo lee lo que hizo en el primero.
+    let jugado = false;
+    const { link, agent } = await montar((kind, payload) => {
+      if (kind !== 'adventure_turn') return {};
+      if (jugado) return { actions: [] };
+      jugado = true;
+      const hero = payload.heroes[0].id;
+      return {
+        actions: [
+          // Un `count: 0` («ninguno de estos») delante de todo: se descarta esa
+          // jugada con su motivo y el turno sigue siendo suyo (QA, H2: en el zod
+          // se lo llevaba entero y lo jugaba la IA).
+          { type: 'distribute_troops', hero, withHero: [{ creature: TROPA, count: 0 }] },
+          { type: 'upgrade_outpost', hero, upgrade: 'palisade' },
+          { type: 'upgrade_outpost', hero, upgrade: 'palisade' },
+          {
+            type: 'distribute_troops',
+            hero,
+            withHero: [
+              { creature: TROPA, count: 1 },
+              { creature: TROPA_BARATA, count: 1 },
+            ],
+          },
+        ],
+      };
+    });
+    let paso = { id: '', at: { x: 0, y: 0 } };
+    const director = new Director(link, {
+      seed: 312,
+      agentPlayers: [1],
+      preparar: (s) => {
+        // Su héroe en un paso suyo, con dos de un tipo, y uno de otro guardando.
+        // El paso más lejano de la base del rival: en el primero del mapa, la IA
+        // del 0 le atacaba el día 1 y el turno era una batalla.
+        const rival = baseOf(s, 0)!.at;
+        const lejos = (o: { at: Point }) => Math.abs(o.at.x - rival.x) + Math.abs(o.at.y - rival.y);
+        const nodo = s.map.objects
+          .filter((o) => o.kind === 'node')
+          .reduce((a, b) => (lejos(b) > lejos(a) ? b : a));
+        nodo.owner = 1;
+        const heroe = s.heroes.find((h) => h.owner === 1)!;
+        heroe.at = { ...nodo.at };
+        heroe.army = ejercito({ creature: TROPA, count: 2 });
+        ponerLaGuarnicion(
+          s,
+          sitioPorId(s, nodo.id),
+          1,
+          ejercito({ creature: TROPA_BARATA, count: 1 }),
+        );
+        s.players[1]!.oro = 10000;
+        s.raiders.length = 0;
+        paso = { id: nodo.id, at: nodo.at };
+      },
+    });
+    for (let i = 0; i < 3; i++) await director.playTurn();
+    await respira();
+
+    const turnos = agent.seen.filter((p) => p.kind === 'adventure_turn');
+    expect(turnos).toHaveLength(2);
+    // Antes: el nodo, sin obra, y la jugada anunciada en el formato que viaja con la petición.
+    const nodoEn = (p: any) => p.knownMap.objects.find((o: any) => o.id === paso.id);
+    expect(nodoEn(turnos[0]!.payload)).toMatchObject({ kind: 'node', owner: 1, upgrade: 'none' });
+    // El veredicto del primero: dos entran, el `count: 0` y la repetida no, y dice por qué.
+    const veredicto = agent.results.find((r) => r.requestId === turnos[0]!.requestId)!;
+    expect(veredicto.ok).toBe(true);
+    expect(veredicto.note).toMatch(/2 de 4/);
+    expect(veredicto.problems).toHaveLength(2);
+    expect(veredicto.problems![0]).toBe(
+      `distribute_troops de ${director.state.heroes.find((h) => h.owner === 1)!.id}: con él, 0× ${TROPA}: no se puede repartir la tropa: el "count" de "${TROPA}" es 0: va un entero de 1 en adelante (lo que no se queda con el héroe no se escribe)`,
+    );
+    expect(veredicto.problems![1]).toMatch(
+      /^upgrade_outpost "palisade" con .*: no se puede mejorar el puesto: el puesto de.* ya tiene la empalizada: la siguiente obra es la muralla$/,
+    );
+    // El turno siguiente: el nodo y el hecho dicen la palabra que él escribió, y hay una
+    // sola obra (que la repetida no cobra lo mira `test/mejoras-del-puesto.test.ts`).
+    const despues = turnos[1]!.payload;
+    expect(nodoEn(despues)).toMatchObject({ upgrade: 'palisade' });
+    const obras = despues.recentEvents.filter((e: any) => e.kind === 'outpost_upgraded');
+    expect(obras).toEqual([
+      expect.objectContaining({ site: paso.id, upgrade: 'palisade', cost: 1500, actor: 1 }),
+    ]);
+    expect('to' in obras[0]).toBe(false);
+    expect(despues.recentEvents.filter((e: any) => e.kind === 'troops_exchanged')).toEqual([
+      expect.objectContaining({
+        site: paso.id,
+        left: [{ creature: TROPA, count: 1 }],
+        taken: [{ creature: TROPA_BARATA, count: 1 }],
+      }),
+    ]);
+    expect(despues.you.garrisons.find((g: any) => g.site === paso.id).army).toEqual([
+      expect.objectContaining({ creature: TROPA, count: 1 }),
+    ]);
   });
 
   it('lo que va detrás de un end_turn se cuenta, no desaparece', async () => {

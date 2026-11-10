@@ -37,12 +37,14 @@ import {
   type Side,
 } from '../battle/types.js';
 import { agilidadDe } from '../unidad/cuerpo.js';
+import { hechoAlAgente } from './hechos.js';
 import {
   accionAlAgente,
+  EFECTO_AL_AGENTE,
   escaleraAlAgente,
   HIT_DE_GOLPE,
   type Hit,
-  hechoAlAgente,
+  origenAlAgente,
   puertaAlAgente,
   ruedaAlAgente,
 } from './vocabulario.js';
@@ -220,7 +222,7 @@ function stacksVistos(battle: BattleState) {
   return battle.stacks.filter((s) => s.count > 0).map(stackView);
 }
 
-/** Los últimos hechos de la batalla, con el cruce en los nombres del contrato (`hechoAlAgente`). */
+/** Los últimos hechos de la batalla, en las palabras del contrato (`hechoAlAgente`). */
 function registroVisto(battle: BattleState) {
   return battle.log.slice(-30).map(hechoAlAgente);
 }
@@ -256,13 +258,16 @@ function stackView(s: BattleStack) {
     // Y aparte, cuánto le queda a cada cosa: sin esto el agente ve el número
     // cambiar de una ronda a otra sin saber por qué ni hasta cuándo.
     effects: s.effects.map((e) => ({
-      kind: e.kind,
+      // Con la palabra del hecho `effect` del registro (`EFECTO_AL_AGENTE`).
+      kind: EFECTO_AL_AGENTE[e.kind],
       // La cifra que suma; lo que no es una cifra (impide, escudo, disparador), 0.
       amount: 'amount' in e ? e.amount : 0,
       // Lo que hace, en palabras (`dichoDelEfecto`): lo único que dice qué impide un
       // hechizo o cuándo salta un disparador.
       summary: dichoDelEfecto(e),
-      source: e.source,
+      // Quién lo puso, como en el hecho `effect` (`origenAlAgente`): un golpe de la
+      // rueda, con su palabra de `hit`.
+      source: origenAlAgente(e.source),
       roundsLeft: e.roundsLeft,
     })),
     // El hechizo diferido que lanzó y dónde caerá, al empezar su siguiente turno.

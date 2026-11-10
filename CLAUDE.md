@@ -366,7 +366,8 @@ Cada hecho tiene un sitio; la ruta, relativa a `src/core/` o `src/client/` (a `s
 
 | Qué | Dónde |
 |---|---|
-| Los golpes y los poderes en el contrato | `HIT_DE_GOLPE`, `golpeDelHit`, `ruedaAlAgente`, `hechoAlAgente` (`contract/vocabulario.ts`) |
+| Los golpes y los poderes en el contrato | `HIT_DE_GOLPE`, `golpeDelHit`, `ruedaAlAgente`, `origenAlAgente` (`contract/vocabulario.ts`) |
+| Los hechos que lee el agente | `hechoAlAgente`, `cronicaAlAgente` (`contract/hechos.ts`), el único que llama a `cronicaPara` hacia el agente |
 | La petición de respuesta | `serializeBattleResponse` (`contract/batalla.ts`) |
 | Lo que el agente sabe del mapa | `serializeKnownMap` (`contract/mapa-conocido.ts`) |
 | La ficha de una criatura | `fichaDeCriatura` (`contract/vistas.ts`) |
@@ -437,7 +438,9 @@ de respuesta embebido, el agente responde una vez con `heroes_respond`, y el ver
 anterior llega pegado a la siguiente petición, también cuando acertó. Sus acciones se descartan una
 a una con su motivo; todo pasa por la niebla; del contrato se exportan esquemas, no alias de tipo.
 Defiende sus batallas y diseña el mapa (si el plan no vale, el procedimental y se le dice por qué).
-No están en su contrato (backlog): `repartir_tropa`, mejorar el puesto, entrar en un lugar (F4) y
+Reparte tropa (`distribute_troops`) y mejora el puesto (`upgrade_outpost`), y **los hechos le llegan
+traducidos** (10-11-2026: ni una clave ni un enumerado en español; `contract/hechos.ts`).
+No están en su contrato (backlog): elegir la defensa de un sitio, entrar en un lugar (F4) y
 elegir lo que sobra tras una batalla (lo deja la regla de la IA).
 Las peticiones, las consultas, la rueda, la muralla, el clima y lo demás: `docs/areas/agente.md`.
 

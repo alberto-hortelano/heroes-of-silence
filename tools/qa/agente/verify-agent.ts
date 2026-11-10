@@ -140,8 +140,16 @@ let rendicionOfrecida = false;
  * verde sin haber ejercitado nada de lo que el agente tiene que ver.
  */
 const asaltantesVistos = new Set<string>();
-/** Los nodos del `knownMap` que han llegado con su obra (`upgrade`). */
-const nodosConObra = new Set<string>();
+/**
+ * El `upgrade` de cada nodo del `knownMap` (nodo → lo que dijo el último que lo
+ * trajo, también `none`), y las obras que le constan al agente en su crónica
+ * (`outpost_upgraded`: sitio → su `upgrade`, la última). `exigeElPuesto` pide que
+ * coincidan.
+ */
+const upgradeDelNodo = new Map<string, string>();
+const obrasVistas = new Map<string, string>();
+/** Los repartos que le constan al agente en su crónica (`troops_exchanged`). */
+const repartosVistos = new Set<string>();
 const emboscadasVistas = new Set<string>();
 /**
  * Las licencias que le constan al agente en su crónica: el arnés licencia
@@ -746,6 +754,43 @@ function exigeLaMuralla(): void {
   );
 }
 
+/**
+ * Que la obra del puesto cruce el contrato (10-11-2026): la semilla se busca con
+ * un héroe del agente amaneciendo en un paso suyo (`faltaParaElArnes`), y la
+ * política manda su obra dos veces. La primera tiene que constar en su crónica
+ * (`outpost_upgraded`, con la palabra del contrato en `upgrade`) y en el nodo de
+ * un `knownMap` posterior, la misma; la segunda, descartarse con su motivo.
+ */
+function exigeElPuesto(): void {
+  if (obrasVistas.size === 0) {
+    throw new Error(
+      `el agente no ha hecho ninguna obra en un puesto: \`upgrade_outpost\` no ha cruzado el circuito (${upgradeDelNodo.size} nodos vistos)`,
+    );
+  }
+  for (const [site, upgrade] of obrasVistas) {
+    if (upgradeDelNodo.get(site) !== upgrade) {
+      throw new Error(
+        `"outpost_upgraded" dice "${upgrade}" en ${site} y el nodo del knownMap dice "${upgradeDelNodo.get(site) ?? 'nada'}": el hecho y la vista no usan la misma palabra`,
+      );
+    }
+  }
+  // Por el prefijo de `describeAccion`, como los demás rechazos: la misma obra que
+  // consta hecha, mandada otra vez. Qué dice el motivo lo fija
+  // `test/mejoras-del-puesto.test.ts`, no una regex sobre su prosa.
+  const hechas = new Set(obrasVistas.values());
+  const repetida = veredictos
+    .flatMap((v) => v.problemas)
+    .find((p) => [...hechas].some((u) => p.startsWith(`upgrade_outpost "${u}" con `)));
+  if (repetida === undefined) {
+    throw new Error(
+      'la obra repetida del puesto no se ha descartado con su motivo en ningún veredicto',
+    );
+  }
+  log(
+    `puestos: ${upgradeDelNodo.size} nodos del knownMap con su "upgrade"; obra hecha: ${[...obrasVistas].map(([s, u]) => `${s} → "${u}"`).join(', ')}; la repetida, descartada — «${repetida}»`,
+  );
+}
+
 /** Cierra con el resumen de todo lo que se ha verificado. */
 async function terminarBien(
   turnos: number,
@@ -789,14 +834,13 @@ async function terminarBien(
     );
   }
   log(`licencias: ${licenciasVistas.size} en la crónica del agente`);
-  // En la partida del arnés el agente no siempre llega a ver un paso (en la semilla
-  // de hoy, sus cuatro turnos de mapa no le enseñan ninguno): sin nodos no hay
-  // nada que mirar, y se dice; con alguno, el de arriba exige su "upgrade".
-  log(
-    nodosConObra.size === 0
-      ? 'puestos: ningún nodo a la vista del agente en esta partida; el "upgrade" lo cubre test/mejoras-del-puesto.test.ts'
-      : `puestos: ${nodosConObra.size} nodos del knownMap con su "upgrade"`,
-  );
+  exigeElPuesto();
+  if (repartosVistos.size === 0) {
+    throw new Error(
+      'el agente no ha repartido tropa ni una vez: `distribute_troops` no ha cruzado el circuito (ningún "troops_exchanged" en su crónica)',
+    );
+  }
+  log(`reparto: ${repartosVistos.size} "troops_exchanged" en la crónica del agente`);
   if (guarnicionVista.dejada.size === 0 || guarnicionVista.recogida.size === 0) {
     throw new Error(
       `el agente no ha dejado y recogido tropa de la guarnición (${guarnicionVista.dejada.size} dejadas, ${guarnicionVista.recogida.size} recogidas): \`leave_troops\` y \`take_troops\` no han cruzado el circuito`,
@@ -1118,7 +1162,7 @@ async function main(): Promise<void> {
             `el nodo ${o.id} del knownMap llega sin "upgrade" o con uno que no es del contrato: ${JSON.stringify(o)}`,
           );
         }
-        nodosConObra.add(o.id);
+        upgradeDelNodo.set(o.id, o.upgrade);
       }
       for (const e of payload.recentEvents ?? []) {
         cuotaDeAsaltantes.total++;
@@ -1132,6 +1176,16 @@ async function main(): Promise<void> {
         if (e.kind === 'troops_left') guarnicionVista.dejada.add(JSON.stringify(e));
         if (e.kind === 'troops_taken') guarnicionVista.recogida.add(JSON.stringify(e));
         if (e.kind === 'item_bought') comprasVistas.add(JSON.stringify(e));
+        if (e.kind === 'troops_exchanged') repartosVistos.add(JSON.stringify(e));
+        if (e.kind === 'outpost_upgraded') {
+          // La palabra del contrato, y en `upgrade`: ni `to` ni «empalizada».
+          if (!esUpgrade(e.upgrade) || e.upgrade === 'none' || 'to' in e) {
+            throw new Error(
+              `"outpost_upgraded" llega sin "upgrade" del contrato: ${JSON.stringify(e)}`,
+            );
+          }
+          obrasVistas.set(e.site, e.upgrade);
+        }
       }
       if (equipo.visto === null) await cruzaElEquipo(client, payload);
       if (payload.heroes?.some((h: any) => typeof h.strength !== 'number')) {

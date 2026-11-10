@@ -33,7 +33,6 @@ import {
   townsOf,
   week,
 } from '../state/consultas.js';
-import { cronicaPara } from '../state/events.js';
 import { veteranosEnSuBase } from '../state/heroes.js';
 import { type RentaDelDia, rentaDelDia } from '../state/renta.js';
 import {
@@ -62,6 +61,7 @@ import {
 import type { Hero, PlayerId } from '../types.js';
 import { cifrasDeUnidad, unidadDelJuego } from '../unidad/catalogo.js';
 import { nivelDeUnidad } from '../unidad/nivel.js';
+import { cronicaAlAgente } from './hechos.js';
 import { serializeKnownMap } from './mapa-conocido.js';
 import { armyView, equipoView } from './vistas.js';
 import { ruedaAlAgente, SLOT_DE_HUECO } from './vocabulario.js';
@@ -354,8 +354,9 @@ export function serializeAdventureTurn(state: GameState, playerId: PlayerId) {
     // log ENTERO y el agente le seguía los pasos al rival leyendo su diario. La
     // regla completa —a quién le consta, cuántos caben y el sello que se queda
     // en casa— la escribe `cronicaPara`, y el porqué con su medida está en la
-    // cabecera de `events.ts`. Aquí solo se dice el tamaño de la ventana.
-    recentEvents: cronicaPara(state, playerId, 25),
+    // cabecera de `events.ts`. Sale por `cronicaAlAgente`, que además traduce cada
+    // hecho a las palabras del contrato. Aquí solo se dice el tamaño de la ventana.
+    recentEvents: cronicaAlAgente(state, playerId, 25),
   };
 }
 
@@ -432,6 +433,6 @@ export function serializeTownVoices(state: GameState, playerId: PlayerId, towns:
         })),
       };
     }),
-    recentEvents: cronicaPara(state, playerId, 10),
+    recentEvents: cronicaAlAgente(state, playerId, 10),
   };
 }

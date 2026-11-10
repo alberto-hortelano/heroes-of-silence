@@ -1970,14 +1970,28 @@ describe('la rueda y los poderes en el contrato (F6)', () => {
       createRng(1),
     );
     const vista = serializeBattleTurn(b, 'defender', 'ajena', null) as any;
-    const cruce = vista.log.find((e: any) => e.kind === 'cruce');
+    // El cruce se llama `clash` en el contrato (10-11-2026, #292): ni el `kind` ni
+    // ninguna clave del registro llegan en español (`test/hechos-del-agente.test.ts`).
+    expect(vista.log.some((e: any) => e.kind === 'cruce')).toBe(false);
+    const cruce = vista.log.find((e: any) => e.kind === 'clash');
     expect(cruce).toMatchObject({
       stack: 'attacker-0',
       target: 'defender-0',
       hit: 'strong',
       response: 'quick',
     });
-    expect('golpe' in cruce).toBe(false);
+    expect(Object.keys(cruce).sort()).toEqual([
+      'hit',
+      'kind',
+      'point',
+      'response',
+      'stack',
+      'target',
+    ]);
+    // Y el golpe que lo sigue lleva su punto en `point`, el mismo.
+    const golpe = vista.log.find((e: any) => e.kind === 'attack' && !e.retaliation);
+    expect(golpe.point).toBe(cruce.point);
+    expect('punto' in golpe).toBe(false);
   });
 
   it('la petición de respuesta: quién pega a quién, el contraataque de cada tipo y sin el golpe del otro', () => {

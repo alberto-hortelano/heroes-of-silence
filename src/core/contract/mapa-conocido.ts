@@ -24,7 +24,7 @@ import {
 } from '../state/vision.js';
 import type { PlayerId } from '../types.js';
 import { ocupanteView } from './vistas.js';
-import { UPGRADE_DE_MEJORA } from './vocabulario.js';
+import { LUGAR_AL_AGENTE, UPGRADE_DE_MEJORA } from './vocabulario.js';
 
 /**
  * Los objetos del mapa **tal como los recuerda un jugador**, cada uno con la
@@ -96,8 +96,9 @@ function knownObjects(state: GameState, playerId: PlayerId) {
         return { kind: o.kind, id: o.id, at: o.at, gold: o.gold, taken: o.taken, ...cuando };
       // Un lugar de un mundo: se ve, pero el agente aún no entra (F4); lo que
       // cambia en él —su estado— no viaja.
+      // `place`, la palabra de sus hechos en `recentEvents` (`contract/hechos.ts`).
       case 'lugar':
-        return { kind: o.kind, id: o.id, at: o.at, name: o.name, ...cuando };
+        return { kind: LUGAR_AL_AGENTE, id: o.id, at: o.at, name: o.name, ...cuando };
     }
     // Exhaustivo: con un `kind` nuevo del mapa, `o` deja de ser `never`
     // aquí y esta línea NO compila. Y como termina en `throw`, el linter

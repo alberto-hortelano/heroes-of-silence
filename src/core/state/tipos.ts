@@ -324,8 +324,9 @@ export type AdventureAction =
    * está: `enElHeroe` dice todo lo que va con él (`LineaDelReparto`) y lo demás queda
    * guardando. Se juzga solo el reparto final (`repartirTropaBlocker`), así que con
    * los dos llenos se cambia uno por otro (D9 de la tarea del puesto fronterizo). La
-   * manda la pantalla de la guarnición al confirmar; la IA y el agente siguen con
-   * `dejar_tropa` y `recoger_tropa`.
+   * manda la pantalla de la guarnición al confirmar, y el agente con su
+   * `distribute_troops` (`accionDelAgente`); la IA sigue con `dejar_tropa` y
+   * `recoger_tropa`.
    */
   | ({ readonly type: 'repartir_tropa' } & PedidoDeReparto)
   /**
@@ -334,8 +335,8 @@ export type AdventureAction =
    * en oro e inmediata (`mejorarBlocker`, `state/sitios.ts`). Se nombra la obra para
    * que el segundo clic de un doble clic no compre la que sigue (QA de la fase 3). La batalla en el paso se pelea
    * después tras la muralla de su obra (`murallaDelSitio`). La manda el diálogo de
-   * la guarnición; la IA de reglas no mejora y el agente aún no tiene la jugada
-   * (backlog).
+   * la guarnición, y el agente con su `upgrade_outpost` (`accionDelAgente`); la IA de
+   * reglas no mejora.
    */
   | { readonly type: 'mejorar_el_puesto'; readonly hero: string; readonly obra: ObraDelPuesto }
   /**

@@ -14,6 +14,9 @@ import { adaptarEscena } from '../src/client/espectador/adaptar.js';
 import { renderGuarnicion } from '../src/client/partida/guarnicion.js';
 import { Session } from '../src/client/sesion/partida.js';
 import { SIN_MURALLA } from '../src/core/battle/muralla.js';
+import { serializeAdventureTurn } from '../src/core/contract/aventura.js';
+import { adventureActionSchema } from '../src/core/contract/esquemas.js';
+import { RESPONSE_FORMAT } from '../src/core/contract/formato.js';
 import { serializeKnownMap } from '../src/core/contract/mapa-conocido.js';
 import {
   type MapObject,
@@ -38,7 +41,14 @@ import { objetosConocidos, revealEverything, visibleNow } from '../src/core/stat
 import { construirVista } from '../src/server/vista-espectador.js';
 import type { SpectatorView } from '../src/shared/cable-del-espectador.js';
 import { ctx, TROPA_BARATA } from './comun.js';
-import { ejercito, forzarBatalla, pegadoA, unPaso } from './partida-de-prueba.js';
+import {
+  ejercito,
+  forzarBatalla,
+  jugarDelAgente,
+  motivoDe,
+  pegadoA,
+  unPaso,
+} from './partida-de-prueba.js';
 
 type Nodo = Extract<MapObject, { kind: 'node' }>;
 
@@ -471,5 +481,96 @@ describe('el diálogo del puesto (la sesión)', () => {
     expect(marcadoDe(renderGuarnicion(s.vistaDeLaGuarnicion()!))).not.toContain(
       'mejorar-el-puesto',
     );
+  });
+});
+
+describe('la jugada del agente: «upgrade_outpost» (10-11-2026)', () => {
+  // El contrato del agente, al día (`docs/agents/2026-11-10-contrato-del-agente-al-dia/`),
+  // criterio 1: por su puerta entera —el zod, `accionDelAgente` y el núcleo—, y con
+  // una sola palabra para la obra en la jugada, en el nodo de `knownMap` y en el hecho.
+
+  const mejora = (hero: string, upgrade: string) => ({ type: 'upgrade_outpost', hero, upgrade });
+
+  it('levanta la empalizada y la muralla, y el hecho, el nodo y la jugada dicen la misma palabra', () => {
+    const { state, paso, heroe } = partidaEnSuPaso(5, 6000);
+    expect(RESPONSE_FORMAT.adventure_turn).toContain('"type": "upgrade_outpost"');
+    for (const [upgrade, obra, oro] of [
+      ['palisade', 'empalizada', 4500],
+      ['wall', 'muralla', 500],
+    ] as const) {
+      jugarDelAgente(state, mejora(heroe, upgrade));
+      expect(paso.mejora).toBe(obra);
+      expect(state.players[0]!.oro).toBe(oro);
+      const turno = serializeAdventureTurn(state, 0) as {
+        recentEvents: Record<string, unknown>[];
+        knownMap: { objects: Record<string, unknown>[] };
+      };
+      // El hecho, como lo lee el agente: `upgrade`, no `to`, y con la palabra de la jugada.
+      expect(turno.recentEvents.at(-1)).toEqual({
+        kind: 'outpost_upgraded',
+        actor: 0,
+        at: paso.at,
+        hero: heroe,
+        site: paso.id,
+        upgrade,
+        cost: OBRAS_DEL_PUESTO[obra].precio,
+      });
+      expect(turno.knownMap.objects.find((o) => o.id === paso.id)).toMatchObject({
+        kind: 'node',
+        upgrade,
+      });
+    }
+    // El núcleo sigue escribiéndolo como siempre: lo lee el espectador, crudo.
+    expect(state.log.at(-1)).toMatchObject({ kind: 'outpost_upgraded', to: 'muralla' });
+  });
+
+  it('cada rechazo, con su motivo y sin cobrar', () => {
+    const intenta = (state: GameState, heroe: string, upgrade: string): string => {
+      const oro = state.players[0]!.oro;
+      const motivo = motivoDe(() => jugarDelAgente(state, mejora(heroe, upgrade)));
+      expect(state.players[0]!.oro).toBe(oro);
+      return motivo;
+    };
+    // Sin oro.
+    const pobre = partidaEnSuPaso(5, 1000);
+    expect(intenta(pobre.state, pobre.heroe, 'palisade')).toBe(
+      'no se puede mejorar el puesto: no alcanza el oro: cuesta 1500 oro y tienes 1000 oro',
+    );
+    expect(pobre.paso.mejora).toBe('ninguna');
+
+    const { state, paso, heroe } = partidaEnSuPaso(5, 99999);
+    // Saltándose una obra, y una palabra que no es una obra: `none` no se hace.
+    expect(intenta(state, heroe, 'wall')).toMatch(
+      /^no se puede mejorar el puesto: el puesto de.* aún no tiene ninguna obra: la siguiente obra es la empalizada$/,
+    );
+    expect(intenta(state, heroe, 'none')).toBe(
+      '"none" no es una obra de un puesto; valen palisade, wall',
+    );
+    expect(intenta(state, heroe, 'empalizada')).toBe(
+      '"empalizada" no es una obra de un puesto; valen palisade, wall',
+    );
+    expect(intenta(state, heroe, 'foso')).toBe(
+      '"foso" no es una obra de un puesto; valen palisade, wall',
+    );
+    expect(paso.mejora).toBe('ninguna');
+    // Repitiéndola.
+    jugarDelAgente(state, mejora(heroe, 'palisade'));
+    expect(intenta(state, heroe, 'palisade')).toMatch(
+      /^no se puede mejorar el puesto: el puesto de.* ya tiene la empalizada: la siguiente obra es la muralla$/,
+    );
+    expect(paso.mejora).toBe('empalizada');
+    // En sitio ajeno.
+    paso.owner = 1;
+    expect(intenta(state, heroe, 'wall')).toMatch(/de \(\d+,\d+\) no es tuyo$/);
+    paso.owner = 0;
+    // Sin héroe en el paso.
+    heroesOf(state, 0)[0]!.at = pegadoA(state, paso.at);
+    expect(intenta(state, heroe, 'wall')).toMatch(
+      /no está en ninguna ciudad, paso ni pueblo: solo se mejora un paso tuyo, un puesto$/,
+    );
+    expect(intenta(state, 'nadie', 'wall')).toContain('no existe ningún héroe "nadie"');
+    expect(paso.mejora).toBe('empalizada');
+    // Y una obra de más de 32 letras no pasa el esquema: la respuesta está mal formada.
+    expect(adventureActionSchema.safeParse(mejora(heroe, 'x'.repeat(33))).success).toBe(false);
   });
 });

@@ -54,6 +54,17 @@ export function esObraDelPuesto(valor: unknown): valor is ObraDelPuesto {
   return (OBRAS_DE_UN_PUESTO as readonly unknown[]).includes(valor);
 }
 
+/**
+ * Por qué `citada` no es una obra de un puesto, dicho con las que valen en `lista`:
+ * las de dentro (`OBRAS_DE_UN_PUESTO`) o las del contrato del agente (sus `upgrade`).
+ * Una sola frase para las dos puertas, `mejorarBlocker` y `obraDelUpgrade`, como
+ * `huecoDesconocido`. `citada` llega ya entre comillas: las de la persona («…») o
+ * las del contrato ("…"), que es en lo único en que difieren.
+ */
+export function obraDesconocida(citada: string, lista: readonly string[]): string {
+  return `${citada} no es una obra de un puesto; valen ${lista.join(', ')}`;
+}
+
 export type MapObject =
   | {
       /**

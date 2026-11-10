@@ -21,7 +21,12 @@ import {
 let n = 0;
 const id = (): string => `p-${++n}`;
 
-function turno(acciones: readonly string[] = [], raiders = 0, equipado = false): Peticion {
+function turno(
+  acciones: readonly string[] = [],
+  raiders = 0,
+  equipado = false,
+  hechos: readonly string[] = [],
+): Peticion {
   return {
     requestId: id(),
     kind: 'adventure_turn',
@@ -31,6 +36,8 @@ function turno(acciones: readonly string[] = [], raiders = 0, equipado = false):
       heroes: equipado
         ? [{ army: [{ id: 'v-1', equipment: { arma: 'espada', armadura: null } }] }]
         : [{ army: [{ id: 'v-1', equipment: { arma: null, armadura: null } }] }],
+      // Lo que su crónica cuenta en este turno (`recentEvents`), por `kind`.
+      recentEvents: hechos.map((kind) => ({ kind })),
     },
     respuesta: { actions: acciones.map((type) => ({ type })) },
   };
@@ -63,10 +70,14 @@ function ascenso(): Peticion {
   return { requestId: id(), kind: 'hero_from_troop', payload: {}, respuesta: {} };
 }
 
+/** Lo que la crónica del turno siguiente cuenta del reparto y de la obra del primero. */
+const HECHOS_DE_LAS_JUGADAS = ['troops_exchanged', 'outpost_upgraded'];
+
 /** Una partida que lo da todo en tres turnos, con lo que cada caso quita. */
 function completa(): Peticion[] {
   return [
-    turno(['build', 'move_hero'], 1),
+    // El reparto y la obra del puesto (10-11-2026), lo primero del turno.
+    turno(['distribute_troops', 'upgrade_outpost', 'build', 'move_hero'], 1),
     batalla(4, 'move'),
     batalla(4, 'move'),
     batalla(5, 'attack', 'strong'),
@@ -75,7 +86,7 @@ function completa(): Peticion[] {
     // La muralla (`exigeLaMuralla`, fase 2 del puesto fronterizo).
     batalla(6, 'place_ladder', undefined, { material: 'piedra' }),
     ascenso(),
-    turno(['dismiss', 'buy_item', 'equip']),
+    turno(['dismiss', 'buy_item', 'equip'], 0, false, HECHOS_DE_LAS_JUGADAS),
     turno(['move_hero'], 0, true),
   ];
 }
@@ -97,11 +108,33 @@ describe('lo que pnpm qa necesita ver (#131)', () => {
     ]);
   });
 
+  it('el reparto y la obra del puesto: la jugada con un turno después, y su hecho en la crónica de alguno', () => {
+    // `pnpm qa` exige ver el `troops_exchanged` y el `outpost_upgraded` en la
+    // crónica del agente, y la ventana es de 25 hechos: el hecho puede salirse, y
+    // la ocasión sola daría por buena una semilla con la que el arnés sale rojo.
+    const reparto = 'un «distribute_troops» con un turno después donde la crónica lo cuente';
+    const obra =
+      'un «upgrade_outpost» (un héroe del agente en un paso suyo, con oro) y un turno después donde la crónica lo cuente';
+    // Mandadas, pero la crónica de después no las trae.
+    const sinHechos = completa();
+    sinHechos[8] = turno(['dismiss', 'buy_item', 'equip']);
+    expect(faltaParaElArnes(sinHechos, 3)).toEqual([reparto, obra]);
+    // Solo la obra se salió de la ventana.
+    const sinObra = completa();
+    sinObra[8] = turno(['dismiss', 'buy_item', 'equip'], 0, false, ['troops_exchanged']);
+    expect(faltaParaElArnes(sinObra, 3)).toEqual([obra]);
+    // Sin mandarlas: un hecho en la crónica que no viene de la política no basta.
+    const sinMandar = completa();
+    sinMandar[0] = turno(['build', 'move_hero'], 1);
+    expect(faltaParaElArnes(sinMandar, 3)).toEqual([reparto, obra]);
+  });
+
   it('un «equip» cuyo individuo no llega equipado a ningún turno no vale (#195)', () => {
     // El novato equipado que cae en la batalla de antes del turno siguiente: el
     // «equip» tuvo turno después, pero `pnpm qa` no ve a nadie con la pieza.
     const p = completa();
     p[9] = turno(['move_hero']);
+    expect(p[8]!.payload.recentEvents).toHaveLength(2);
     expect(faltaParaElArnes(p, 3)).toEqual([
       'un «equip» con un turno después donde se vea el individuo equipado',
     ]);
@@ -165,7 +198,7 @@ describe('lo que pnpm qa necesita ver (#131)', () => {
 
   it('sin asaltantes en ningún knownMap, falta', () => {
     const p = completa();
-    p[0] = turno(['build', 'move_hero']);
+    p[0] = turno(['distribute_troops', 'upgrade_outpost', 'build', 'move_hero']);
     expect(faltaParaElArnes(p, 3)).toEqual(['un grupo de asaltantes en el knownMap de un turno']);
   });
 

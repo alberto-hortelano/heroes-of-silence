@@ -53,6 +53,34 @@ export const adventureActionSchema = z.discriminatedUnion('type', [
     count: z.number().int().positive(),
     veteran: z.string().optional(),
   }),
+  // Repartir de una vez la tropa entre el héroe y la guarnición (10-11-2026):
+  // `withHero` es todo lo que va con él. Cada línea, `creature` y `count`, o
+  // `veteran`: todo opcional aquí, y `count` un número cualquiera. Una línea que no
+  // dice a quién, o con un `count` que no es un entero de 1 en adelante (el 0 de
+  // «ninguno de estos» es un error natural), descarta ESTA jugada con su motivo
+  // (`accionDelAgente`), no el turno (QA, H2). Lo que sí es una respuesta mal
+  // formada, como en toda jugada, y se lleva el turno: que falte `withHero` o no
+  // sea una lista, que una línea no sea un objeto, un `count` que no sea un número
+  // y más de 32 líneas. El reparto lo juzga el núcleo (`repartirTropaBlocker`).
+  z.object({
+    type: z.literal('distribute_troops'),
+    hero: z.string(),
+    withHero: z
+      .array(
+        z.object({
+          creature: z.string().optional(),
+          count: z.number().optional(),
+          veteran: z.string().optional(),
+        }),
+      )
+      .max(32),
+  }),
+  // Hacer la obra del puesto donde está el héroe (10-11-2026). `upgrade` es texto y
+  // no un `z.enum`, como `slot` y `hit`: una obra mal escrita descarta esta jugada
+  // con su motivo (`obraDelUpgrade`), no el turno entero. Sin `upgrade`, o con uno
+  // de más de 32 letras, es la respuesta la que está mal formada (y eso sí se
+  // lleva el turno, como en toda jugada).
+  z.object({ type: z.literal('upgrade_outpost'), hero: z.string(), upgrade: z.string().max(32) }),
   // `item`, `veteran` y `creature` van como texto libre: que existan, que sean
   // suyos y que quepan lo dice el núcleo (`buyBlocker`, `equipBlocker`), y el
   // motivo viaja en el veredicto como el de cualquier acción descartada. El hueco

@@ -660,6 +660,15 @@ export function describeAccion(accion: BattleAction | AccionDelAgente): string {
       return `${accion.type} ${accion.count}× ${accion.creature}${
         accion.veteran === undefined ? '' : ` (${accion.veteran})`
       } de ${accion.hero}`;
+    // El reparto, por lo que va con el héroe, como lo escribió (10-11-2026).
+    case 'distribute_troops':
+      return `distribute_troops de ${accion.hero}: con él, ${
+        accion.withHero
+          .map((l) => l.veteran ?? `${l.count ?? '?'}× ${l.creature ?? '?'}`)
+          .join(', ') || 'nadie'
+      }`;
+    case 'upgrade_outpost':
+      return `upgrade_outpost "${accion.upgrade}" con ${accion.hero}`;
     case 'build':
       return `build ${accion.building} en ${accion.town}`;
     case 'buy_item':
