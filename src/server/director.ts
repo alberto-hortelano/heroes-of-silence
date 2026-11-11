@@ -446,8 +446,8 @@ export class Director {
     let aplicadas = 0;
 
     /** Lo que ya no se va a intentar, contado una por una y con su motivo. */
-    const descartar = (resto: readonly unknown[], motivo: string): void => {
-      for (const a of resto) problems.push(`${describeAccion(a as AccionDelAgente)}: ${motivo}`);
+    const descartar = (resto: readonly AccionDelAgente[], motivo: string): void => {
+      for (const a of resto) problems.push(`${describeAccion(a)}: ${motivo}`);
     };
 
     for (const [i, accion] of plan.actions.entries()) {
@@ -464,26 +464,25 @@ export class Director {
         break;
       }
 
-      const a = accion as AccionDelAgente;
       const desde = this.state.log.length;
       try {
         // Dentro del `try`: un `slot` que no es un hueco del contrato descarta
         // esta acción con su motivo (`huecoDelSlot`), no el turno.
-        applyAdventureAction(this.state, accionDelAgente(a, this.state), this.ctx, playerId);
+        applyAdventureAction(this.state, accionDelAgente(accion, this.state), this.ctx, playerId);
         aplicadas++;
         this.frame();
       } catch (err) {
         // Una acción ilegal se descarta y se le cuenta al agente, tal y como
         // promete el contrato; las siguientes siguen aplicándose.
-        problems.push(`${describeAccion(a)}: ${mensajeDe(err)}`);
+        problems.push(`${describeAccion(accion)}: ${mensajeDe(err)}`);
         continue;
       }
       // Si la marcha se quedó sin llegar lo dice el núcleo con un hecho —le
       // faltaron puntos, vio un grupo que la emboscaría o la emboscaron—; aquí
       // solo se busca y se cuenta.
-      if (a.type === 'move_hero') {
-        const parada = paradaDeLaMarcha(a, this.state.log.slice(desde));
-        if (parada !== null) parciales.push(notaMarchaParcial(a, parada));
+      if (accion.type === 'move_hero') {
+        const parada = paradaDeLaMarcha(accion, this.state.log.slice(desde));
+        if (parada !== null) parciales.push(notaMarchaParcial(accion, parada));
       }
 
       if (this.state.pendingBattle !== null) {

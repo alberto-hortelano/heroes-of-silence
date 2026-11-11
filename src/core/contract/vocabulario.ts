@@ -24,6 +24,7 @@
  * Eran dos módulos (`huecos.ts`, `golpes.ts`) hasta el simplify de F3-F6
  * (19-10-2026): una sola puerta para lo que se traduce.
  */
+import type { z } from 'zod';
 import {
   type CruceDeLaRueda,
   type FormaDeLaRueda,
@@ -56,6 +57,8 @@ import {
   type TipoDeGolpe,
   TODOS_LOS_GOLPES,
 } from '../types.js';
+import { enteroDesde } from '../validar.js';
+import type { adventureActionSchema } from './esquemas.js';
 
 // ---------------------------------------------------------------- los puestos
 
@@ -135,70 +138,22 @@ function huecoDelSlot(slot: string): Hueco {
 }
 
 /**
- * Una acción de aventura tal como la escribe el agente: la del núcleo, salvo el
- * `slot` de `unequip` y de `equip` (25-10-2026: dónde se pone un arma), que llega
- * en inglés y como texto. Texto y no un `z.enum` en el esquema: un hueco mal
- * escrito descarta ESA acción con su motivo (`huecoDelSlot`, dentro del `try` del
- * director), no el turno entero.
+ * Una acción de aventura tal como la escribe el agente: **la salida del zod**
+ * (`adventureActionSchema`), no una copia a mano (#313, 11-11-2026: la copia y el
+ * esquema se separaron una vez, QA H2 de #319, y el director los ataba con un
+ * `as`). El zod juzga la forma; el valor —un `count`, un hueco, una obra— se juzga
+ * aquí o en el `*Blocker` del núcleo, jugada a jugada («Forma y valor»,
+ * `docs/areas/agente.md`).
+ *
+ * `import type` y no de ejecución: `esquemas.ts` importa de aquí
+ * `JUGADA_DE_MURALLA`, y un ciclo solo de tipos dentro de `contract/` se borra al
+ * compilar (el guardia de ciclos de `invariantes-capas.test.ts` lo admite dentro
+ * de una carpeta; uno de ejecución, no).
  */
-export type AccionDelAgente =
-  | Exclude<
-      AdventureAction,
-      // La forma del núcleo de estas no viaja: las de la tropa y la del puesto van
-      // abajo con sus nombres del contrato.
-      {
-        readonly type:
-          | 'unequip'
-          | 'equip'
-          | 'dejar_tropa'
-          | 'recoger_tropa'
-          | 'repartir_tropa'
-          | 'mejorar_el_puesto';
-      }
-    >
-  | (Omit<Extract<AdventureAction, { readonly type: 'unequip' }>, 'slot'> & {
-      readonly slot: string;
-    })
-  | (Omit<Extract<AdventureAction, { readonly type: 'equip' }>, 'hueco'> & {
-      readonly slot?: string;
-    })
-  /**
-   * Dejar y recoger tropa en la guarnición del sitio suyo donde está el héroe
-   * (04-11-2026): en el contrato, en inglés, siempre con `creature` y `count`, y con
-   * `veteran` como en `equip`. El núcleo, con el veterano, no lleva lo demás
-   * (`PedidoDeTropa`): lo traduce `accionDelAgente`.
-   */
-  | {
-      readonly type: 'leave_troops' | 'take_troops';
-      readonly hero: string;
-      readonly creature: string;
-      readonly count: number;
-      readonly veteran?: string;
-    }
-  /**
-   * Repartir de una vez la tropa entre el héroe y la guarnición (`repartir_tropa`,
-   * 10-11-2026): `withHero` dice todo lo que va con él; lo demás queda guardando.
-   * Cada línea, `{ creature, count }` novatos o un `{ veteran }` (con `creature` y
-   * `count` al lado, si los escribe, juzgados como en `leave_troops`).
-   */
-  | {
-      readonly type: 'distribute_troops';
-      readonly hero: string;
-      readonly withHero: readonly LineaDelAgente[];
-    }
-  /**
-   * Hacer la obra `upgrade` del puesto donde está el héroe (`mejorar_el_puesto`,
-   * 10-11-2026): texto, la palabra del `upgrade` del nodo en `knownMap` y del hecho
-   * `outpost_upgraded` (`UPGRADE_DE_MEJORA`); la traduce `obraDelUpgrade`.
-   */
-  | { readonly type: 'upgrade_outpost'; readonly hero: string; readonly upgrade: string };
+export type AccionDelAgente = z.infer<typeof adventureActionSchema>;
 
 /** Una línea de `distribute_troops` como la escribe el agente (todo opcional: se juzga al traducir). */
-interface LineaDelAgente {
-  readonly creature?: string | undefined;
-  readonly count?: number | undefined;
-  readonly veteran?: string | undefined;
-}
+type LineaDelAgente = Extract<AccionDelAgente, { type: 'distribute_troops' }>['withHero'][number];
 
 /**
  * Lo que el agente escribe junto a un `veteran` (`creature`, `count`) se mira aquí,
@@ -233,7 +188,9 @@ function lineaBlocker(state: GameState, hero: string, l: LineaDelAgente): string
   if (l.creature === undefined || l.count === undefined) {
     return 'una línea de "withHero" lleva "creature" y "count", o "veteran": esta no dice a quién';
   }
-  if (!Number.isInteger(l.count) || l.count < 1) {
+  // `enteroDesde` y no `isInteger`, la comprobación del núcleo: `1e21` es entero y
+  // llegaba al «0 o más» de `repartirTropaBlocker` (#318).
+  if (!enteroDesde(l.count, 1)) {
     return `el "count" de "${l.creature}" es ${l.count}: va un entero de 1 en adelante (lo que no se queda con el héroe no se escribe)`;
   }
   return null;
@@ -265,9 +222,37 @@ function lineaDelReparto(state: GameState, hero: string, l: LineaDelAgente): Lin
  * director, como un hueco mal escrito.
  */
 export function accionDelAgente(a: AccionDelAgente, state: GameState): AdventureAction {
+  // Sin `default` (#313), como `accionDeBatallaDelAgente`: una jugada nueva en el
+  // zod sin su caso deja la función sin `return` y no compila. Las que pasan tal
+  // cual, con su caso: su forma del contrato es la del núcleo.
   switch (a.type) {
+    case 'move_hero':
+    case 'hire_hero':
+    case 'build':
+    case 'recruit':
+    case 'dismiss':
+    case 'buy_item':
+    case 'end_turn':
+      return a;
+    // Campo a campo y no con `...resto`: zod escribe `veteran?: string | undefined`
+    // y el núcleo pide `veteran?: string` (`exactOptionalPropertyTypes`); un
+    // opcional que no vino no se pone.
     case 'unequip':
-      return { ...a, slot: huecoDelSlot(a.slot) };
+      return {
+        type: 'unequip',
+        hero: a.hero,
+        slot: huecoDelSlot(a.slot),
+        ...(a.veteran === undefined ? {} : { veteran: a.veteran }),
+      };
+    case 'equip':
+      return {
+        type: 'equip',
+        hero: a.hero,
+        item: a.item,
+        ...(a.veteran === undefined ? {} : { veteran: a.veteran }),
+        ...(a.creature === undefined ? {} : { creature: a.creature }),
+        ...(a.slot === undefined ? {} : { hueco: huecoDelSlot(a.slot) }),
+      };
     case 'leave_troops':
     case 'take_troops': {
       const type = a.type === 'leave_troops' ? 'dejar_tropa' : 'recoger_tropa';
@@ -286,12 +271,6 @@ export function accionDelAgente(a: AccionDelAgente, state: GameState): Adventure
       };
     case 'upgrade_outpost':
       return { type: 'mejorar_el_puesto', hero: a.hero, obra: obraDelUpgrade(a.upgrade) };
-    case 'equip': {
-      const { slot, ...resto } = a;
-      return slot === undefined ? resto : { ...resto, hueco: huecoDelSlot(slot) };
-    }
-    default:
-      return a;
   }
 }
 

@@ -77,13 +77,19 @@ import {
   visibleNow,
 } from '../src/core/state/vision.js';
 import { ECONOMIA } from '../src/core/town/economia.js';
-import { mageGuildLevel, townSpells } from '../src/core/town/town.js';
+import { mageGuildLevel, recruitBlocker, townSpells } from '../src/core/town/town.js';
 import { SPEED_TO_HEXES } from '../src/core/types.js';
 import { unidadDelJuego } from '../src/core/unidad/catalogo.js';
 import { batallaConDos, forzarTurno } from './batalla-de-prueba.js';
 import { JINETE, NO_MUERTO, PESADA, TIRADOR, TROPA, TROPA_BARATA } from './comun.js';
 import { conCaminos, planConCiudadDeRegion, planDeNodos } from './mapa-de-prueba.js';
-import { forzarBatalla } from './partida-de-prueba.js';
+import {
+  ejercito,
+  forzarBatalla,
+  jugarDelAgente,
+  motivoDe,
+  traducidaDelAgente,
+} from './partida-de-prueba.js';
 
 describe('contrato con el agente', () => {
   it('cada tipo de petición tiene esquema y formato de respuesta', () => {
@@ -1655,11 +1661,25 @@ describe('respuestas del agente', () => {
     if (!r.success) expect(r.error.issues.length).toBeGreaterThan(0);
   });
 
-  it('rechaza reclutar una cantidad negativa', () => {
+  it('reclutar −5 pasa la forma y lo rechaza el núcleo, esa jugada sola', () => {
+    // Era «rechaza reclutar una cantidad negativa» en el zod, que se llevaba la
+    // respuesta entera (#317, 11-11-2026: «Forma y valor», `docs/areas/agente.md`).
     const r = responseSchemas.adventure_turn.safeParse({
       actions: [{ type: 'recruit', town: 't', creature: TROPA_BARATA, count: -5 }],
     });
-    expect(r.success).toBe(false);
+    expect(r.success).toBe(true);
+    const state = newGame({ seed: 1 });
+    const town = townsOf(state, 0)[0]!;
+    expect(
+      motivoDe(() =>
+        jugarDelAgente(state, {
+          type: 'recruit',
+          town: town.id,
+          creature: TROPA_BARATA,
+          count: -5,
+        }),
+      ),
+    ).toBe('no se puede reclutar: son individuos: se reclutan de 1 en adelante, no -5');
   });
 
   it('rechaza un plan con "heroStarts", diciendo que el héroe empieza en su base', () => {
@@ -2188,5 +2208,103 @@ describe('la muralla en el contrato (fase 2 del puesto fronterizo)', () => {
       gate: { a: { col: 7, row: 4 }, b: { col: 8, row: 4 } },
     });
     expect(JSON.stringify(despues.log)).not.toMatch(/"(pie|muro|puerta)"/);
+  });
+});
+
+describe('forma y valor (#317, 11-11-2026)', () => {
+  // La regla, en `docs/areas/agente.md` («Forma y valor»): el zod juzga la forma y
+  // una cantidad es valor, que juzga el núcleo jugada a jugada.
+
+  /** Una jugada que cumple la forma de `opcion` con `count` en su cantidad, para cada `type` que admite. */
+  function muestras(opcion: z.ZodObject<z.ZodRawShape>, count: unknown): Record<string, unknown>[] {
+    let tipos: string[] = [];
+    const campos: Record<string, unknown> = {};
+    for (const [clave, esquema] of Object.entries(opcion.shape)) {
+      if (clave === 'type') {
+        if (esquema instanceof z.ZodLiteral) tipos = [esquema.value as string];
+        else if (esquema instanceof z.ZodEnum) tipos = [...(esquema.options as string[])];
+        else
+          throw new Error(`un "type" que la muestra no sabe escribir: ${esquema.constructor.name}`);
+      } else if (clave === 'count') campos[clave] = count;
+      else if (esquema instanceof z.ZodOptional) continue;
+      else if (esquema instanceof z.ZodString) campos[clave] = 'x';
+      else throw new Error(`un campo que la muestra no sabe escribir: ${clave}`);
+    }
+    return tipos.map((type) => ({ type, ...campos }));
+  }
+
+  const conCount = adventureActionSchema.options.filter((o) => 'count' in o.shape);
+
+  it('toda jugada de aventura con «count» lo deja pasar como número y rechaza lo que no es un número', () => {
+    // Las que lo llevan, todas: si una se queda sin muestra, aquí se ve.
+    expect(conCount.flatMap((o) => muestras(o, 1).map((m) => m.type)).sort()).toEqual([
+      'dismiss',
+      'leave_troops',
+      'recruit',
+      'take_troops',
+    ]);
+    for (const opcion of conCount) {
+      for (const valor of [0, -1, 1.5, 1e21]) {
+        for (const m of muestras(opcion, valor)) {
+          expect(adventureActionSchema.safeParse(m).success, `${m.type} con count ${valor}`).toBe(
+            true,
+          );
+        }
+      }
+      // Un texto sí es forma: «count» es un número.
+      for (const m of muestras(opcion, '2')) {
+        expect(adventureActionSchema.safeParse(m).success, `${m.type} con count "2"`).toBe(false);
+      }
+    }
+    // Y el `count` de una línea del reparto, igual.
+    const reparto = (count: unknown) =>
+      adventureActionSchema.safeParse({
+        type: 'distribute_troops',
+        hero: 'h',
+        withHero: [{ creature: TROPA, count }],
+      }).success;
+    expect([0, -1, 1.5, 1e21].map(reparto)).toEqual([true, true, true, true]);
+    expect(reparto('2')).toBe(false);
+  });
+
+  it('el núcleo rechaza todo «count» que no sea un entero seguro de 1 en adelante, con su motivo', () => {
+    const state = newGame({ seed: 1 });
+    const town = townsOf(state, 0)[0]!;
+    const hero = heroesOf(state, 0)[0]!;
+    hero.army = ejercito({ creature: TROPA, count: 2 });
+    // `recruitBlocker` solo miraba `count <= 0`: con 3 disponibles, 1,5 se reclutaban.
+    town.available[TROPA_BARATA] = 3;
+    for (const count of [1.5, 1e21]) {
+      expect(recruitBlocker(town, TROPA_BARATA, count, 1_000_000)).toBe(
+        `son individuos: se reclutan de 1 en adelante, no ${count}`,
+      );
+    }
+    for (const count of [0, 1.5]) {
+      expect(
+        motivoDe(() =>
+          jugarDelAgente(state, { type: 'recruit', town: town.id, creature: TROPA_BARATA, count }),
+        ),
+      ).toBe(`no se puede reclutar: son individuos: se reclutan de 1 en adelante, no ${count}`);
+      expect(
+        motivoDe(() =>
+          jugarDelAgente(state, { type: 'dismiss', hero: hero.id, creature: TROPA, count }),
+        ),
+      ).toBe(`no se puede licenciar: son individuos: se licencian de 1 en adelante, no ${count}`);
+    }
+    expect(town.available[TROPA_BARATA]).toBe(3);
+    expect(hero.army).toHaveLength(2);
+    // El reparto, con la comprobación del núcleo: `1e21` es entero pero no se suma, y
+    // llegaba al «0 o más» de `repartirTropaBlocker` (#318).
+    expect(
+      motivoDe(() =>
+        traducidaDelAgente(state, {
+          type: 'distribute_troops',
+          hero: hero.id,
+          withHero: [{ creature: TROPA, count: 1e21 }],
+        }),
+      ),
+    ).toBe(
+      `no se puede repartir la tropa: el "count" de "${TROPA}" es 1e+21: va un entero de 1 en adelante (lo que no se queda con el héroe no se escribe)`,
+    );
   });
 });
