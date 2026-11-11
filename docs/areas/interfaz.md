@@ -76,6 +76,9 @@ la lista cerrada y su corte, `PIEZAS`/`DEFINICIONES`, y lo que enseña cada lám
   es interfaz (chapas, fondo de la vida, galones, la corona, rótulos de la base, recuadro del
   minimapa, letras). La historia y el porqué, en `docs/historia.md` y
   `docs/agents/2026-10-13-tema-por-ejercito/`, `docs/agents/2026-10-13-temas-de-las-laminas/`.
+  La fila-botón del lateral (`button.stack`) no toma el `--boton-encima` del `button:hover`: bajo
+  el ratón conserva su fondo y su tinta y lo dice el filo, doble (en templarios, letra oscura sobre
+  fondo oscuro, 1,24 : 1; #332, 11-11-2026). Lo vigila `temas.test.ts` con la cascada de verdad.
 
 - **Figuras**: 8 direcciones y 6 acciones (`idle`, `ready`, `attack`, `hit`,
   `die`, `win`), **salvo la gente** del banco de NPC (22-10-2026: solo la hoja A, de pie y
