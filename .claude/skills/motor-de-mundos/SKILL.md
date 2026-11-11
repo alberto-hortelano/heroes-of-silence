@@ -231,8 +231,8 @@ Los estados y las marcas son de la partida, no de cada jugador: **el rival tambi
 los lugares**, y si elige un desenlace primero, el otro se le cierra a quien juega. Por eso:
 
 - El `ya` de una marca de desenlace **describe el mundo**, nunca a quien la puso: «el sello
-  del abad ya está en manos de los orkos», no «ya se lo vendiste a Gruk» ni «tú». El juego
-  no dice quién puso una marca.
+  del abad ya está en manos de los orkos», no «ya se lo vendiste a Gruk» ni «tú». Quién la
+  puso lo antepone el juego cuando fue el rival («Gruk (Orkos) pasó antes: …», #283).
 - La biblia dice, en `## Desenlaces`, qué encuentra quien llega tarde.
 - La IA del rival, si llega antes, toma el desenlace **que más vale** (el oro, el precio de
   la pieza, el de la tropa, lo que da un encuentro al ganarlo), no el que escribas primero:
