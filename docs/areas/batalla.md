@@ -78,6 +78,23 @@ medidas y nombres, `shared/muralla-de-batalla.ts` (`ALTO_DE_MURALLA` y `PORTADA`
 
 `previsionDe` → `horquillaDeDanio`, `trasElGolpe`; opciones del golpe, `opcionesDeDanio`
 
+**El golpe cuerpo a cuerpo, cruce a cruce de la rueda** (#253 y #264, 11-11-2026,
+`docs/agents/2026-11-11-prevision-de-la-batalla/`): todo golpe va con la rueda y en un punto del
+cruce no hay dado, así que la barra ya no prevé con la horquilla del dado (que Fuerte o Rápido, de
+quien pega o de quien responde, rebasaban). `previsionDe` de un `attack` sin elegir es la
+envolvente de **todos los cruces** de la rueda de la batalla, golpe contra respuesta
+(`previsionDelIntercambio`); con lo elegido, solo de esos (los dos: un cruce, exacto). Cada cruce,
+`intercambioEnElCruce`, como lo juega `melee`: el punto, Defensivo a quien pega, sus golpes en ese
+punto cada uno solo si el atacado sigue en pie (la carga, el primero), y, si lo devuelve, el atacado
+con lo que le queda y lo que el golpe le deja (`atacadoAlDevolver`, la copia común con la previsión
+de la rueda: el miedo y Romper guardia) y la respuesta en el punto contrario. `PrevisionDeGolpe.golpes`
+y `PrevisionDeContraataque.golpes` son horquillas (Rápido); `danio`, cada golpe que llega, el primero
+y los que siguen (`siguientes` se fue); la «Cuenta» va sin la rueda. La barra lo dice «según la
+rueda» (`textoDePrevision`). Los disparadores de un hechizo entre golpe y contraataque (`saltar`) no
+entran en ninguna previsión (backlog). `previsionDeLaRueda` no cambia (la lee el agente). Lo vigila
+el barrido de `test/prevision.test.ts`: todo cruce de las tres ruedas, sin excluir Fuerte ni Rápido,
+y las puntas pasan de verdad.
+
 ### Un hechizo: su formato, si vale y su catálogo (06-11-2026, el editor de magia; `docs/agents/2026-11-06-editor-de-magia/`)
 
 el tipo es el JSON (`Hechizo`, `core/magia/formato.ts`: entrega, objetivo, área, afecta, duración, `seAcabaSiMuere`, sus facciones y efectos de un vocabulario cerrado, cada palabra con su frase en `VOCABULARIO_DE_LA_MAGIA`); todo lo que no vale a la vez, `problemasDelHechizo` y `leerHechizos` (`magia/validar.ts`), y como poder de una unidad, `problemasComoPoder` (y de su facción, `poderDeUnidadBlocker`, `unidad/formato.ts`). **Las facciones** (08-11-2026, petición del usuario: «que cada hechizo pueda pertenecer a una o varias facciones»; `docs/agents/2026-11-08-facciones-de-los-hechizos/`): `Hechizo.facciones`, obligatorio, una o varias de `FACTION_IDS` sin repetir; `problemasDelHechizo` rechaza que falte o no sea una lista, que esté vacía, una que no existe (nombrando las que valen) y una repetida. Sin compatibilidad hacia atrás: un hechizo sin facciones no carga; `data/hechizos.json` lo importa solo `magia/catalogo.ts` (`HECHIZOS_DEL_JUEGO`, `hechizo`, `hechizosDelGremio`, `ordenDelLibro`, `nombreDeHechizo`; lo vigila `invariantes-datos.test.ts`); lo que hace en una frase, `queHaceElHechizo` (`magia/dicho.ts`); lo que el editor le hace, `magia/editar.ts`

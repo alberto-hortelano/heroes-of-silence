@@ -4,13 +4,12 @@
  * Por cada escenario —golpe, carga, defensa, contraataque,
  * doble golpe y asustar al golpear (hechos a mano: el catálogo no trae esos
  * rasgos), héroes con ataque y defensa, hechizos— se pide la previsión, se juega
- * la acción y se mira el registro: cada golpe cae en su horquilla y las bajas en
- * las suyas, semilla a semilla; y con el dado cargado en cada punta
- * (`dadoCargado`) el primer golpe da justo el mínimo y el máximo que la previsión
- * dice (la horquilla no es más ancha de lo que pasa).
- *
- * En `pnpm verify`, las reglas del juego, todas en fheroes2 y cada interruptor
- * solo; en `pnpm verify:lento`, las 64 combinaciones con 300 semillas.
+ * la acción y se mira el registro. Un golpe cuerpo a cuerpo, **en todo cruce de
+ * las tres ruedas** (#253, 11-11-2026: todo golpe contra toda respuesta, también
+ * Fuerte y Rápido, que antes se excluían): cada golpe y cada contraataque caen en
+ * su horquilla, cuántos en su tope, las bajas y lo que queda en las suyas; y las
+ * puntas de la horquilla pasan de verdad (no es más ancha de lo que pasa). Un
+ * hechizo, con su semilla.
  *
  * Con la muralla de la arena (`battle/muralla.ts`) también: el tirador en lo
  * alto se defiende mejor, y la previsión lo cuenta con las mismas opciones que
@@ -22,16 +21,14 @@ import { FORMAS_DE_EJEMPLO } from '../src/core/arena/murallas.js';
 import { armaduraDe } from '../src/core/battle/armas.js';
 import { applyAction } from '../src/core/battle/battle.js';
 import { hexEquals } from '../src/core/battle/board.js';
+import { golpesDelTipo } from '../src/core/battle/cifras-de-la-rueda.js';
 import { stackById } from '../src/core/battle/consultas.js';
-import type { Horquilla } from '../src/core/battle/damage.js';
+import { type Horquilla, stackHp } from '../src/core/battle/damage.js';
+import { LAS_TRES_RUEDAS, type TiposDeLaRueda } from '../src/core/battle/formas-de-la-rueda.js';
 import { legalActions } from '../src/core/battle/legalidad.js';
 import { type BattleSide, createBattle } from '../src/core/battle/montaje.js';
 import { SIN_MURALLA } from '../src/core/battle/muralla.js';
-import {
-  type Prevision,
-  type PrevisionDeGolpe,
-  previsionDe,
-} from '../src/core/battle/prevision.js';
+import { type PrevisionDeGolpe, previsionDe } from '../src/core/battle/prevision.js';
 import type {
   BattleAction,
   BattleEvent,
@@ -39,7 +36,7 @@ import type {
   BattleState,
   MurallaDeBatalla,
 } from '../src/core/battle/types.js';
-import { COMBATE_COMPLETO } from '../src/core/combate.js';
+import { COMBATE_COMPLETO, combateCon } from '../src/core/combate.js';
 import { EQUIPO_DEL_JUEGO } from '../src/core/equipo/atado.js';
 import { createRng, type Rng } from '../src/core/rng.js';
 import type { CreatureTrait, Equipo, Hex, UnitInfo } from '../src/core/types.js';
@@ -52,7 +49,6 @@ import {
   bandoDe,
   conLasCifrasDe,
   conManosDePrueba,
-  dadoCargado,
   MANOS_DE_PRUEBA,
   mando as mandoDePrueba,
 } from './batalla-de-prueba.js';
@@ -63,30 +59,13 @@ import { catalogoCon } from './pelea-de-arena.js';
 const SEMILLAS = segunPrisa(rango(1, 40), rango(1, 300));
 
 /**
- * Las respuestas con que se juega el golpe del barrido, una por semilla: las que
- * no cambian el contraataque (la respuesta no da bonificadores; Fuerte y Rápido,
- * sí, y su previsión es la de la rueda, abajo). El golpe va siempre con Finta,
- * que no toca este golpe ni el contraataque: lo que deja es andar después. Así el
- * cruce cae en cualquier punto de la horquilla, que es lo que prevé la previsión
- * sin elegir.
+ * Las tres ruedas con sus reglas (`combateCon`): el barrido del golpe juega todos
+ * los cruces de cada una.
  */
-const RESPUESTAS = ['finta', 'romperGuardia', 'defensivo', 'normal', 'ofensivo'] as const;
-
-/** El golpe con Finta y la respuesta de la semilla; lo que no es un golpe, tal cual. */
-function conLaRueda(accion: BattleAction, semilla: number): BattleAction {
-  if (accion.type !== 'attack') return accion;
-  const respuesta = RESPUESTAS[semilla % RESPUESTAS.length] as (typeof RESPUESTAS)[number];
-  return { ...accion, golpe: 'finta', respuesta };
-}
-
-/**
- * El golpe en una punta del cruce: Finta contra Finta en el mínimo, contra Romper
- * guardia (su opuesta) en el máximo.
- */
-const EN_LA_PUNTA = {
-  minimo: { golpe: 'finta', respuesta: 'finta' },
-  maximo: { golpe: 'finta', respuesta: 'romperGuardia' },
-} as const;
+const RUEDAS_DEL_BARRIDO = LAS_TRES_RUEDAS.map((forma) => ({
+  forma,
+  combate: combateCon(null, forma.golpes.length as TiposDeLaRueda),
+}));
 
 /** El héroe de estos escenarios: con ataque y defensa, poder 2 y un libro con daño. */
 function mandoConCincoHechizos(over: Partial<BattleHero> = {}): BattleHero {
@@ -329,14 +308,8 @@ const ESCENARIOS: readonly Escenario[] = [
  */
 const ACCIONES = new Map<Escenario, BattleAction>();
 
-function montar(e: Escenario, rng: Rng): Montado {
-  const b = createBattle(
-    e.izquierda(),
-    e.derecha(),
-    rng,
-    COMBATE_COMPLETO,
-    e.muralla ?? SIN_MURALLA,
-  );
+function montar(e: Escenario, rng: Rng, combate = COMBATE_COMPLETO): Montado {
+  const b = createBattle(e.izquierda(), e.derecha(), rng, combate, e.muralla ?? SIN_MURALLA);
   stackById(b, 'attacker-0').hex = e.en;
   stackById(b, 'defender-0').hex = e.contra;
   e.antes?.(b);
@@ -372,90 +345,134 @@ function losDos(b: BattleState): { yo: UnitInfo; el: UnitInfo } {
   return { yo: stackById(b, 'attacker-0').unit, el: stackById(b, 'defender-0').unit };
 }
 
+/** Lo menos y lo más de lo visto, para compararlo con la horquilla que se previó. */
+function puntas(vistos: readonly number[]): [number, number] {
+  return [Math.min(...vistos), Math.max(...vistos)];
+}
+
+/**
+ * Un golpe cuerpo a cuerpo en todo cruce de las tres ruedas: la previsión sin
+ * elegir (la de la barra) contra lo que pasa con cada golpe y cada respuesta, y la
+ * de cada cruce elegido, que es un número (en un punto no hay dado).
+ */
+function barridoDeLosCruces(e: Escenario): number {
+  let vistos = 0;
+  for (const { forma, combate } of RUEDAS_DEL_BARRIDO) {
+    const enLaRueda = `${e.nombre}, rueda de ${forma.golpes.length}`;
+    const { b: antes, accion } = montar(e, createRng(SEMILLAS[0]!), combate);
+    if (accion.type !== 'attack') throw new Error(`${enLaRueda}: no es un golpe`);
+    const p = previsionDe(antes, accion);
+    if (p?.kind !== 'golpe') throw new Error(`${enLaRueda}: sin previsión del golpe`);
+    const golpesVistos: number[] = [];
+    const devueltosVistos: number[] = [];
+    for (const golpe of forma.golpes) {
+      for (const respuesta of forma.golpes) {
+        const que = `${enLaRueda}: ${golpe} contra ${respuesta}`;
+        const rng = createRng(SEMILLAS[vistos % SEMILLAS.length]!);
+        const { b } = montar(e, rng, combate);
+        const elegido = { ...accion, golpe, respuesta };
+        const exacta = previsionDe(b, elegido);
+        if (exacta?.kind !== 'golpe') throw new Error(`${que}: sin previsión del cruce`);
+        const desde = b.log.length;
+        applyAction(b, elegido, rng);
+        const golpes = golpesDe(b.log.slice(desde));
+        const mios = golpes.filter((g) => !g.retaliation);
+        const devueltos = golpes.filter((g) => g.retaliation);
+        expect(mios.length, que).toBeGreaterThan(0);
+        expect(mios.length, `${que}, cuántos golpes`).toBeLessThanOrEqual(p.golpes.max);
+        for (const g of mios) dentro(g.damage, p.danio, que);
+        golpesVistos.push(...mios.map((g) => g.damage));
+        const muertos = mios.reduce((n, g) => n + g.killed, 0);
+        dentro(muertos, p.bajas, `${que}, bajas`);
+        dentro(stackHp(stackById(b, 'defender-0')), p.leQuedan, `${que}, le quedan`);
+        if (devueltos.length > 0) {
+          if (p.contraataque === null) throw new Error(`${que}: contraatacó sin preverlo`);
+          expect(devueltos.length, `${que}, cuántos devuelve`).toBeLessThanOrEqual(
+            p.contraataque.golpes.max,
+          );
+          for (const g of devueltos) dentro(g.damage, p.contraataque.danio, `${que}, contraataque`);
+          devueltosVistos.push(...devueltos.map((g) => g.damage));
+        } else if (p.contraataque?.seguro === true) {
+          throw new Error(`${que}: el contraataque era seguro y no llegó`);
+        }
+        // Con los dos elegidos, la previsión es el cruce: lo que cae, sin dado (con
+        // carga y más de un golpe, el primero la cobra y los demás no).
+        expect([exacta.danio.min, exacta.danio.max], `${que}, elegido`).toEqual(
+          puntas(mios.map((g) => g.damage)),
+        );
+        expect(exacta.contraataque?.danio ?? null, `${que}, contraataque elegido`).toEqual(
+          devueltos[0] === undefined
+            ? null
+            : { min: devueltos[0].damage, max: devueltos[0].damage },
+        );
+        vistos++;
+      }
+    }
+    // La horquilla no es más ancha de lo que pasa: sus puntas las da algún cruce.
+    expect(puntas(golpesVistos), `${enLaRueda}: lo visto frente a lo previsto`).toEqual([
+      p.danio.min,
+      p.danio.max,
+    ]);
+    if (p.contraataque === null) expect(devueltosVistos, enLaRueda).toEqual([]);
+    else {
+      expect(puntas(devueltosVistos), `${enLaRueda}: el contraataque visto`).toEqual([
+        p.contraataque.danio.min,
+        p.contraataque.danio.max,
+      ]);
+    }
+  }
+  return vistos;
+}
+
+/** Un hechizo: con la semilla, lo que hace y lo que deja, como dice la previsión. */
+function barridoDelHechizo(e: Escenario): number {
+  let vistos = 0;
+  const semillas = e.sinDado === true ? SEMILLAS.slice(0, 1) : SEMILLAS;
+  for (const semilla of semillas) {
+    const que = e.nombre;
+    const rng = createRng(semilla);
+    const { b, accion } = montar(e, rng);
+    const p = previsionDe(b, accion);
+    if (p?.kind !== 'hechizo') throw new Error(`${que}: este barrido solo lanza hechizos`);
+    const desde = b.log.length;
+    applyAction(b, accion, rng);
+    const nuevo = b.log.slice(desde);
+    const c = nuevo.find((x) => x.kind === 'cast');
+    if (c?.kind !== 'cast') throw new Error(`${que}: no se lanzó`);
+    const [imp] = p.impactos;
+    if (imp !== undefined && imp.danio !== null) {
+      expect(c.damage, que).toBe(imp.danio);
+      expect(c.killed, que).toBe(imp.bajas);
+    }
+    const [efecto] = imp?.efectos ?? [];
+    if (efecto !== undefined && 'amount' in efecto) {
+      const ef = nuevo.find((x) => x.kind === 'effect');
+      expect(ef, que).toMatchObject({
+        effect: efecto.kind,
+        amount: efecto.amount,
+        rounds: efecto.roundsLeft,
+      });
+    }
+    vistos++;
+  }
+  return vistos;
+}
+
 describe('la previsión de daño cae en el daño real', () => {
   for (const e of ESCENARIOS) {
     it(e.nombre, () => {
-      let vistos = 0;
-      const semillas = e.sinDado === true ? SEMILLAS.slice(0, 1) : SEMILLAS;
-      {
-        const que = e.nombre;
-        let previsto: Prevision | null = null;
-        for (const semilla of semillas) {
-          const rng = createRng(semilla);
-          const { b, accion } = montar(e, rng);
-          const p = previsionDe(b, accion);
-          if (p === null) throw new Error(`${que}: sin previsión`);
-          previsto = p;
-          const desde = b.log.length;
-          applyAction(b, conLaRueda(accion, semilla), rng);
-          const nuevo = b.log.slice(desde);
-          if (p.kind === 'hechizo') {
-            const c = nuevo.find((x) => x.kind === 'cast');
-            if (c?.kind !== 'cast') throw new Error(`${que}: no se lanzó`);
-            const [imp] = p.impactos;
-            if (imp !== undefined && imp.danio !== null) {
-              expect(c.damage, que).toBe(imp.danio);
-              expect(c.killed, que).toBe(imp.bajas);
-            }
-            const [efecto] = imp?.efectos ?? [];
-            if (efecto !== undefined && 'amount' in efecto) {
-              const ef = nuevo.find((x) => x.kind === 'effect');
-              expect(ef, que).toMatchObject({
-                effect: efecto.kind,
-                amount: efecto.amount,
-                rounds: efecto.roundsLeft,
-              });
-            }
-            vistos++;
-            continue;
-          }
-          if (p.kind === 'poder') throw new Error(`${que}: este barrido no monta poderes`);
-          if (p.kind === 'granada') throw new Error(`${que}: este barrido no lanza granadas`);
-          const golpes = golpesDe(nuevo);
-          const mios = golpes.filter((g) => !g.retaliation);
-          expect(mios.length, que).toBeGreaterThan(0);
-          expect(mios.length, que).toBeLessThanOrEqual(p.golpes);
-          for (const g of mios) dentro(g.damage, p.danio, que);
-          const muertos = mios.reduce((n, g) => n + g.killed, 0);
-          dentro(muertos, p.bajas, `${que}, bajas`);
-          const devuelto = golpes.find((g) => g.retaliation);
-          if (devuelto !== undefined) {
-            if (p.contraataque === null) throw new Error(`${que}: contraatacó sin preverlo`);
-            dentro(devuelto.damage, p.contraataque.danio, `${que}, contraataque`);
-          } else if (p.contraataque?.seguro === true) {
-            throw new Error(`${que}: el contraataque era seguro y no llegó`);
-          }
-          vistos++;
-        }
-        // La horquilla no es más ancha de lo que pasa: con el dado cargado en
-        // cada punta (el golpe, en esa punta de la rueda), el primer golpe cae
-        // justo en ella.
-        if (previsto !== null && previsto.kind !== 'hechizo') {
-          const p = previsto as PrevisionDeGolpe;
-          const enLaPunta = (punta: 'minimo' | 'maximo'): number => {
-            const { b, accion } = montar(e, createRng(SEMILLAS[0]!));
-            const desde = b.log.length;
-            const a = accion.type === 'attack' ? { ...accion, ...EN_LA_PUNTA[punta] } : accion;
-            applyAction(b, a, dadoCargado(punta));
-            const primero = golpesDe(b.log.slice(desde)).find((g) => !g.retaliation);
-            if (primero === undefined) throw new Error(`${que}: con el dado cargado no golpeó`);
-            return primero.damage;
-          };
-          expect(
-            [enLaPunta('minimo'), enLaPunta('maximo')],
-            `${que}: lo visto frente a lo previsto`,
-          ).toEqual([p.danio.min, p.danio.max]);
-        }
-      }
-      expect(vistos).toBe(semillas.length);
+      const { accion } = montar(e, createRng(SEMILLAS[0]!));
+      const vistos = accion.type === 'attack' ? barridoDeLosCruces(e) : barridoDelHechizo(e);
+      expect(vistos).toBeGreaterThan(0);
     });
   }
 
-  it('con un daño fijo la previsión es un número, y dice el contraataque', () => {
+  // Con un daño fijo era un número; con la rueda, Fuerte y Rápido lo mueven (#253):
+  // queda la «Cuenta», que va sin la rueda.
+  it('con un daño fijo la Cuenta dice el arma, ataque contra defensa y la armadura, y hay contraataque', () => {
     const e = ESCENARIOS.find((x) => x.nombre.startsWith('daño fijo'))!;
     const { b, accion } = montar(e, createRng(1));
     const p = previsionDe(b, accion) as PrevisionDeGolpe;
-    expect(p.danio.min).toBe(p.danio.max);
     expect(p.contraataque).not.toBeNull();
     // Con qué pega, lo primero; la armadura de quien recibe, lo último.
     const { yo, el } = losDos(b);
@@ -466,11 +483,14 @@ describe('la previsión de daño cae en el daño real', () => {
     ]);
   });
 
-  it('los rasgos hechos a mano se juegan: el doble golpe da dos', () => {
+  it('los rasgos hechos a mano se juegan: el doble golpe da dos, y con Rápido el doble', () => {
     for (const nombre of ['doble golpe']) {
       const e = ESCENARIOS.find((x) => x.nombre === nombre)!;
       const { b, accion } = montar(e, createRng(1));
-      expect((previsionDe(b, accion) as PrevisionDeGolpe).golpes, nombre).toBe(2);
+      expect((previsionDe(b, accion) as PrevisionDeGolpe).golpes, nombre).toEqual({
+        min: 2,
+        max: 2 * golpesDelTipo('rapido'),
+      });
     }
   });
 
@@ -533,7 +553,7 @@ describe('con la rueda del golpe, cada sector prevé el daño que cae', () => {
             applyAction(b, { type: 'attack', target: 'defender-0', golpe, respuesta }, rng);
             const mios = golpesDe(b.log.slice(desde)).filter((g) => !g.retaliation);
             expect(mios.length, que).toBeGreaterThan(0);
-            expect(mios.length, que).toBeLessThanOrEqual(p.golpes);
+            expect(mios.length, que).toBeLessThanOrEqual(p.golpes.max);
             for (const g of mios) dentro(g.damage, p.danio, que);
             // El primero cae justo en la punta que dice el cruce.
             const cruce = b.log.find((e) => e.kind === 'cruce');

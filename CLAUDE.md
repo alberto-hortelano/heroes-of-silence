@@ -335,6 +335,7 @@ Cada hecho tiene un sitio; la ruta, relativa a `src/core/` o `src/client/` (a `s
 | Las hojas que se pintan | `registrarLasHojas` (`render/figuras/personajes.ts`) |
 | Formatear un precio | `describirCoste`, `conMiles` (`core/texto.ts`) |
 | Tema de la interfaz | `ponerTema`, `quitarTema` (`comun/temas.ts`), los únicos que escriben `data-tema` |
+| Lo que cabe en la barra de abajo | `ponerEnLaBarra` (`comun/barra.ts`): corta por frases y lo entero va al `title` del lienzo |
 | Piezas en imagen de los temas | `PIEZAS`, `cssDePiezas` (`tools/taller/temas/piezas.ts`) |
 
 ### La arena

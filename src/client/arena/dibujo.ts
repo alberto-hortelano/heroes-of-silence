@@ -5,6 +5,7 @@
  * alargado si la muralla lo pide y el marco colocado al pie del tablero. Era parte de
  * `arena/main.ts` hasta R8 de la reorganización (07-11-2026).
  */
+import { ponerEnLaBarra } from '../comun/barra.js';
 import { hayFigurasAnimadas } from '../render/figuras/figura.js';
 import type { SesionDeArena } from '../sesion/sesion-de-arena.js';
 import { pintarSiguiendoElFinal } from '../views/al-final.js';
@@ -86,6 +87,6 @@ function dibujarBatalla(pagina: PaginaDeLaArena, ahora: number, s: SesionDeArena
   // nada (H4 de QA, 19-10-2026), y el aviso no adelanta el final.
   const estado =
     ocupada && s.battle.finished !== null && s.status !== AVISO_DE_ESPERA ? '' : s.status;
-  if (elStatus.textContent !== estado) elStatus.textContent = estado;
+  ponerEnLaBarra(elStatus, estado, pagina.canvas);
   rueda.pintar();
 }
