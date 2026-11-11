@@ -39,7 +39,12 @@ import {
   trasElGolpe,
 } from './damage.js';
 import { applyEffect } from './effects.js';
-import { formaDeLaBatalla, golpeNeutro, nivelesEnLaForma } from './formas-de-la-rueda.js';
+import {
+  type FormaDeLaRueda,
+  formaDeLaBatalla,
+  golpeNeutro,
+  nivelesEnLaForma,
+} from './formas-de-la-rueda.js';
 import {
   conElGolpe,
   deLaRueda,
@@ -62,7 +67,13 @@ import {
   poderBlocker,
   resueltosDe,
 } from './lanzar.js';
-import { type EfectoDeLaRueda, efectosDeLaRueda, puntoDelCruce, puntosDeLaForma } from './rueda.js';
+import {
+  type EfectoDeLaRueda,
+  efectosDeLaRueda,
+  puntoDelContraataque,
+  puntoDelCruce,
+  puntosDeLaForma,
+} from './rueda.js';
 import {
   type Apuntado,
   cuantoDura,
@@ -82,19 +93,26 @@ export interface PrevisionDeGolpe {
   readonly kind: 'golpe' | 'disparo' | 'explosion';
   readonly atacante: string;
   readonly objetivo: string;
-  /** 2 con `double_attack` o `double_shot`; el segundo, si el objetivo sigue en pie. */
-  readonly golpes: number;
-  /** El daño de un golpe; con más de uno, el del primero. */
-  readonly danio: Horquilla;
   /**
-   * Con más de un golpe y carga, el daño de cada uno tras el primero, que ya no la
-   * cobra (`intercambio`); `null` si todos dan lo mismo.
+   * Cuántos golpes da: 2 con `double_attack` o `double_shot` (el segundo, si el
+   * objetivo sigue en pie); en el cuerpo a cuerpo, de todos los cruces de la rueda
+   * (Rápido los multiplica, `golpesDe`).
    */
-  readonly siguientes: Horquilla | null;
+  readonly golpes: Horquilla;
+  /**
+   * El daño de cada golpe que llega, de lo menos a lo más: en el cuerpo a cuerpo,
+   * de todos los cruces de la rueda, el primero (con la carga) y los que siguen.
+   */
+  readonly danio: Horquilla;
   /** Individuos que caerían con todos los golpes. */
   readonly bajas: Horquilla;
   /** PV que le quedarían con todos los golpes. */
   readonly leQuedan: Horquilla;
+  /**
+   * Por qué sale esa cifra (la «Cuenta» de la barra): el arma, ataque contra
+   * defensa, la carga, lo alto del muro y la armadura. Sin la rueda: lo que pone
+   * cada cruce lo cubren ya `danio` y `golpes`.
+   */
   readonly modificadores: readonly Modificador[];
   readonly contraataque: PrevisionDeContraataque | null;
   /** A quién más alcanza la salpicadura de un disparo, con el mismo daño. */
@@ -105,7 +123,10 @@ export interface PrevisionDeGolpe {
 export interface PrevisionDeContraataque {
   /** `true`: sobrevive siempre, así que contraataca seguro; `false`: solo si sobrevive. */
   readonly seguro: boolean;
+  /** El daño de cada golpe devuelto; en la barra, de todos los cruces en que se devuelve. */
   readonly danio: Horquilla;
+  /** Cuántos golpes devuelve: Rápido en la respuesta da más de uno (`golpesDe`). */
+  readonly golpes: Horquilla;
   readonly modificadores: readonly Modificador[];
   /** Con qué arma lo devuelve (`dichoDelGolpe`), o `null` sin armas por uso (el juego). */
   readonly conArma: string | null;
@@ -172,23 +193,28 @@ export type Prevision =
  * `devolveraElGolpe` y los efectos al golpear. No toca el estado ni el `Rng`.
  * `test/prevision.test.ts` la compara con el daño real de cientos de semillas en
  * todas las combinaciones de reglas.
+ *
+ * Un golpe cuerpo a cuerpo se prevé **cruce a cruce de la rueda** (#253,
+ * 11-11-2026): todo golpe va con ella, y lo que elijan los dos (Fuerte, Rápido,
+ * Defensivo, Romper guardia…) mueve el daño y el contraataque de las dos partes.
  */
 export function previsionDe(state: BattleState, accion: BattleAction): Prevision | null {
   const s = activeStack(state);
   if (s === null || state.finished !== null) throw new Error('no le toca a ninguna unidad');
   switch (accion.type) {
     case 'attack': {
-      // Las mismas comprobaciones que `applyAction` hace al golpear. Con la rueda,
-      // el golpe sin elegir aún se prevé como siempre (el tablero lo pide al pasar
-      // el ratón); uno elegido, solo si la pelea es de rueda.
+      // Las mismas comprobaciones que `applyAction` hace al golpear. Sin elegir
+      // aún (el tablero la pide al pasar el ratón), de todos los cruces que puede
+      // dar la rueda de la batalla; con lo elegido, solo de esos.
       const { target, desdeAhi, carga } = golpePreparado(state, s, accion, false);
-      return previsionDeGolpe(
+      const { golpes } = formaDeLaBatalla(state);
+      return previsionDelIntercambio(
         state,
         desdeAhi,
         target,
-        'golpe',
-        { chargeHexes: carga },
-        accion.golpe === undefined ? null : delSector(accion.golpe, formaDeLaBatalla(state)),
+        carga,
+        accion.golpe === undefined ? golpes : [accion.golpe],
+        accion.respuesta === undefined ? golpes : [accion.respuesta],
       );
     }
     case 'aim': {
@@ -257,6 +283,12 @@ export function previsionDe(state: BattleState, accion: BattleAction): Prevision
   }
 }
 
+/**
+ * Un disparo, lo que da una granada a uno o, con `kind` `golpe`, el golpe de un
+ * sector de la rueda con su contraataque (`previsionDeLaRueda`, `contraataqueCon`):
+ * con la horquilla de `extra` y `golpe`. El golpe de la barra no pasa por aquí:
+ * se cuenta cruce a cruce (`previsionDelIntercambio`).
+ */
 function previsionDeGolpe(
   state: BattleState,
   a: BattleStack,
@@ -283,9 +315,16 @@ function previsionDeGolpe(
     kind,
     atacante: a.id,
     objetivo: t.id,
-    golpes,
-    danio: h.danio,
-    siguientes,
+    golpes: { min: golpes, max: golpes },
+    // Los que siguen al primero no cobran la carga: el daño de cada golpe va de lo
+    // menos a lo más de los dos.
+    danio:
+      siguientes === null
+        ? h.danio
+        : {
+            min: Math.min(h.danio.min, siguientes.min),
+            max: Math.max(h.danio.max, siguientes.max),
+          },
     bajas: { min: t.count - conMenos.count, max: t.count - conMas.count },
     leQuedan: { min: vida(conMas), max: vida(conMenos) },
     modificadores,
@@ -332,11 +371,28 @@ function trasLosGolpes(
   d: number,
   luego = d,
 ): { count: number; topHp: number } {
+  return losGolpesQueCaen(t, golpes, d, luego).quedan;
+}
+
+/**
+ * `trasLosGolpes` con el daño de cada golpe que llega (`caen`): el cruce de la
+ * barra cuenta solo los que se dan de verdad, para que las puntas de su horquilla
+ * pasen (`intercambioEnElCruce`).
+ */
+function losGolpesQueCaen(
+  t: BattleStack,
+  golpes: number,
+  d: number,
+  luego = d,
+): { caen: readonly number[]; quedan: { count: number; topHp: number } } {
   let quedan: { count: number; topHp: number } = { count: t.count, topHp: t.topHp };
+  const caen: number[] = [];
   for (let i = 0; i < golpes && quedan.count > 0; i++) {
-    quedan = trasElGolpe({ ...quedan, unit: t.unit }, i === 0 ? d : luego);
+    const este = i === 0 ? d : luego;
+    caen.push(este);
+    quedan = trasElGolpe({ ...quedan, unit: t.unit }, este);
   }
-  return quedan;
+  return { caen, quedan };
 }
 
 /**
@@ -428,40 +484,237 @@ function previsionDelContraataque(
   const conPeor = tras(h.danio.min);
   if (conPeor.count === 0) return null;
   const conMejor = tras(h.danio.max);
-  // Lo que el golpe le deja, colgado sobre una copia con la misma función que
-  // `applyStackEffect`: refrescar o añadir.
-  const conLoDelGolpe: BattleStack = { ...t, effects: [...t.effects] };
-  for (const { trait, effect } of ON_HIT_EFFECTS) {
-    if (hasTrait(a.unit, trait)) applyEffect(conLoDelGolpe, effect);
-  }
-  // Lo de la rueda que el golpe deja a `a` (quien pega o el atacado), en el punto
-  // `p` del cruce, con su arma de cuerpo a cuerpo, sobre una copia.
-  const rueda = golpe === null ? null : { ...golpe, cifras: ruedaDelIntercambio(a) };
-  const conLaRueda = (x: BattleStack, p: Punto, para: EfectoDeLaRueda['a']): BattleStack => {
-    const suyos =
-      rueda === null
-        ? []
-        : efectosDeLaRueda(rueda.tipo, p, rueda.cifras).filter((e) => e.a === para);
-    if (suyos.length === 0) return x;
-    const y: BattleStack = { ...x, effects: [...x.effects] };
-    for (const efecto of suyos) applyEffect(y, deLaRueda(state, efecto));
-    return y;
-  };
-  const copia = (count: number, p: Punto): BattleStack =>
-    conLaRueda({ ...conLoDelGolpe, count }, p, 'rival');
+  const rueda = golpe === null ? null : { tipo: golpe.tipo, cifras: ruedaDelIntercambio(a) };
   // El que menos devuelve es el que más ha perdido; el que más, el que menos.
-  const pocos = copia(conMejor.count === 0 ? 1 : conMejor.count, golpe?.hasta ?? 0);
-  const muchos = copia(conPeor.count, golpe?.desde ?? 0);
+  const pocos = atacadoAlDevolver(
+    state,
+    a,
+    t,
+    conMejor.count === 0 ? 1 : conMejor.count,
+    rueda,
+    golpe?.hasta ?? 0,
+  );
+  const muchos = atacadoAlDevolver(state, a, t, conPeor.count, rueda, golpe?.desde ?? 0);
   // Defensivo, sobre quien pega: no depende del punto.
-  const quienPega = golpe === null ? a : conLaRueda(a, golpe.desde, 'propio');
+  const quienPega = golpe === null ? a : conLoDeLaRueda(state, a, rueda, golpe.desde, 'propio');
   const bajo = horquillaDeDanio(pocos, quienPega, opcionesDeDanio(state, pocos, quienPega));
   const alto = horquillaDeDanio(muchos, quienPega, opcionesDeDanio(state, muchos, quienPega));
+  const golpes = golpesDe(t.unit, null, true);
   return {
     seguro: conMejor.count > 0,
     danio: { min: bajo.danio.min, max: alto.danio.max },
+    golpes: { min: golpes, max: golpes },
     modificadores: alto.modificadores,
     conArma: alto.conArma,
   };
+}
+
+/** Lo de la rueda de un golpe: su tipo y las cifras del arma de quien pega (`ruedaDelIntercambio`). */
+interface RuedaDelGolpe {
+  readonly tipo: TipoDeGolpe;
+  readonly cifras: CifrasDeLaRueda;
+}
+
+/**
+ * `x` con lo que el golpe de la rueda `rueda`, caído en el punto `p`, le deja a
+ * él (`para`: quien pega o el atacado, `efectosDeLaRueda`), colgado sobre una
+ * copia con la misma función que `applyStackEffect` (refrescar o añadir); sin
+ * nada que colgar, `x` tal cual. Como `colgarDeLaRueda` en `melee`.
+ */
+function conLoDeLaRueda(
+  state: BattleState,
+  x: BattleStack,
+  rueda: RuedaDelGolpe | null,
+  p: Punto,
+  para: EfectoDeLaRueda['a'],
+): BattleStack {
+  const suyos =
+    rueda === null ? [] : efectosDeLaRueda(rueda.tipo, p, rueda.cifras).filter((e) => e.a === para);
+  if (suyos.length === 0) return x;
+  const y: BattleStack = { ...x, effects: [...x.effects] };
+  for (const efecto of suyos) applyEffect(y, deLaRueda(state, efecto));
+  return y;
+}
+
+/**
+ * El atacado `t` como devuelve el golpe de `a`: una copia con `count` individuos,
+ * lo que el golpe le deja pegado (`ON_HIT_EFFECTS`: el miedo del dragón) y lo que
+ * le deja la rueda en el punto `p` (Romper guardia), como lo tiene en `melee` al
+ * contraatacar. La leen la previsión de la barra (`intercambioEnElCruce`) y la de
+ * la rueda (`previsionDelContraataque`).
+ */
+function atacadoAlDevolver(
+  state: BattleState,
+  a: BattleStack,
+  t: BattleStack,
+  count: number,
+  rueda: RuedaDelGolpe | null,
+  p: Punto,
+): BattleStack {
+  const conLoDelGolpe: BattleStack = { ...t, count, effects: [...t.effects] };
+  for (const { trait, effect } of ON_HIT_EFFECTS) {
+    if (hasTrait(a.unit, trait)) applyEffect(conLoDelGolpe, effect);
+  }
+  return conLoDeLaRueda(state, conLoDelGolpe, rueda, p, 'rival');
+}
+
+/**
+ * Lo que pasa en un cruce de la rueda (`intercambioEnElCruce`): el daño de cada
+ * golpe de quien pega que llega (el objetivo puede caer antes del último), cuántos
+ * da, cómo queda el atacado y, si lo devuelve, el contraataque.
+ */
+interface IntercambioEnUnCruce {
+  readonly caen: readonly number[];
+  readonly golpes: number;
+  readonly quedan: { readonly count: number; readonly topHp: number };
+  readonly contraataque: { readonly danio: number; readonly golpes: number } | null;
+}
+
+/**
+ * Un golpe cuerpo a cuerpo de `a` a `t` antes de elegir en la rueda (#253,
+ * 11-11-2026): la envolvente de todos los cruces de `golpes` contra `respuestas`
+ * (`intercambioEnElCruce`). En un punto del cruce no hay dado (`tiradaDe`), así
+ * que cada cruce es un número y las puntas de la envolvente pasan de verdad. Antes
+ * se preveía con la horquilla del dado, que el juego ya no tira: Fuerte o Rápido,
+ * de quien pega o de quien responde, la rebasaban.
+ *
+ * La «Cuenta» (`modificadores`, `conArma`) va sin la rueda: lo que pone cada
+ * tipo ya está en las cifras, y la barra dice que son «según la rueda».
+ */
+function previsionDelIntercambio(
+  state: BattleState,
+  a: BattleStack,
+  t: BattleStack,
+  carga: number,
+  golpes: readonly TipoDeGolpe[],
+  respuestas: readonly TipoDeGolpe[],
+): PrevisionDeGolpe {
+  const forma = formaDeLaBatalla(state);
+  const cifras = ruedaDelIntercambio(a);
+  const cruces = golpes.flatMap((golpe) =>
+    respuestas.map((respuesta) =>
+      intercambioEnElCruce(state, a, t, carga, { tipo: golpe, cifras }, respuesta, forma),
+    ),
+  );
+  const vida = (q: IntercambioEnUnCruce['quedan']): number => stackHp({ ...t, ...q });
+  const devueltos = cruces.flatMap((c) => (c.contraataque === null ? [] : [c.contraataque]));
+  const sinRueda = horquillaDeDanio(a, t, opcionesDeDanio(state, a, t, { chargeHexes: carga }));
+  return {
+    kind: 'golpe',
+    atacante: a.id,
+    objetivo: t.id,
+    golpes: deTodos(cruces.map((c) => c.golpes)),
+    danio: deTodos(cruces.flatMap((c) => c.caen)),
+    bajas: deTodos(cruces.map((c) => t.count - c.quedan.count)),
+    leQuedan: deTodos(cruces.map((c) => vida(c.quedan))),
+    modificadores: sinRueda.modificadores,
+    contraataque:
+      devueltos.length === 0
+        ? null
+        : {
+            seguro: devueltos.length === cruces.length,
+            danio: deTodos(devueltos.map((c) => c.danio)),
+            golpes: deTodos(devueltos.map((c) => c.golpes)),
+            ...cuentaDelContraataque(state, a, t),
+          },
+    salpica: [],
+  };
+}
+
+/** Lo menos y lo más de `valores`; lanza sin ninguno, que es un fallo de quien cuenta. */
+function deTodos(valores: readonly number[]): Horquilla {
+  if (valores.length === 0) throw new Error('la previsión no tiene ningún cruce que contar');
+  return { min: Math.min(...valores), max: Math.max(...valores) };
+}
+
+/**
+ * La «Cuenta» del contraataque y con qué arma lo devuelve, sin la rueda: la del
+ * atacado entero con lo que el golpe le deja pegado.
+ */
+function cuentaDelContraataque(
+  state: BattleState,
+  a: BattleStack,
+  t: BattleStack,
+): Pick<PrevisionDeContraataque, 'modificadores' | 'conArma'> {
+  const devuelve = atacadoAlDevolver(state, a, t, t.count, null, 0);
+  const { modificadores, conArma } = horquillaDeDanio(
+    devuelve,
+    a,
+    opcionesDeDanio(state, devuelve, a),
+  );
+  return { modificadores, conArma };
+}
+
+/**
+ * Un cruce del golpe `rueda` contra `respuesta`, como lo juega `melee`: el punto
+ * del cruce; lo propio del golpe (Defensivo) a quien pega antes de sus golpes; sus
+ * golpes en ese punto, cada uno solo si el atacado sigue en pie y la carga solo el
+ * primero (`intercambio`); y, si lo devuelve y sigue en pie, el atacado con lo que
+ * le queda, lo que el golpe le deja (`atacadoAlDevolver`) y la respuesta en el
+ * punto contrario, sin bonificadores. Los disparadores de un hechizo entre los dos
+ * (`saltar`) no entran: tampoco en la previsión de la rueda.
+ */
+function intercambioEnElCruce(
+  state: BattleState,
+  a: BattleStack,
+  t: BattleStack,
+  carga: number,
+  rueda: RuedaDelGolpe,
+  respuesta: TipoDeGolpe,
+  forma: FormaDeLaRueda,
+): IntercambioEnUnCruce {
+  const p = puntoDelCruce(rueda.tipo, respuesta, forma);
+  const quienPega = conLoDeLaRueda(state, a, rueda, p, 'propio');
+  const golpes = golpesDe(a.unit, rueda.tipo, false);
+  const { danio, siguientes } = unGolpe(
+    quienPega,
+    t,
+    opcionesDeDanio(state, quienPega, t, { chargeHexes: carga }, enElPunto(rueda.tipo, p), 'golpe'),
+    golpes,
+  );
+  const { caen, quedan } = losGolpesQueCaen(
+    t,
+    golpes,
+    unNumero(danio, 'el golpe'),
+    siguientes === null ? undefined : unNumero(siguientes, 'el golpe sin la carga'),
+  );
+  if (quedan.count === 0 || !devolveraElGolpe(state, a, t)) {
+    return { caen, golpes, quedan, contraataque: null };
+  }
+  const devuelve = atacadoAlDevolver(state, a, t, quedan.count, rueda, p);
+  const contraataque = horquillaDeDanio(
+    devuelve,
+    quienPega,
+    opcionesDeDanio(
+      state,
+      devuelve,
+      quienPega,
+      SIN_EXTRA,
+      enElPunto(respuesta, puntoDelContraataque(p)),
+      'respuesta',
+    ),
+  );
+  return {
+    caen,
+    golpes,
+    quedan,
+    contraataque: {
+      danio: unNumero(contraataque.danio, 'el contraataque'),
+      golpes: golpesDe(t.unit, respuesta, true),
+    },
+  };
+}
+
+/**
+ * El daño de un golpe en un punto del cruce, que no tira dado (`tiradaDe`): una
+ * horquilla de un número. Lanza si no lo es, que sería un cruce que la previsión
+ * no sabe contar.
+ */
+function unNumero(h: Horquilla, que: string): number {
+  if (h.min !== h.max) {
+    throw new Error(`la previsión de ${que} en un punto del cruce salió ${h.min}–${h.max}`);
+  }
+  return h.min;
 }
 
 /** Lo que daría un tipo de la rueda: el daño de un golpe y cuántos golpes (`DanioDeLosGolpes`). */

@@ -474,6 +474,15 @@ progress.liderazgo::-moz-progress-bar { background: var(--barra); }
   line-clamp: 2;
   overflow: hidden;
 }
+/* En la batalla, cuatro (#264, 11-11-2026): la previsión de una carga contra quien
+   lleva armadura no cabía en dos a 1024 px y lo último que se perdía era la
+   armadura; en la partida, con «Resolver sola» al lado, la barra deja 640 px a la
+   frase y esa previsión mide cuatro líneas (78 px en 59 con tres, medido a 1024 y
+   a 1100 en la pasada «escritorio»). El alto, fijo igual que el de B1; lo que no
+   quepa lo corta `ponerEnLaBarra` (`comun/barra.ts`) por frases enteras y se lee
+   entero en el bocadillo del lienzo. */
+#app[data-escena='battle'] #statusbar { min-height: calc(6em + 0.9rem + 1px); }
+#app[data-escena='battle'] #status { -webkit-line-clamp: 4; line-clamp: 4; }
 /* La partida no arrancó (`sinArrancar`): el porqué se lee entero. */
 #status[data-sin-arrancar] { display: block; overflow: visible; }
 

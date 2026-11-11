@@ -6,6 +6,7 @@
  * `arena/main.ts` hasta R8 de la reorganización (07-11-2026).
  */
 import { barraDeLaBatalla } from '../batalla/panel.js';
+import { ponerEnLaBarra } from '../comun/barra.js';
 import { hayFigurasAnimadas } from '../render/figuras/figura.js';
 import type { SesionDeArena } from '../sesion/sesion-de-arena.js';
 import { pintarSiguiendoElFinal } from '../views/al-final.js';
@@ -81,8 +82,8 @@ function dibujarBatalla(pagina: PaginaDeLaArena, ahora: number, s: SesionDeArena
         : `Batalla · ronda ${s.battle.round}`;
     elTurn.textContent = rotuloDelTurno(s, ocupada);
   }
-  // «La batalla ha terminado» espera a que el tablero llegue al final, como en la partida.
-  const estado = barraDeLaBatalla(s.status, s.battle, ocupada);
-  if (elStatus.textContent !== estado) elStatus.textContent = estado;
+  // «La batalla ha terminado» espera a que el tablero llegue al final, como en la partida
+  // (#257); lo que no cabe en la barra se corta por frases (#264).
+  ponerEnLaBarra(elStatus, barraDeLaBatalla(s.status, s.battle, ocupada), pagina.canvas);
   rueda.pintar();
 }

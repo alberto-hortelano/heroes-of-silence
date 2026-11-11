@@ -34,25 +34,34 @@ function modificadores(ms: readonly Modificador[]): string {
 }
 
 /**
+ * « por golpe (1–2 golpes)» si puede dar más de uno (Rápido en la rueda, el doble
+ * golpe o el doble disparo); con uno solo, nada.
+ */
+function porGolpe(golpes: Horquilla): string {
+  return golpes.max > 1 ? ` por golpe (${horquilla(golpes)} golpes)` : '';
+}
+
+/**
  * «Contraataque con Daga (cuerpo a cuerpo), si sobrevive: 9–18.»: el arma con que
  * lo devuelve, en la arena, es la de cuerpo a cuerpo y no la del golpe (un jinete
- * carga con la lanza y devuelve con la espada), y la barra lo dice.
+ * carga con la lanza y devuelve con la espada), y la barra lo dice. Con la
+ * respuesta de la rueda, cuántos golpes puede devolver (Rápido, #253).
  */
 function contraataque(c: PrevisionDeContraataque | null): string {
   if (c === null) return ' Sin contraataque.';
   const con = c.conArma === null ? '' : ` ${c.conArma}`;
   const si = c.seguro ? '' : `${con === '' ? '' : ','} si sobrevive`;
-  return ` Contraataque${con}${si}: ${horquilla(c.danio)}.`;
+  return ` Contraataque${con}${si}: ${horquilla(c.danio)}${porGolpe(c.golpes)}.`;
 }
 
+/**
+ * Un golpe, un disparo o lo que da una granada a uno. El cuerpo a cuerpo, «según
+ * la rueda» (#253, 11-11-2026): sus cifras van de lo menos a lo más de todos los
+ * cruces, golpe y contraataque, y se dicen así para que nadie las lea como la
+ * horquilla de un dado que el juego ya no tira.
+ */
 function deGolpe(p: PrevisionDeGolpe, nombre: (id: string) => string): string {
-  // Con carga y más de un golpe, solo el primero la cobra (`intercambio`).
-  const golpes =
-    p.siguientes !== null
-      ? ` el primer golpe, con la carga, y ${horquilla(p.siguientes)} ${p.golpes === 2 ? 'el segundo' : `cada uno de los otros ${p.golpes - 1}`}`
-      : p.golpes > 1
-        ? ` por golpe (${p.golpes} golpes)`
-        : '';
+  const danio = p.kind === 'golpe' ? 'Según la rueda, daño' : 'Daño';
   const bajas =
     p.bajas.max === 0
       ? 'no caería ninguno'
@@ -63,7 +72,7 @@ function deGolpe(p: PrevisionDeGolpe, nombre: (id: string) => string): string {
     p.leQuedan.max === 0 ? 'no le quedaría nada' : `le quedarían ${horquilla(p.leQuedan)} PV`;
   const salpica = p.salpica.length === 0 ? '' : ` Salpica a ${p.salpica.map(nombre).join(', ')}.`;
   return (
-    `Daño ${horquilla(p.danio)}${golpes}: ${bajas} y ${leQuedan}.` +
+    `${danio} ${horquilla(p.danio)}${porGolpe(p.golpes)}: ${bajas} y ${leQuedan}.` +
     `${p.kind === 'golpe' ? contraataque(p.contraataque) : ''}${salpica}` +
     `${modificadores(p.modificadores)}`
   );

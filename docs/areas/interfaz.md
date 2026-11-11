@@ -44,6 +44,18 @@ el tema es la facción tal cual (`FactionId`, `FACTION_IDS`, `esFaccion`, sin al
 
 la lista cerrada y su corte, `PIEZAS`/`DEFINICIONES`, y lo que enseña cada lámina y dónde, `POR_TEMA` (`tools/taller/temas/piezas.ts`); su sitio, su respaldo y todas sus reglas, en `forma.css`; `src/client/piezas-de-tema.css`, **generada** y solo de fichas (`cssDePiezas`, `escribirPiezasDeTema`: las medidas de la tabla y, por pieza en disco, `--pieza-<x>` con su `url()` y la marca vacía `--con-pieza-<x>`; de un marco, su corte medido, `corteDeMarco`; nadie la edita a mano: lo vigila `piezas-de-tema.test.ts`)
 
+### Lo que cabe en la barra (#264, 11-11-2026)
+
+`ponerEnLaBarra` (`comun/barra.ts`), con la que el fotograma de la partida y el de la pelea de la
+arena escriben `#status` (fuera de la pelea, la arena escribe su aviso tal cual): la barra tiene el alto fijo (B1 de QA, 14-10-2026: si creciera, el lienzo encogería bajo el
+cursor), dos líneas y **cuatro en la batalla** (`#app[data-escena='battle']`, `style.css`: la previsión
+de una carga contra quien lleva armadura no cabía en dos a 1024 px y lo primero que caía era la
+armadura; en la partida, con «Resolver sola» al lado, mide cuatro a 1024 y a 1100). Lo que no cabe se corta por **frases enteras** (punto y blanco: los decimales van con
+coma) con « … (entera, con el ratón quieto)» y el texto entero va al `title` del lienzo; si cabe, el
+lienzo se queda sin `title`. No hay previsión más larga a la que reservar alto (una granada con
+varios alcanzados, una «Cuenta» larga). El corte no se rehace si solo cambia el ancho (backlog).
+Lo comprueba la pasada `arena` de `pnpm capturas` a 1024, 1100 y 1440 px (`laCargaALosTresAnchos`).
+
 ## El cliente
 
 - **El clima** (22-10-2026, `docs/agents/2026-10-22-clima/`): niebla (bancos claros y fríos que

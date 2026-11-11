@@ -337,6 +337,7 @@ Cada hecho tiene un sitio; la ruta, relativa a `src/core/` o `src/client/` (a `s
 | Formatear un precio | `describirCoste`, `conMiles` (`core/texto.ts`) |
 | La línea de la crónica: su color, y su casilla o el botón que lleva a ella | `renderLog` (`views/cronica.ts`); la cámara, `mirarLaCasilla` |
 | Tema de la interfaz | `ponerTema`, `quitarTema` (`comun/temas.ts`), los únicos que escriben `data-tema` |
+| Lo que cabe en la barra de abajo | `ponerEnLaBarra` (`comun/barra.ts`): corta por frases y lo entero va al `title` del lienzo |
 | Piezas en imagen de los temas | `PIEZAS`, `cssDePiezas` (`tools/taller/temas/piezas.ts`) |
 
 ### La arena
