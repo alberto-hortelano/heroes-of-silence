@@ -661,7 +661,7 @@ export function problemasDeRecintos(
         );
       } else if (o.enLaEntrada && parteDeLaEntrada(c.at, o.at) === 'acceso') {
         problemas.push(
-          `${o.quien} de ${casilla(o.at)} está a ${chebyshev(c.at, o.at)} casillas de la ciudad ${nombre(c)}, en el anillo de los accesos de sus puertas: es la entrada de la ciudad, por donde su región llega a ella, y ahí no va nada; ponlo a ${HASTA_LOS_ACCESOS + 1} casillas o más de toda ciudad, contando la diagonal como una`,
+          `${o.quien} de ${casilla(o.at)} está a ${chebyshev(c.at, o.at)} casillas de la ciudad ${nombre(c)}, en el anillo de los accesos de sus puertas: es la entrada de la ciudad, por donde su región llega a ella, y ahí no va ni pueblo, ni monstruo, ni cofre; ponlo a ${HASTA_LOS_ACCESOS + 1} casillas o más de toda ciudad, contando la diagonal como una`,
         );
       }
     }

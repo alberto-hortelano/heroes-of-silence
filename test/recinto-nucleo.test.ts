@@ -323,7 +323,7 @@ describe('lo que impide un recinto (`problemasDeRecintos`), dicho para quien hiz
     // accesos, de (3,2) a (7,6); en la Vega, la columna 7 es anillo y la 8 no.
     const plan = planDeNodos();
     const entrada = (quien: string, at: string): string =>
-      `${quien} de ${at} está a ${HASTA_LOS_ACCESOS} casillas de la ciudad "Valdeluz" (town-0, en (5,4)), en el anillo de los accesos de sus puertas: es la entrada de la ciudad, por donde su región llega a ella, y ahí no va nada; ponlo a ${HASTA_LOS_ACCESOS + 1} casillas o más de toda ciudad, contando la diagonal como una`;
+      `${quien} de ${at} está a ${HASTA_LOS_ACCESOS} casillas de la ciudad "Valdeluz" (town-0, en (5,4)), en el anillo de los accesos de sus puertas: es la entrada de la ciudad, por donde su región llega a ella, y ahí no va ni pueblo, ni monstruo, ni cofre; ponlo a ${HASTA_LOS_ACCESOS + 1} casillas o más de toda ciudad, contando la diagonal como una`;
     const pueblo = (x: number, y: number) => ({
       ...plan,
       villages: [...plan.villages, { name: 'Portillo', at: { x, y } }],
