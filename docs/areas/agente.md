@@ -239,6 +239,16 @@ antes del destino (`battle_started` con `faltan`; el agente lo lee como `remaini
   (`elegir_en_lugar`) no está en su contrato. El espectador los pinta con su marcador y tampoco ve su
   estado.
 
+- **La ocupación en el panel del espectador** (11-11-2026, #303,
+  `docs/agents/2026-11-11-duenos-en-la-vista/`): la sección «Ocupados» (`ocupados`,
+  `espectador/paneles.ts`) dice cada ciudad y pueblo ocupado ahora, de quién es y quién lo ocupa
+  (un héroe con su jugador y su nombre, una guarnición de un jugador o neutral); sin ninguno, no
+  sale. Lee `SpectatorView.sitios`, los mismos de los que sale la marca del mapa (`sitiosDelCable`):
+  el cable no cambia. Lanza si el cable no cuadra (un sitio ocupado sin su ciudad o su pueblo, un
+  héroe que no viaja). **El dueño sabido sigue copiado en `owner`** (`conLosDueñosSabidos`):
+  sacarlo a `VistaMapa.dueños` se descartó, porque cada lector de una ciudad tendría que acordarse
+  de ir a buscarlo y el que leyera `owner` recibiría el `null` guardado sin avisar.
+
 - La partida termina con un `game_over` explícito. `state.finished` es
   `{ winner: PlayerId | null } | null`; el tope de días es `GameState.maxDays`.
 

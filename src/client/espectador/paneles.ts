@@ -14,7 +14,8 @@
  */
 import type { BattleState, Side } from '@core/battle/types.js';
 import { nombreDeTipoDeHeroe } from '@core/hero/tipos-de-heroe.js';
-import { pasoOPuebloSiExiste } from '@core/state/sitios.js';
+import type { Ocupante } from '@core/state/events.js';
+import { nombreDelSitio, pasoOPuebloSiExiste } from '@core/state/sitios.js';
 import type { SpectatorView } from '../../shared/cable-del-espectador.js';
 import { renderBattleLog } from '../batalla/parte.js';
 import { fondoDeColor, type Html, html, NADA, unir } from '../comun/html.js';
@@ -44,7 +45,73 @@ export function panelDelEspectador(
   fin: FinDePartida | null,
   contandoAun = false,
 ): Html {
-  return html`${finDeLaPartida(fin)}${jugadores(v)}${batalla(v, contandoAun)}${vocesDeLasBases(v)}${crónica(v)}${vozDelDirector(v)}`;
+  return html`${finDeLaPartida(fin)}${jugadores(v)}${ocupados(v)}${batalla(v, contandoAun)}${vocesDeLasBases(v)}${crónica(v)}${vozDelDirector(v)}`;
+}
+
+/**
+ * «Ocupados»: cada ciudad y cada pueblo que alguien ocupa **ahora**, de quién es y
+ * quién lo ocupa (#303, 11-11-2026). El mapa lo pintaba como marca y la crónica lo
+ * contaba como un hecho que se va con las líneas nuevas; quien juega lo lee en su
+ * lateral (`Session.ocupados`), y quien mira no tenía dónde. Sin ninguno ocupado,
+ * la sección no sale.
+ *
+ * Lee `v.sitios`, los mismos del cable de los que sale la marca del mapa
+ * (`sitiosDelCable`): el ocupante lo deriva el servidor con la regla del núcleo
+ * (`comoEstaElSitio`) y aquí no se rederiva nada. Lanza si el cable no cuadra
+ * consigo mismo (un sitio sin su ciudad o su pueblo, un héroe que no viaja): eso
+ * es un servidor roto, no una partida.
+ */
+export function ocupados(v: SpectatorView): Html {
+  const lista = v.sitios.flatMap((s) =>
+    s.ocupante === null ? [] : [{ ...s, ocupante: s.ocupante }],
+  );
+  if (lista.length === 0) return NADA;
+  return html`<h3>Ocupados</h3>
+    <div class="stack-list">${unir(
+      lista.map(
+        (s) => html`<div class="stack">
+          <span>${bandera(s.owner)} ${sitioDelCable(v, s.id)}</span>
+          <span class="count">${s.owner === null ? 'de nadie' : `del jugador ${s.owner}`}</span>
+        </div>
+        <p class="cost">${bandera(s.ocupante.dueño)} Ocupa ${quienOcupa(v, s.ocupante)}</p>`,
+      ),
+    )}</div>`;
+}
+
+/**
+ * «Torreblanca, ciudad», «El Soto, pueblo». El pueblo, por `nombreDelSitio` sobre
+ * su objeto del cable, como lo nombra la crónica de aquí abajo; la ciudad, por su
+ * nombre en `towns`, que es lo que `nombreDelSitio` diría de ella si el espectador
+ * tuviera la partida.
+ */
+function sitioDelCable(v: SpectatorView, id: string): string {
+  const ciudad = v.towns.find((t) => t.id === id);
+  if (ciudad !== undefined) return `${ciudad.name}, ciudad`;
+  const sitio = pasoOPuebloSiExiste(v.map.objects, id);
+  if (sitio?.kind === 'pueblo') return `${nombreDelSitio(sitio)}, pueblo`;
+  throw new Error(
+    `el sitio ${id} llega ocupado y no es ni una ciudad ni un pueblo del cable: el servidor manda una vista que no cuadra`,
+  );
+}
+
+/**
+ * Quién ocupa, con las palabras de la crónica en tercera persona
+ * (`site_occupied`): «un héroe del jugador 1 (Grishnak)», «una guarnición del
+ * jugador 0», «una guarnición neutral».
+ */
+function quienOcupa(v: SpectatorView, ocupante: Ocupante): string {
+  if (ocupante.kind === 'guarnicion') {
+    return ocupante.dueño === null
+      ? 'una guarnición neutral'
+      : `una guarnición del jugador ${ocupante.dueño}`;
+  }
+  const heroe = v.heroes.find((h) => h.id === ocupante.heroId);
+  if (heroe === undefined) {
+    throw new Error(
+      `el héroe ${ocupante.heroId} ocupa un sitio y no viaja en el cable: el servidor manda una vista que no cuadra`,
+    );
+  }
+  return `un héroe del jugador ${ocupante.dueño} (${heroe.name})`;
 }
 
 /**
