@@ -21,6 +21,7 @@ import { activeStack, stackById } from '@core/battle/consultas.js';
 import { alcanceDeLaGranada } from '@core/battle/granada.js';
 import type {
   BattleAction,
+  BattleEvent,
   BattleFinish,
   BattleStack,
   BattleState,
@@ -34,12 +35,7 @@ import type { SpellOption } from '../sesion/batalla/control.js';
 import type { DespliegueEnPantalla } from '../sesion/batalla/despliegue.js';
 import type { SesionDeBatalla } from '../sesion/batalla/sesion-de-batalla.js';
 import { type FilaDelCampo, listaDelCampo, marcaDeComandante } from '../views/campo.js';
-import {
-  AVISO_DE_ESPERA,
-  fieldsetApagado,
-  filaDeCifra,
-  motivoParaApagar,
-} from '../views/cifras.js';
+import { AVISO_DE_ESPERA, fieldsetApagado, filaDeCifra } from '../views/cifras.js';
 import { renderBattleLog } from './parte.js';
 import { botonesDeArma, botonesDeMuralla, botonesDePoder } from './poderes.js';
 
@@ -103,11 +99,38 @@ interface LoDeLaPagina {
 }
 
 /**
+ * Lo último que pintó quieto el panel de cada batalla, por su registro (`battle.log`):
+ * lo que enseña mientras el tablero cuenta (`panelDeBatalla`). El registro es el
+ * array que el núcleo va llenando en su sitio, uno por batalla, y lo comparte la vista
+ * del despliegue (`batallaALaVista`): una batalla nueva, o rehecha, no casa nunca con
+ * lo de otra y como mucho cae en lo callado. `WeakMap`: con la batalla se va lo suyo.
+ */
+const quietos = new WeakMap<readonly BattleEvent[], Html>();
+
+/**
+ * Lo que dice el panel mientras se cuenta una jugada de una batalla de la que aún no
+ * hay nada pintado quieto (la arena con todo en IA, que se juega entera antes del
+ * primer fotograma): sin ronda ni campo, que serían los del final.
+ */
+const CALLADO = html`${filaDeCifra('Ronda', '…')}
+      <p>Contando la jugada…</p>`;
+
+/**
  * El panel de la batalla de una página (`LoDeLaPagina`), con lo que se ve
  * (`batallaALaVista`): en el despliegue, sin el rival que aún no ha desplegado; el
  * defensor despliega sin ver la lista del atacante. Con la rueda en la respuesta, lo que
- * se juega es eso: la activa es quien pega, y puede ser del rival. `contandoAun`: el
- * tablero aún cuenta la última jugada y los botones salen apagados.
+ * se juega es eso: la activa es quien pega, y puede ser del rival.
+ *
+ * `contandoAun`: el tablero aún cuenta lo jugado, y el estado ya trae el final de lo que
+ * se cuenta —en la partida, la tanda entera de la IA hasta el turno de la persona—. El
+ * panel no se adelanta: enseña lo último que pintó quieto de esta batalla (`quietos`),
+ * entero y apagado (`fieldsetApagado` con `AVISO_DE_ESPERA`), y si no pintó nada quieto,
+ * calla (`CALLADO`). Ni «Victoria» antes del último golpe, ni quien aún no se ha visto
+ * caer fuera de «En el campo», ni el parte, la ronda o la recarga de lo que no se ha
+ * contado (#257, 11-11-2026). Congelar y no retener por el animador: el panel lee
+ * también lo que la sesión ofrece ahora (las acciones legales, el maná), y mezclarlo con
+ * una foto a medias del animador enseñaría dos instantes a la vez. Una regla para la
+ * partida y la arena, que hasta #257 callaba con su copia.
  *
  * Las líneas de la plantilla conservan la sangría de cuando vivían dentro de
  * `renderBattlePanel`: es marcado que el ancla de `test/fixtures/paneles.txt` compara
@@ -116,14 +139,38 @@ interface LoDeLaPagina {
 export function panelDeBatalla(s: SesionDelPanel, contandoAun: boolean, p: LoDeLaPagina): Html {
   const battle = s.batallaALaVista;
   if (battle === null) return NADA;
-  if (battle.finished !== null) return p.final(battle, battle.finished);
+  if (contandoAun) {
+    const quieto = quietos.get(battle.log);
+    return quieto === undefined ? CALLADO : fieldsetApagado(AVISO_DE_ESPERA, quieto);
+  }
+  const hecho = battle.finished !== null ? p.final(battle, battle.finished) : enJuego(s, battle, p);
+  quietos.set(battle.log, hecho);
+  return hecho;
+}
 
+/**
+ * La línea de estado de la batalla, la de la partida y la arena, con el tablero
+ * contando o no (`contandoAun`): lo mismo que el panel, no adelanta el final. «La batalla
+ * ha terminado.» espera a que el tablero cuente el último golpe (#257, 11-11-2026; en la
+ * arena desde antes). El aviso de espera no espera: un clic durante el último desenlace
+ * de la rueda se perdía sin decir nada (H4 de QA, 19-10-2026), y el aviso no adelanta
+ * el final.
+ */
+export function barraDeLaBatalla(
+  status: string,
+  battle: BattleState | null,
+  contandoAun: boolean,
+): string {
+  return contandoAun && battle?.finished != null && status !== AVISO_DE_ESPERA ? '' : status;
+}
+
+/** El panel de la batalla sin terminar y con el tablero quieto (`panelDeBatalla`). */
+function enJuego(s: SesionDelPanel, battle: BattleState, p: LoDeLaPagina): Html {
   // El despliegue: lo propio y el rival que ya desplegó, nunca el que aún no.
   const desplegando = s.despliegue.enCurso;
   if (desplegando !== null) {
     return renderDespliegue(s.despliegue, battle, {
       quien: p.quienDespliega(desplegando.side),
-      apagado: contandoAun ? AVISO_DE_ESPERA : null,
       fila: (x) => p.fila(battle, x, false),
     });
   }
@@ -134,7 +181,7 @@ export function panelDeBatalla(s: SesionDelPanel, contandoAun: boolean, p: LoDeL
       ? html`<p>Te toca responder en la rueda.</p>`
       : activa !== null && s.turnoPropio !== null
         ? fieldsetApagado(
-            motivoParaApagar(s, contandoAun),
+            s.motivoDeLaRueda,
             accionesDeLaUnidad({
               activa,
               carga: CARGA,
@@ -186,15 +233,14 @@ function fraseDeLaTanda(d: NonNullable<DespliegueEnPantalla['enCurso']>): string
  * mueven), cómo se coloca (`COMO_SE_COLOCA`), «Listo», que la cierra, y «En el
  * campo» con lo que se ve (`battle`, la vista: sin el rival que aún no desplegó).
  * `quien` es el bando dicho, donde la persona puede llevar los dos (la arena), o
- * `null`; `apagado`, el motivo para apagar los botones (la jugada que se cuenta);
- * `fila`, cómo dice cada página a cada uno en el campo.
+ * `null`; `fila`, cómo dice cada página a cada uno en el campo. Con la jugada
+ * contándose no se pinta: el panel enseña lo de antes, apagado (`panelDeBatalla`).
  */
 function renderDespliegue(
   d: DespliegueEnPantalla,
   battle: BattleState,
   o: {
     readonly quien: string | null;
-    readonly apagado: string | null;
     readonly fila: (x: BattleStack) => FilaDelCampo;
   },
 ): Html {
@@ -208,15 +254,12 @@ function renderDespliegue(
       return html`<button data-action="despliegue-elegir" data-stack="${id}"${es ? html` class="primary" aria-pressed="true"` : html` aria-pressed="false"`}>${marcaDeComandante(x)}${nombreEnElCampo(battle, x)} (${x.hex.col},${x.hex.row})</button>`;
     }),
   );
-  return html`${fieldsetApagado(
-    o.apagado,
-    html`<h2>Despliegue${o.quien === null ? NADA : html` · ${o.quien}`}</h2>
+  return html`<h2>Despliegue${o.quien === null ? NADA : html` · ${o.quien}`}</h2>
     <p>${fraseDeLaTanda(ahora)}</p>
     <h3>Colocar</h3>
     <div class="stack-list" data-despliegue="${String(ahora.tanda)}">${botones}</div>
     <p class="cost" style="margin-top:.5rem">Para colocar, ${COMO_SE_COLOCA}</p>
-    <div class="stack-list"><button data-action="desplegado" class="primary">Listo</button></div>`,
-  )}
+    <div class="stack-list"><button data-action="desplegado" class="primary">Listo</button></div>
     <h3>En el campo</h3><div class="stack-list">${listaDelCampo(battle, o.fila)}</div>`;
 }
 

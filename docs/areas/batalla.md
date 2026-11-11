@@ -306,3 +306,25 @@ refresca la duración (la mayor), no se acumula
   Mientras la rueda espera, los botones de la batalla salen apagados con su motivo
   (`fieldsetApagado`), y un clic mientras se cuenta una jugada dice «Espera a que termine la jugada.»
   (`alPulsarMientrasCuenta`); en la partida y en la arena (vuelta 1 de QA, 19-10-2026).
+
+- **El lateral mientras se cuenta** (#257, 11-11-2026, `docs/agents/2026-11-11-panel-durante-la-jugada/`):
+  el estado ya trae el final de lo que el tablero cuenta —en la partida, la tanda entera de la IA
+  hasta el turno de la persona—, y el lateral cantaba «Victoria» o «Derrota» antes del último golpe,
+  quitaba de «En el campo» a quien aún no se había visto caer y traía el parte, la ronda y la recarga
+  de después. **Se congela** (`panelDeBatalla`, `batalla/panel.ts`, la regla de la partida y la
+  arena): mientras `EscenaBatalla.ocupada`, el panel es lo último que pintó quieto esa batalla
+  (guardado por su registro, `battle.log`), entero y dentro de un `fieldset` apagado con «Espera a que
+  termine la jugada.»; si no pintó nada quieto (la arena con todo en IA, que se juega entera antes del
+  primer fotograma), calla: «Ronda …» y «Contando la jugada…». La línea de estado, igual:
+  `barraDeLaBatalla` calla «La batalla ha terminado.» hasta que se cuenta el último golpe, y deja pasar
+  el aviso de espera. **Por qué congelar**: callar como la arena hacía que el lateral se encogiera y
+  volviera a crecer en cada jugada propia y en cada tanda de la IA, y quitaba los botones apagados en
+  su sitio de #165; retener por el animador (vidas, recarga, granadas, ronda y parte paso a paso)
+  obligaba a pasar cada cifra nueva del lateral por él y mezclaba su foto con lo que la sesión ofrece
+  ahora (acciones legales, maná). **Lo que se acepta**: durante una tanda larga de la IA el lateral se
+  queda en lo de antes y no avanza golpe a golpe. **El aviso «Enemigo (N)» del móvil**
+  (`EscenaBatalla.enemigosFuera`) cuenta los que se ven en pie (`BattleAnimator.cuantosSeVen`: bajan en
+  el impacto que los tumba, con su barra) y no se vacía con el final hasta que el tablero lo cuenta.
+  «Continuar» sigue saliendo en cuanto el estado termina (#158 d) y el espectador sigue con su
+  `sinElFinal`: fuera de #257. Lo vigilan `escenas.test.ts` y `invariantes-cliente.test.ts` (ninguna
+  página ramifica por `contandoAun` en su panel).

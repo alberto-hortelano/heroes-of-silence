@@ -5,10 +5,10 @@
  * alargado si la muralla lo pide y el marco colocado al pie del tablero. Era parte de
  * `arena/main.ts` hasta R8 de la reorganización (07-11-2026).
  */
+import { barraDeLaBatalla } from '../batalla/panel.js';
 import { hayFigurasAnimadas } from '../render/figuras/figura.js';
 import type { SesionDeArena } from '../sesion/sesion-de-arena.js';
 import { pintarSiguiendoElFinal } from '../views/al-final.js';
-import { AVISO_DE_ESPERA } from '../views/cifras.js';
 import { animarFiguras } from './figuras.js';
 import type { PaginaDeLaArena } from './pagina.js';
 import { renderPanelDeBatalla, rotuloDelTurno } from './paneles/batalla.js';
@@ -81,11 +81,8 @@ function dibujarBatalla(pagina: PaginaDeLaArena, ahora: number, s: SesionDeArena
         : `Batalla · ronda ${s.battle.round}`;
     elTurn.textContent = rotuloDelTurno(s, ocupada);
   }
-  // «La batalla ha terminado» espera a que el tablero llegue al final; el aviso de
-  // espera no: un clic durante el último desenlace de la rueda se perdía sin decir
-  // nada (H4 de QA, 19-10-2026), y el aviso no adelanta el final.
-  const estado =
-    ocupada && s.battle.finished !== null && s.status !== AVISO_DE_ESPERA ? '' : s.status;
+  // «La batalla ha terminado» espera a que el tablero llegue al final, como en la partida.
+  const estado = barraDeLaBatalla(s.status, s.battle, ocupada);
   if (elStatus.textContent !== estado) elStatus.textContent = estado;
   rueda.pintar();
 }

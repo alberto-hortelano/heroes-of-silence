@@ -303,6 +303,7 @@ Cada hecho tiene un sitio; la ruta, relativa a `src/core/` o `src/client/` (a `s
 | Armadura | `trasLaArmadura`, `armaduraDe` (`battle/armas.ts`) |
 | La rueda en pantalla | `DialogoDeLaRueda` (`batalla/rueda/dialogo.ts`); `ajustarLaRueda`, `contrincante` (`batalla/rueda/rueda.ts`) |
 | La batalla contada en cola | `BattleAnimator` (`batalla/anim.ts`) |
+| El lateral mientras se cuenta | `panelDeBatalla` (lo último pintado quieto, apagado), `barraDeLaBatalla` (`batalla/panel.ts`) |
 | Los modificadores en curso | `modificadoresEnCurso` (`views/notas.ts`) |
 
 ### El catálogo

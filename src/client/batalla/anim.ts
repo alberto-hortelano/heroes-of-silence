@@ -977,6 +977,20 @@ export class BattleAnimator {
     };
   }
 
+  /**
+   * Cuántos individuos de `s` se ven en pie: los de su vida vista mientras tenga algo
+   * por contar (`porContar`), los del estado si no; ninguno si es lo levantado aún sin
+   * contar o el cadáver ya gastado. Baja en el impacto que lo tumba, a la vez que su
+   * barra (`EstadoFigura.pv`), y no antes: lo lee el aviso del móvil («Enemigo (N)»,
+   * `EscenaBatalla.enemigosFuera`), que descontaba a quien iba a caer al principio de
+   * la tanda de la IA (#257, 11-11-2026).
+   */
+  cuantosSeVen(s: BattleStack): number {
+    if (this.porAparecer.has(s.id) || this.gastados.has(s.id)) return 0;
+    const vida = (this.porContar.get(s.id) ?? 0) > 0 ? this.vidaVista.get(s.id) : undefined;
+    return vida?.count ?? s.count;
+  }
+
   /** ¿Queda algo por enseñar? Mientras sí, se repinta y no se aceptan clics. */
   get busy(): boolean {
     return this.actual !== null || this.cola.length > 0;

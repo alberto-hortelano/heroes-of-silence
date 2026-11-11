@@ -75,6 +75,8 @@ export const AVISO_DE_ESPERA = 'Espera a que termine la jugada.';
  * `null`. Mientras el tablero aún cuenta la última jugada (#165), con el aviso de
  * espera: no se ofrecen para luego rechazarlos. Antes salían encendidos —el estado
  * ya va por delante de lo que se ve— y el clic daba el aviso y pedía pulsar otra vez.
+ * El lateral de la batalla lo usa entero desde #257: apaga lo último pintado quieto
+ * (`panelDeBatalla`), no los botones de ahora.
  * Y mientras la rueda espera una elección (`motivoDeLaRueda` de la sesión): con el
  * diálogo modal encima, «Terminar turno» y «Resolver sola» se veían encendidos y
  * el clic no llegaba (H3 de QA, 19-10-2026).

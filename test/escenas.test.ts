@@ -12,6 +12,7 @@ import { describe, expect, it } from 'vitest';
 import { DURACION } from '../src/client/batalla/anim.js';
 import { EscenaBatalla } from '../src/client/batalla/escena.js';
 import { GestosDeBatalla, type PaginaDeLaBatalla } from '../src/client/batalla/gestos.js';
+import { barraDeLaBatalla } from '../src/client/batalla/panel.js';
 import { marcadoDe } from '../src/client/comun/html.js';
 import { EscenaBase } from '../src/client/partida/base/escena.js';
 import { renderConversacion } from '../src/client/partida/base/panel.js';
@@ -561,34 +562,97 @@ describe('la batalla en el lienzo', () => {
     expect(noCuentan(defensa).sort()).toEqual(['Como propone la IA', 'Defender']);
   });
 
-  it('con la jugada contándose, los botones del panel salen apagados y no piden un segundo clic (#165)', () => {
+  it('con la jugada contándose, el lateral es el de antes, entero y apagado, y no pide un segundo clic (#165, #257)', () => {
     const s = sesionEnBatalla();
     const escena = escenaDeBatalla(() => s);
+    expect(escena.ocupada).toBe(false);
+    // Lo que hace `main.ts` con el tablero quieto, antes de la jugada.
+    const quieto = marcadoDe(renderSide(s, escena.ocupada));
+    expect(quieto).not.toContain('fieldset');
     const dura = jugarUnTramo(s);
     escena.sincronizar(10);
     expect(escena.ocupada).toBe(true);
-    // Tras un tramo la unidad sigue siendo tuya: el panel ofrecería sus botones.
+    // Tras un tramo la unidad sigue siendo tuya: el panel de ahora ofrecería sus botones.
     expect(s.turnoPropio).not.toBeNull();
 
-    // Lo que hace `main.ts`: el panel con la cola de este fotograma.
-    const apagados = /<fieldset class="contando" disabled title="([^"]*)">([\s\S]*?)<\/fieldset>/;
-    const marcado = marcadoDe(renderSide(s, escena.ocupada));
-    const [, titulo, dentro = ''] = marcado.match(apagados) ?? [];
-    expect(titulo).toBe(AVISO_DE_ESPERA);
-    // Todos los botones del lado están dentro: ninguno queda encendido fuera.
-    expect(dentro.match(/<button/g)?.length).toBe(marcado.match(/<button/g)?.length);
+    // Contando, el de antes byte a byte dentro de un solo `fieldset` apagado: ni «En el
+    // campo», ni el parte, ni la ronda, ni lo que le queda a la activa tras el tramo.
+    const contando = marcadoDe(renderSide(s, escena.ocupada));
+    expect(contando).toBe(
+      `<fieldset class="contando" disabled title="${AVISO_DE_ESPERA}">${quieto}</fieldset>`,
+    );
+    // Los botones del lado están dentro: ninguno queda encendido fuera.
     for (const accion of ['battle-end-turn', 'battle-surrender']) {
-      expect(dentro).toContain(`data-action="${accion}"`);
+      expect(contando).toContain(`data-action="${accion}"`);
     }
     expect(marcadoDe(renderActions(s, escena.ocupada))).toMatch(
       /<fieldset class="contando" disabled[^>]*><button data-action="auto-battle">/,
     );
 
-    // Contada la jugada, los mismos paneles sin apagar.
+    // Contada la jugada, los paneles de ahora y sin apagar.
     escena.sincronizar(10 + dura + 1000);
     expect(escena.ocupada).toBe(false);
-    expect(marcadoDe(renderSide(s, escena.ocupada))).not.toContain('fieldset');
+    const despues = marcadoDe(renderSide(s, escena.ocupada));
+    expect(despues).not.toContain('fieldset');
+    expect(despues).not.toBe(quieto);
     expect(marcadoDe(renderActions(s, escena.ocupada))).not.toContain('fieldset');
+  });
+
+  it('sin nada pintado quieto de esa batalla, el lateral contando calla; otra batalla no hereda lo de la anterior (#257)', () => {
+    const s = sesionEnBatalla();
+    renderSide(s, false);
+    jugarUnTramo(s);
+    // Otra sesión, otra batalla, que nunca se pintó quieta.
+    const otra = sesionEnBatalla();
+    const callado = marcadoDe(renderSide(otra, true));
+    expect(callado).toContain('Contando la jugada…');
+    expect(callado).not.toContain('<button');
+    expect(callado).not.toContain('En el campo');
+    // La primera sigue con lo suyo.
+    expect(marcadoDe(renderSide(s, true))).toMatch(/^<fieldset class="contando"/);
+  });
+
+  it('el final no se adelanta: mientras se cuenta el golpe que decide, ni «Victoria» ni «Derrota» ni «La batalla ha terminado.» (#257)', () => {
+    const s = sesionEnBatalla();
+    const escena = escenaDeBatalla(() => s);
+    // Lo que pinta `main.ts` antes de cada jugada de la persona: el tablero quieto.
+    let quieto = '';
+    for (let i = 0; i < 500 && s.battle!.finished === null; i++) {
+      quieto = marcadoDe(renderSide(s, false));
+      // La rueda del golpe, si espera a la persona (F5): Normal.
+      if (s.ruedaPendiente !== null) s.elegirEnLaRueda('normal');
+      else s.playBattleAction(agresiva(s.battle!));
+    }
+    expect(s.battle!.finished).not.toBeNull();
+    escena.sincronizar(10);
+    expect(escena.ocupada).toBe(true);
+    const contando = marcadoDe(renderSide(s, escena.ocupada));
+    expect(contando).not.toMatch(/Victoria|Derrota/);
+    expect(contando).toBe(
+      `<fieldset class="contando" disabled title="${AVISO_DE_ESPERA}">${quieto}</fieldset>`,
+    );
+    expect(barraDeLaBatalla(s.status, s.batallaALaVista, escena.ocupada)).not.toContain(
+      'terminado',
+    );
+
+    // Contado el último golpe, el final.
+    escena.sincronizar(100_000_000);
+    expect(escena.ocupada).toBe(false);
+    expect(marcadoDe(renderSide(s, escena.ocupada))).toMatch(/<h2>(Victoria|Derrota)<\/h2>/);
+    expect(barraDeLaBatalla(s.status, s.batallaALaVista, escena.ocupada)).toBe(s.status);
+  });
+
+  it('la barra de la batalla no dice el final mientras se cuenta, pero sí el aviso de espera (#257, H4 de QA)', () => {
+    const s = sesionEnBatalla();
+    const viva = s.batallaALaVista!;
+    const acabada = { ...viva, finished: { winner: 'attacker' as const } };
+    const fin = 'La batalla ha terminado.';
+    expect(barraDeLaBatalla(fin, acabada, true)).toBe('');
+    expect(barraDeLaBatalla(AVISO_DE_ESPERA, acabada, true)).toBe(AVISO_DE_ESPERA);
+    expect(barraDeLaBatalla(fin, acabada, false)).toBe(fin);
+    // Sin acabar, la barra tal cual también contando: lo que dice es de la jugada propia.
+    expect(barraDeLaBatalla('Escudero anda.', viva, true)).toBe('Escudero anda.');
+    expect(barraDeLaBatalla('En el mapa.', null, true)).toBe('En el mapa.');
   });
 
   it('«Continuar» no se apaga con la jugada contándose: espera él solo (#165, #158 d)', () => {
@@ -648,6 +712,52 @@ describe('la batalla en el lienzo', () => {
     expect(escena.enemigosFuera(496, 860)).toEqual({ izquierda: 0, derecha: 0 });
     // Y si el marco no ve nada, los cuenta a la izquierda.
     expect(escena.enemigosFuera(2000, 2400).izquierda).toBe(enemigos);
+  });
+
+  it('el aviso del móvil no descuenta a un enemigo antes de verlo caer, ni se vacía con el final por contar (#257)', () => {
+    const s = sesionEnBatalla();
+    const escena = escenaDeBatalla(() => s);
+    const enPie = (): number =>
+      s
+        .batallaALaVista!.stacks.filter((x) => x.side !== s.miBando)
+        .reduce((n, x) => n + x.count, 0);
+    // Un marco que no ve nada: los cuenta a todos, a la izquierda.
+    const fuera = (): number => escena.enemigosFuera(2000, 2400).izquierda;
+    const alEmpezar = enPie();
+    expect(fuera()).toBe(alEmpezar);
+    const jugar = (): void => {
+      if (s.ruedaPendiente !== null) s.elegirEnLaRueda('normal');
+      else s.playBattleAction(agresiva(s.battle!));
+    };
+    // Hasta que el estado ya traiga una baja enemiga sin haber acabado.
+    for (let i = 0; i < 500 && enPie() === alEmpezar && s.battle!.finished === null; i++) jugar();
+    expect(s.battle!.finished).toBeNull();
+    expect(enPie()).toBeLessThan(alEmpezar);
+    escena.sincronizar(10);
+    expect(escena.ocupada).toBe(true);
+    // El tablero aún no ha contado nada: se ven todos.
+    expect(fuera()).toBe(alEmpezar);
+    let t = 100_000_000;
+    escena.sincronizar(t);
+    expect(escena.ocupada).toBe(false);
+    expect(fuera()).toBe(enPie());
+
+    // Hasta el final: con el final por contar, los que se ven; contado, ninguno.
+    const antesDelFinal = enPie();
+    for (let i = 0; i < 500 && s.battle!.finished === null; i++) {
+      // Cada jugada contada antes de la siguiente, salvo la última.
+      t += 100_000_000;
+      escena.sincronizar(t);
+      jugar();
+    }
+    expect(s.battle!.finished).not.toBeNull();
+    escena.sincronizar(t + 10);
+    expect(escena.ocupada).toBe(true);
+    expect(fuera()).toBeGreaterThan(0);
+    expect(fuera()).toBeLessThanOrEqual(antesDelFinal);
+    escena.sincronizar(t + 100_000_000);
+    expect(escena.ocupada).toBe(false);
+    expect(fuera()).toBe(0);
   });
 });
 
