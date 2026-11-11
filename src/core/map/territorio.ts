@@ -337,8 +337,9 @@ interface TrasUnaBase {
  * una región no es un nodo y no corta nada.
  *
  * Por qué la base y no cualquier nodo (#321, 11-11-2026): tomar la base acaba la
- * partida (fila «Victoria»), así que lo que solo cuelga de ella no lo pisa nunca
- * el otro. El procedimental deja así la casa de un bando —un callejón tras su
+ * partida (fila «Victoria»), así que lo que solo cuelga de ella el otro no lo pisa
+ * andando: solo infiltrándose por la barrera (QA de #321), con un héroe que sepa y
+ * días de marcha, que no es llegar como llega el dueño. El procedimental deja así la casa de un bando —un callejón tras su
  * base, con ella como único nodo— en 7 de 120 mapas (tamaños 4, 5 y 7, semillas
  * 1-40). Un «hay camino» sin cortar la base no lo veía: la red validada
  * (`problemasDeRed`) llega a todo desde la región 0. Con más de un rival se

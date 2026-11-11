@@ -58,7 +58,7 @@ la base: `figurasDeLaGente` (`core/gente/figuras.ts`: toda la gente de la facci�
 búsqueda en anchura por la red desde las regiones de cada base que no pasa por el nodo de la base
 de otro; las bases, las de nacimiento (`basesAlNacer`, privada: `primeraCiudadDe` sobre las ciudades
 del mapa recién hecho). Tomar la base acaba la partida, así que lo que solo cuelga de ella no lo
-pisa nunca el otro, en contra de «el mundo es de los dos». Lo deja así el procedimental: la casa de
+pisa el otro andando, solo infiltrándose por la barrera (con un héroe que sepa y días de marcha; QA de #321), en contra de «el mundo es de los dos». Lo deja así el procedimental: la casa de
 un bando es un callejón cuyo único nodo es su base en 7 de 120 mapas (tamaños 4, 5 y 7, semillas
 1-40: r4 s12 y s22, r5 s38, r7 s10, s20, s27 y s39; medido el 11-11-2026), y la lectura deja esa
 casa con `admitenUnLugar` vacío. Un «hay camino» sin cortar la base no servía: en 32 mapas, 0 de

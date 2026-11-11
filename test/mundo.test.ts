@@ -386,10 +386,10 @@ describe('un lugar tras la base del otro (#321)', () => {
 
   it('lo rechaza la validación del mundo, diciendo quién no llega y por qué base', () => {
     expect(conElPrimeroEn({ x: 34, y: 22 })).toContainEqual(
-      'historia.json: lugares[0].at: (34, 22) está en la región "region-1", a la que el jugador 0 solo llega cruzando la base del otro, la ciudad town-1 en (27, 27), y tomarla acaba la partida: el mundo es de los dos, pon el lugar en una región a la que lleguen los dos',
+      'historia.json: lugares[0].at: (34, 22) está en la región "region-1", a la que el jugador 0 solo llega cruzando la base del otro, la ciudad town-1 en (27, 27), o infiltrándose por la barrera, con un héroe que sepa y días de marcha; tomar la base acaba la partida: el mundo es de los dos, pon el lugar en una región a la que lleguen los dos',
     );
     expect(conElPrimeroEn({ x: 1, y: 1 })).toContainEqual(
-      'historia.json: lugares[0].at: (1, 1) está en la región "region-0", a la que el jugador 1 solo llega cruzando la base del otro, la ciudad town-0 en (8, 8), y tomarla acaba la partida: el mundo es de los dos, pon el lugar en una región a la que lleguen los dos',
+      'historia.json: lugares[0].at: (1, 1) está en la región "region-0", a la que el jugador 1 solo llega cruzando la base del otro, la ciudad town-0 en (8, 8), o infiltrándose por la barrera, con un héroe que sepa y días de marcha; tomar la base acaba la partida: el mundo es de los dos, pon el lugar en una región a la que lleguen los dos',
     );
   });
 

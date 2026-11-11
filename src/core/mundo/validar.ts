@@ -134,7 +134,7 @@ export function lugarBlocker(
     // La base sale de `bases`: la que cierra es una de las que se le dieron.
     const base = [...bases.values()].find((b) => b.id === tras.base) as { readonly at: Point };
     const reg = map.regions[region] as { readonly id: string };
-    return `${donde} está en la región "${reg.id}", a la que el jugador ${tras.jugador} solo llega cruzando la base del otro, la ciudad ${tras.base} en (${base.at.x}, ${base.at.y}), y tomarla acaba la partida: el mundo es de los dos, pon el lugar en una región a la que lleguen los dos`;
+    return `${donde} está en la región "${reg.id}", a la que el jugador ${tras.jugador} solo llega cruzando la base del otro, la ciudad ${tras.base} en (${base.at.x}, ${base.at.y}), o infiltrándose por la barrera, con un héroe que sepa y días de marcha; tomar la base acaba la partida: el mundo es de los dos, pon el lugar en una región a la que lleguen los dos`;
   }
   return null;
 }
