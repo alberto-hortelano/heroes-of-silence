@@ -156,8 +156,9 @@ export function guardarEnElNavegador(clave: string, valor: string, que: string):
 }
 
 /**
- * El editor de la muralla, plegado o no: a 1280×720 el editor desplegado deja
- * los bandos en ~250 px.
+ * El editor de la muralla, plegado o no: a 1280×720 el editor desplegado dejaba
+ * los bandos en ~250 px (QA, M7). Desde #246 (11-11-2026) los bandos y la ficha no
+ * bajan de 24rem aunque esté desplegado (`arena.css`); plegarlo sigue dándoles más.
  */
 export const CLAVE_DE_PLEGADO = 'arena.muralla.plegada';
 

@@ -44,6 +44,7 @@ import { emboscadaAvisada } from './pasadas/emboscada.js';
 import { equipoDeLaArena } from './pasadas/equipo.js';
 import { jugarEscritorio } from './pasadas/escritorio.js';
 import { espectador } from './pasadas/espectador.js';
+import { montajeAVariosAnchos } from './pasadas/montaje-anchos.js';
 import { moradaEnEscena } from './pasadas/morada.js';
 import { jugarMovil } from './pasadas/movil.js';
 import { batallaPerdida } from './pasadas/perdida.js';
@@ -73,6 +74,7 @@ const PASADAS: readonly (readonly [string, Paso])[] = [
   ['base-anchos', baseAVariosAnchos],
   ['espectador', espectador],
   ['arena', arena],
+  ['montaje-anchos', montajeAVariosAnchos],
   ['edicion', (b, u, p) => conLosCatalogosDevueltos('edicion', () => edicionDeLaArena(b, u, p))],
   ['equipo', (b, u, p) => conLosCatalogosDevueltos('equipo', () => equipoDeLaArena(b, u, p))],
   ['poderes', poderesEnLaArena],

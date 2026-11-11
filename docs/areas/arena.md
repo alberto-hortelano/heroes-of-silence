@@ -117,6 +117,20 @@ piedra; las batallas del mapa llevan la de su sitio (piedra o madera, `data/siti
 enlace con `"material": "madera"` la monta de madera. Los botones de la muralla son los de la
 partida (`MurallaDeLaActiva`, `botonesDeMuralla`).
 
+**En el montaje, los bandos y la ficha mandan sobre la muralla** (#246, 11-11-2026,
+`docs/agents/2026-11-11-arena-clic-a-1024/`): su fila no baja de 24rem (la cabecera de un bando
+con una unidad, y el título de la ficha con la primera fila de su tabla de cifras, también la de
+quien dispara: 373 px medidos) y la muralla toma lo que sobra hasta su alto, que es el de su
+rejilla: los mandos (la regla en prosa, las formas) se desplazan a su lado (`contain: size`,
+`arena.css`). Antes su fila `auto` tomaba el alto de los mandos y, desplegada —lo de salida—,
+los bandos y la ficha medían 0 px a 1024×768 y a 1280×800 y 70 a 1440×900: el clic en el nombre
+de una unidad caía en la rejilla. Hoy a 1024×768 la muralla se desplaza 30 px y desde 1280×800
+entra entera; a ≤ 760 px no cambia. Lo vigila la pasada «montaje-anchos» de `pnpm capturas`
+(`tools/qa/capturas/pasadas/montaje-anchos.ts`; sola, `CAPTURAS_SOLO=montaje-anchos`, ~12 s):
+a 1024×768, 1280×800, 1440×900 y 1920×1080, desplegada y plegada, la cabecera y la primera
+unidad de cada bando enteras a la vista, `elementFromPoint` en el nombre de cada unidad, el clic
+de verdad que abre su ficha y se lee, y la muralla que se usa (la última casilla, una forma).
+
 **Poderes** (11-10-2026; también en el juego): una unidad con Curar lo
 usa en su turno (jugada `power`, cierra el turno, no tras moverse). En la batalla,
 «Editar» del panel abre la ficha del tipo o del héroe y el cambio vale en la pelea y en el

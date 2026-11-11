@@ -249,10 +249,10 @@ async function jugarArena(
   await page.locator('#ficha [data-arena="girar"]').click();
   await page.locator('#ficha [data-clip="death"]').click();
   // El orco solo se pinta a la vista (`animarFiguras` salta la figura que no se ve):
-  // en 1440×900, con el editor de la muralla abierto, a los bandos y la ficha les
-  // queda una franja de ~70 px —la barra lleva los selectores de la complejidad del
-  // combate desde el 22-10-2026 y el editor crece con sus formas— y su tarjeta queda
-  // bajo «+ Héroe». Se trae a la vista, como haría quien la mira.
+  // su tarjeta puede quedar bajo el borde de su columna. Hasta #246 (11-11-2026) a
+  // 1440×900 la muralla dejaba a los bandos una franja de ~70 px y quedaba siempre;
+  // hoy la columna no baja de 24rem, pero la lista de un bando se desplaza igual.
+  // Se trae a la vista, como haría quien la mira.
   await page
     .locator('#bando-derecha button.ver[data-unidad="orko-dos-armas"]')
     .scrollIntoViewIfNeeded();
