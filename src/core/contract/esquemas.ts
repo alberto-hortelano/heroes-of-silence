@@ -103,20 +103,39 @@ export const adventureActionSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('end_turn') }),
 ]);
 
-/** Una jugada que ya no existe: su `type` no vale nunca, con la frase que dice qué mandar. */
+/**
+ * Una jugada que ya no existe: su `type` no vale nunca, con la frase que dice qué
+ * mandar. Es **forma** («Forma y valor», `docs/areas/agente.md`): el zod la
+ * rechaza, esa jugada la juega la IA y la batalla sigue siendo del agente (#334).
+ *
+ * El `refine` es un predicado que estrecha a `never` (#338, 11-11-2026): el zod
+ * la sigue rechazando con su frase, y `z.infer` la deja fuera del tipo
+ * (`AccionDeBatallaDelAgente`, `{ type: never }`, que nada habita). Con un
+ * `refine(() => false)` a secas el tipo seguía diciendo `{ type: 'wait' }`, y por
+ * eso el tipo iba a mano y el director lo ataba con un `as`.
+ */
 function retirada<T extends string>(type: T, verbo: string) {
   return z.object({
-    type: z.literal(type).refine(() => false, {
+    type: z.literal(type).refine((_t): _t is never => false, {
       message: `ya no hay "${type}": ${verbo} se retiró de la batalla; para cerrar el turno de la unidad sin hacer nada, manda { "type": "end_turn" }`,
     }),
   });
 }
 
+/**
+ * La jugada de un turno de batalla. **El zod juzga la forma** (#334, 11-11-2026;
+ * «Forma y valor» en `docs/areas/agente.md`): el `type`, los campos, las casillas
+ * enteras, `surrender.gold` entero y no negativo, las retiradas. Una respuesta sin
+ * ella cuesta solo esa jugada, que juega la IA, como una sin valor (`hit`, los
+ * `*Blocker`): la respuesta es una sola jugada y lo siguiente es el próximo
+ * `battle_turn` de la misma batalla. Su tipo es `AccionDeBatallaDelAgente`.
+ */
 export const battleActionSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('move'), to: hexSchema }),
-  // `hit`, el golpe de la rueda, va como texto y no como `z.enum`: uno mal
-  // escrito descarta ESTA jugada con su motivo (`golpeDelHit`, en el director),
-  // no la batalla entera. Sin él, lo elige la IA a ciegas por ti.
+  // `hit`, el golpe de la rueda, va como texto y no como `z.enum`: los golpes que
+  // valen dependen de la rueda de cada batalla (`golpeDelHit`, en el director), así
+  // que es valor, no forma, y uno mal escrito se dice con su motivo. Sin él, lo
+  // elige la IA a ciegas por ti.
   z.object({
     type: z.literal('attack'),
     target: z.string(),
@@ -131,7 +150,8 @@ export const battleActionSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('throw'), at: hexSchema }),
   // Retiradas el 26-10-2026 (decisión del usuario): se rechazan diciéndolo y
   // diciendo qué mandar, en vez de un «discriminador inválido» que no explica
-  // nada. La batalla sigue: se descarta esa jugada, como cualquier otra mala.
+  // nada. La batalla sigue: esa jugada la juega la IA en su lugar, como cualquier
+  // otra sin forma (#334, 11-11-2026; hasta entonces se llevaban la batalla entera).
   retirada('wait', 'esperar'),
   retirada('defend', 'defenderse'),
   // El hechizo del héroe: a una unidad (`target`), a una casilla (`at`) o, sobre sí o

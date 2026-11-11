@@ -657,9 +657,12 @@ Notas:
   "damage") y "healed" los PV que repuso una cura.
 - La lista "legalActions" de la petición ya trae TODAS las acciones legales;
   elegir una de ellas nunca falla.
-- Si tu acción NO es legal se descarta y juega la IA de reglas en su lugar, que
-  no es gratis: te habrá gastado el turno de esa unidad, o el maná de tu héroe
-  si lo que jugó fue un hechizo. Se te dice cuál de las dos en el veredicto.
+- Si tu acción NO es legal o no encaja con el esquema, se descarta y juega la
+  IA de reglas en su lugar, que no es gratis: te habrá gastado el turno de esa
+  unidad, o el maná de tu héroe si lo que jugó fue un hechizo. Se te dice cuál
+  de las dos en el veredicto, y la batalla sigue siendo tuya.
+- Si no respondes a tiempo, la batalla entera la termina la IA de reglas en tu
+  lugar, sin rendirse: no se te pedirá nada más de ella.
 - De cada acción se te informa, también cuando entra: no tienes que deducir de
   un silencio si coló.`,
 
