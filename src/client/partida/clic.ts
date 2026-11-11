@@ -2,7 +2,7 @@
  * El clic en un botón de la partida (R7 de la reorganización, 07-11-2026: estaba en
  * `main.ts`): un oyente en `document` para todo `[data-action]`. Lo primero, el reparto
  * (`repartirClic`): el segundo clic de un doble clic no cuenta salvo en los que suman de uno en
- * uno, «Ver al enemigo» y «Continuar» van antes que la jugada que se cuenta, y la marcha que
+ * uno, «Ver al enemigo» va antes que la jugada que se cuenta, y la marcha que
  * se anda solo llega (`hastaQueLlegue`); luego, los botones de la batalla, a sus gestos
  * (`GestosDeBatalla`), y los demás, aquí, uno a uno. Nada se registra al importarse: lo
  * instala `main.ts`, en su sitio, entre el puntero y el teclado.
@@ -23,7 +23,7 @@ import { repartirClic } from './reparto-del-clic.js';
 
 /** Instala el oyente del clic (la cabecera del fichero). */
 export function instalarElClic(pagina: PaginaDeLaPartida): void {
-  const { session, aventura, batalla, castillo, lugar, gestos, estado } = pagina;
+  const { session, aventura, castillo, lugar, gestos, estado } = pagina;
   const { haciaEnemigo, lienzo, salirAlMenu, pedirFotograma } = pagina;
   document.addEventListener('click', (ev) => {
     const target = (ev.target as HTMLElement).closest('[data-action]');
@@ -31,20 +31,10 @@ export function instalarElClic(pagina: PaginaDeLaPartida): void {
     const action = target.getAttribute('data-action');
     // El segundo clic de un doble clic no cuenta en ningún botón, caiga donde caiga, salvo
     // los que suman de uno en uno (`repartirClic`; decisión del usuario, 07-11-2026).
-    const reparto = repartirClic(action, session.scene, () => jugadaEnCurso(pagina), ev.detail);
+    const reparto = repartirClic(action, () => jugadaEnCurso(pagina), ev.detail);
     if (reparto === 'mirar') {
       const izquierda = haciaEnemigo.dataset.lado === 'izquierda' ? 0 : lienzo.scrollWidth;
       lienzo.scrollTo({ left: izquierda, behavior: 'smooth' });
-      return;
-    }
-    if (reparto === 'al-acabar') {
-      // Si espera, la vuelta al mapa ocurre dentro de un fotograma, y `render`
-      // pide el siguiente al ver que la escena cambió.
-      batalla.alAcabar(performance.now(), () => {
-        session.finishBattle();
-        aventura.olvidarRuta();
-      });
-      pedirFotograma();
       return;
     }
     if (reparto === 'nada' || hastaQueLlegue(pagina)) return;
@@ -59,6 +49,11 @@ export function instalarElClic(pagina: PaginaDeLaPartida): void {
         break;
       case 'end-turn-confirm':
         pasarTurno(pagina, true);
+        break;
+      case 'finish-battle':
+        // Solo sale con el tablero quieto (#341): la jugada ya está contada.
+        session.finishBattle();
+        aventura.olvidarRuta();
         break;
       case 'end-turn-cancel':
         session.retirarAvisoDeFinDeTurno();

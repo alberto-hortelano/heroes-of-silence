@@ -342,6 +342,17 @@ refresca la duración (la mayor), no se acumula
   queda en lo de antes y no avanza golpe a golpe. **El aviso «Enemigo (N)» del móvil**
   (`EscenaBatalla.enemigosFuera`) cuenta los que se ven en pie (`BattleAnimator.cuantosSeVen`: bajan en
   el impacto que los tumba, con su barra) y no se vacía con el final hasta que el tablero lo cuenta.
-  «Continuar» sigue saliendo en cuanto el estado termina (#158 d) y el espectador sigue con su
-  `sinElFinal`: fuera de #257. Lo vigilan `escenas.test.ts` y `invariantes-cliente.test.ts` (ninguna
-  página ramifica por `contandoAun` en su panel).
+  El espectador sigue con su `sinElFinal`: fuera de #257. Lo vigilan `escenas.test.ts` y
+  `invariantes-cliente.test.ts` (ninguna página ramifica por `contandoAun` en su panel).
+
+- **«Continuar» espera al último golpe** (#341, 11-11-2026,
+  `docs/agents/2026-11-11-continuar-tras-el-tablero/`): salía en cuanto el estado traía el final, y
+  desde #257 era lo único de la partida que avisaba de que el golpe que se estaba viendo era el
+  último. Ahora la barra de acciones lo saca con el final que se ve (`finalALaVista`, `batalla/panel.ts`,
+  la misma que calla «La batalla ha terminado.» en `barraDeLaBatalla`), en el mismo fotograma que
+  «Victoria» o «Derrota»; contando, lleva lo de antes, apagado («Resolver sola» en su `fieldset`).
+  Con el botón ya no hay jugada en curso y su clic es un gesto más: la espera de #158 d
+  (`EscenaBatalla.alAcabar` y el reparto `al-acabar` de `repartirClic`) se borró con sus tests. Lo que
+  se pierde: pulsar antes de tiempo y dejar el clic en cola, que de todos modos esperaba. Lo vigilan
+  `escenas.test.ts` y el guardia de #257 en `invariantes-cliente.test.ts`, que mira también
+  `partida/paneles.ts`.
