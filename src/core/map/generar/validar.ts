@@ -3,7 +3,8 @@
  * partida jugable, venga del agente o del procedimental, que pasan los dos por
  * aquí. El tamaño, los muros (rectos y de barrera), los suelos y los niveles,
  * los objetos en su sitio, la red de nodos (`problemasDeRed`), el recinto de
- * cada ciudad (`problemasDeRecintos`), dónde va cada ciudad y cada pueblo
+ * cada ciudad y lo que no va en su entrada (`problemasDeRecintos`,
+ * `parteDeLaEntrada`), dónde va cada ciudad y cada pueblo
  * (`puebloDelMuroBlocker`, la regla que lee también el poblamiento) y los
  * asaltantes; y los jugadores de un plan con su base (`basesDelPlan`). Para
  * mirar la red construye el mapa (`buildMap`, `construir.ts`).
@@ -18,7 +19,12 @@ import { problemasDeGrupo } from '../../unidad/catalogo.js';
 import { chebyshev, inBounds, pointKey } from '../geometria.js';
 import { BARRERAS_DEL_PUEBLO } from '../map.js';
 import { problemasDeNiveles } from '../niveles.js';
-import { enAlgunRecinto, LADO_DEL_RECINTO, problemasDeRecintos } from '../recinto.js';
+import {
+  enAlgunRecinto,
+  HASTA_LOS_ACCESOS,
+  parteDeLaEntrada,
+  problemasDeRecintos,
+} from '../recinto.js';
 import { estructura, problemasDeRed, regionDeCasilla, tocaUnNodo } from '../regiones.js';
 import {
   BARRERAS,
@@ -388,9 +394,6 @@ function problemasDeLosPueblos(
   return problemas;
 }
 
-/** De la ciudad al anillo de los accesos de sus puertas, en pasos de rey: su recinto (`LADO_DEL_RECINTO`) y uno más. */
-const HASTA_LOS_ACCESOS = (LADO_DEL_RECINTO - 1) / 2 + 1;
-
 /**
  * Por qué un pueblo **del muro** no puede ir en `at`, o `null`: **la regla de
  * dónde va**, una vez, para el plan del agente (`problemasDeLosPueblos`) y para el
@@ -399,8 +402,9 @@ const HASTA_LOS_ACCESOS = (LADO_DEL_RECINTO - 1) / 2 + 1;
  *
  * - ni en el borde del mapa: la pieza del pueblo va en el paso y se sale del marco
  *   (s4 (14,0), desviación 3 de la fase 3);
- * - ni en el recinto de una ciudad ni en un acceso de sus puertas (a
- *   `HASTA_LOS_ACCESOS` de ella o menos): el acceso es por donde su región entra
+ * - ni en el recinto de una ciudad ni en un acceso de sus puertas
+ *   (`parteDeLaEntrada`, la misma que lee `problemasDeRecintos` para el resto de
+ *   lo que se siembra): el acceso es por donde su región entra
  *   en la ciudad, y un nodo ahí pasaría de nodo a nodo sin pisar región
  *   (desviación 6). El generador ya lo cumplía sin mirarlo —sus nodos van a más
  *   de dos casillas de toda ciudad—, así que preguntárselo no cambia ningún mapa.
@@ -413,7 +417,7 @@ export function puebloDelMuroBlocker(
 ): string | null {
   if (at.x < 1 || at.y < 1 || at.x > W - 2 || at.y > H - 2)
     return 'está en el borde del mapa: un pueblo del muro lleva su pieza en el paso, que se saldría del marco; ponlo a una casilla del borde o más';
-  const c = ciudades.find((c) => chebyshev(c.at, at) <= HASTA_LOS_ACCESOS);
+  const c = ciudades.find((c) => parteDeLaEntrada(c.at, at) !== null);
   if (c === undefined) return null;
   const cual = c.name === undefined ? '' : ` "${c.name}"`;
   return `está a ${chebyshev(c.at, at)} casillas de la ciudad${cual} de (${c.at.x},${c.at.y}), en su recinto o en un acceso de sus puertas: por ahí entra su región en la ciudad, y un nodo no puede ir ahí; ponlo a ${HASTA_LOS_ACCESOS + 1} casillas o más de toda ciudad, contando la diagonal como una`;

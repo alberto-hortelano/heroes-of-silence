@@ -242,7 +242,7 @@ Cada hecho tiene un sitio; la ruta, relativa a `src/core/` o `src/client/` (a `s
 | Caminos de un plan al mapa | `caminosDelPlan` (`map/generar/construir.ts`) |
 | Lo explorado: la niebla por regiones | `zonaDeNiebla`, `regionesQueDescubre` (`map/niebla.ts`); la única escritura de `fog`, `descubrir` (`state/vision.ts`) |
 | Por dónde se entra en un pueblo | `puertaDe`, `rodeosParaEntrar` (`map/puertas.ts`) |
-| El recinto de una ciudad, en el núcleo | `recintoDeLaCiudad`, `pasosDelRecinto`, `problemasDeRecintos` (`map/recinto.ts`) |
+| El recinto de una ciudad, en el núcleo | `recintoDeLaCiudad`, `pasosDelRecinto`, `problemasDeRecintos`; su entrada, `parteDeLaEntrada` (`map/recinto.ts`) |
 | Qué barreras admiten los niveles de dos regiones | `admiteLosNiveles` (`map/terrain.ts`) |
 | Franjas de barrera y nivel de cada casilla | `franjasDeBarrera`, `nivelesDelRelieve` (`map/niveles.ts`) |
 | Qué muro se queda: el cierre de un paso | `lineaDeLaPuerta`, `muroDeLaLinea`, `murallasDelMapa` (`map/murallas.ts`) |
@@ -410,7 +410,7 @@ Verificadas contra fheroes2 salvo donde dice «regla nuestra». El detalle, con 
 | Murallas del mapa | ciudad tras piedra, pueblo tras madera, paso tras su obra; escalera a todo el atacante | nuestra |
 | Obras del puesto | empalizada (1 500) y muralla (4 000), de una en una y sin bajar | nuestra |
 | Lugares | de 1 a 8 por mundo; cada premio se cobra una vez; el mundo es de los dos | nuestra |
-| Ciudad amurallada | un recinto de 3 × 3; se entra por sus puertas, donde llega un camino | nuestra |
+| Ciudad amurallada | un recinto de 3 × 3; se entra por sus puertas, donde llega un camino; nada en sus accesos | nuestra |
 | Rueda del golpe | los dos eligen a ciegas; el cruce fija la tirada; cifras por nivel del arma; ruedas de 7, 5 y 3 | nuestra |
 | Armadura | `max(0, daño − armadura)` en cada golpe, lo último; ninguna pieza da PV | nuestra |
 | Orden de turnos | en serpiente: quien cierra un día abre el siguiente (`ordenDelDia`) | nuestra |

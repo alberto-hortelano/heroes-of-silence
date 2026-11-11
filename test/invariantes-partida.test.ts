@@ -38,15 +38,18 @@ import { RAIZ } from './comun.js';
 import { rango, segunPrisa } from './lento.js';
 
 describe('invariantes del proyecto', () => {
-  it('el recinto de una ciudad lo declara solo `core/map/recinto.ts`: su lado, su separación y sus puertas', () => {
+  it('el recinto de una ciudad lo declara solo `core/map/recinto.ts`: su lado, su separación, sus puertas y sus accesos', () => {
     // La ciudad amurallada, vuelta 3 (21-10-2026): el 3 × 3 era de la escena
     // (`rectanguloDelRecinto`), que lo corría contra el borde, y el núcleo ponía
     // nodos, inicios y otras ciudades donde ella levantaba la muralla. Ahora es
     // del núcleo, y la escena, el generador y la puerta de los planes lo leen de
     // allí. Roto a mano: `LADO_DEL_RECINTO` declarado otra vez en la escena sale rojo.
+    // Y hasta dónde llega su entrada (`HASTA_LOS_ACCESOS`, #305): la tenía la puerta
+    // de los planes y el vestido la escribía a mano; roto a mano, otra vez en
+    // `generar/validar.ts`, sale rojo.
     const PUERTA = ruta('src/core/map/recinto.ts');
     const declara =
-      /\b(?:const|let|var)\s+(?:LADO_DEL_RECINTO|SEPARACION_DE_CIUDADES|PUERTAS_DE_LA_CIUDAD)\b/;
+      /\b(?:const|let|var)\s+(?:LADO_DEL_RECINTO|SEPARACION_DE_CIUDADES|PUERTAS_DE_LA_CIUDAD|HASTA_LOS_ACCESOS)\b/;
     const todos = [...CORE, ...CLIENTE, ...SERVIDOR];
     expect(
       infractoresDeCodigo(
@@ -54,7 +57,7 @@ describe('invariantes del proyecto', () => {
         declara,
       ),
     ).toEqual([]);
-    expect(infractoresDeCodigo([PUERTA], declara)).toHaveLength(3);
+    expect(infractoresDeCodigo([PUERTA], declara)).toHaveLength(4);
   });
 
   it('por dónde se entra en una ciudad lo dice su recinto, no las puertas de minas y pueblos', () => {

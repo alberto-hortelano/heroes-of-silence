@@ -18,6 +18,7 @@ import {
   dentroDelContorno,
 } from '../src/client/render/escenario/recinto/octogono.js';
 import { RESPONSE_FORMAT } from '../src/core/contract/formato.js';
+import { serializeMapRequest } from '../src/core/contract/peticion-de-mapa.js';
 import { buildMap } from '../src/core/map/generar/construir.js';
 import { validateMapPlan } from '../src/core/map/generar/validar.js';
 import { chebyshev } from '../src/core/map/geometria.js';
@@ -32,12 +33,14 @@ import {
 import {
   CIUDAD,
   cabeElRecinto,
+  HASTA_LOS_ACCESOS,
   LADO_DEL_RECINTO,
   MURO,
   muroBlocker,
   ORDEN_DE_LAS_CARAS,
   PUERTA,
   PUERTAS_DE_LA_CIUDAD,
+  parteDeLaEntrada,
   pasoPermitido,
   pasosDelMapa,
   problemasDeRecintos,
@@ -236,19 +239,20 @@ describe('lo que impide un recinto (`problemasDeRecintos`), dicho para quien hiz
     ).toEqual([
       'la ciudad "Orilla" (borde, en (0,4)) está en el borde del mapa: lleva un recinto amurallado de 3×3 casillas con ella en el medio, que no cabe; ponla a una casilla del borde o más',
     ]);
-    // Dos donde no hay nada: (2,6), en la región A, y (6,6), en la B.
+    // Dos donde no hay nada: (14,7), en el Centro, y (18,7), en el Llano. Eran
+    // (2,6) y (6,6), que deja a Molinar (8,4) en el anillo de sus accesos (#305).
     expect(
       problemasDeRecintos(
         map,
         red,
         [
-          { id: 'una', name: 'Una', at: { x: 2, y: 6 } },
-          { id: 'otra', name: 'Otra', at: { x: 6, y: 6 } },
+          { id: 'una', name: 'Una', at: { x: 14, y: 7 } },
+          { id: 'otra', name: 'Otra', at: { x: 18, y: 7 } },
         ],
         [],
       ),
     ).toEqual([
-      'las ciudades "Una" (una, en (2,6)) y "Otra" (otra, en (6,6)) llevan sus recintos a 4 casillas uno de otro: se tocarían; entre dos ciudades van 5 casillas o más, contando la diagonal como una',
+      'las ciudades "Una" (una, en (14,7)) y "Otra" (otra, en (18,7)) llevan sus recintos a 4 casillas uno de otro: se tocarían; entre dos ciudades van 5 casillas o más, contando la diagonal como una',
     ]);
     expect(SEPARACION_DE_CIUDADES).toBe(5);
   });
@@ -311,6 +315,46 @@ describe('lo que impide un recinto (`problemasDeRecintos`), dicho para quien hiz
     ]);
   });
 
+  it('en los accesos de una ciudad: ni pueblo, ni monstruo, ni cofre (#305)', () => {
+    // La regla del generador, que no siembra nada en el 5 × 5 de una ciudad
+    // (`parteDeLaEntrada`), dicha al agente: antes el plan solo miraba el 3 × 3,
+    // y un pueblo de región, un monstruo o un cofre en el anillo de fuera pasaba
+    // (QA de «ciudades en su región», H5). Valdeluz, en (5,4); su anillo de los
+    // accesos, de (3,2) a (7,6); en la Vega, la columna 7 es anillo y la 8 no.
+    const plan = planDeNodos();
+    const entrada = (quien: string, at: string): string =>
+      `${quien} de ${at} está a ${HASTA_LOS_ACCESOS} casillas de la ciudad "Valdeluz" (town-0, en (5,4)), en el anillo de los accesos de sus puertas: es la entrada de la ciudad, por donde su región llega a ella, y ahí no va nada; ponlo a ${HASTA_LOS_ACCESOS + 1} casillas o más de toda ciudad, contando la diagonal como una`;
+    const pueblo = (x: number, y: number) => ({
+      ...plan,
+      villages: [...plan.villages, { name: 'Portillo', at: { x, y } }],
+    });
+    const monstruo = (x: number, y: number) => ({
+      ...plan,
+      monsters: [{ at: { x, y }, creature: 'goblin-lancero', count: 3 }],
+    });
+    const cofre = (x: number, y: number) => ({ ...plan, chests: [{ at: { x, y }, gold: 100 }] });
+
+    expect(validateMapPlan(pueblo(7, 5))).toEqual([entrada('el pueblo "Portillo"', '(7,5)')]);
+    expect(validateMapPlan(monstruo(7, 6))).toEqual([
+      entrada('el monstruo goblin-lancero', '(7,6)'),
+    ]);
+    expect(validateMapPlan(cofre(7, 2))).toEqual([entrada('el cofre', '(7,2)')]);
+    // A tres casillas, fuera de la entrada: valen.
+    expect(validateMapPlan(pueblo(8, 5))).toEqual([]);
+    expect(validateMapPlan(monstruo(8, 6))).toEqual([]);
+    expect(validateMapPlan(cofre(8, 2))).toEqual([]);
+
+    // La pregunta, sola: la casilla de la ciudad y su 3 × 3 son su recinto, el
+    // anillo de fuera (también sus esquinas) son los accesos, y más allá, nada.
+    const valdeluz = { x: 5, y: 4 };
+    expect(parteDeLaEntrada(valdeluz, valdeluz)).toBe('recinto');
+    expect(parteDeLaEntrada(valdeluz, { x: 6, y: 5 })).toBe('recinto');
+    expect(parteDeLaEntrada(valdeluz, { x: 7, y: 6 })).toBe('acceso');
+    expect(parteDeLaEntrada(valdeluz, { x: 5, y: 2 })).toBe('acceso');
+    expect(parteDeLaEntrada(valdeluz, { x: 8, y: 4 })).toBeNull();
+    expect(HASTA_LOS_ACCESOS).toBe((LADO_DEL_RECINTO - 1) / 2 + 1);
+  });
+
   it('una región que llega a la ciudad sin camino por una puerta: sin camino no hay puerta', () => {
     const plan = planDeNodos();
     // Sin el camino de A a Valdeluz: (3,3) y (4,3) fuera.
@@ -363,6 +407,13 @@ describe('lo que impide un recinto (`problemasDeRecintos`), dicho para quien hiz
     expect(prosa).toContain(`a ${SEPARACION_DE_CIUDADES} casillas o más`);
     expect(prosa).toContain('HAY PUERTA SOLO DONDE LLEGA UN CAMINO');
     expect(RESPONSE_FORMAT.adventure_turn).toContain('se entra por sus puertas');
+    // Y los accesos, con la constante del núcleo (#305): en la lista de reglas
+    // y en el consejo de la petición del mapa.
+    const accesos = `ni pueblo, ni monstruo, ni cofre a ${HASTA_LOS_ACCESOS} casillas o menos de una ciudad`;
+    expect(prosa.replace(/\s+/g, ' ')).toContain(accesos);
+    expect(
+      serializeMapRequest({ width: 24, height: 24, players: [0, 1] }).advice.join(' '),
+    ).toContain(accesos);
   });
 });
 
