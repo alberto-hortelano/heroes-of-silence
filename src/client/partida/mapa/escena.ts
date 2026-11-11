@@ -435,8 +435,9 @@ export class EscenaAventura {
     const clave = `${pointKey(casilla)}|${heroe?.id ?? ''}|${heroe?.movePoints ?? 0}|${s.isPlayersTurn}`;
     if (clave === this.claveRuta) return;
     this.claveRuta = clave;
-    this.ruta = s.previewPath(casilla);
-    s.status = describirCasilla(s, casilla, this.ruta);
+    const señalada = s.rutaSeñalada(casilla);
+    this.ruta = señalada.ruta;
+    s.status = describirCasilla(s, casilla, this.ruta, señalada.motivo);
     this.fraseDeLaRuta = s.status;
   }
 
@@ -500,8 +501,11 @@ export class EscenaAventura {
     const heroe = s.selectedHero;
     const salida = heroe === null ? null : { ...heroe.at };
     const ruta = heroe === null ? [] : s.previewPath(casilla);
-    s.clickTile(casilla);
+    // La frase de la ruta se olvida ANTES del clic: desde que señalar dice por qué no
+    // hay camino (#336), el clic escribe la misma frase, y olvidándola después la
+    // borraba por ser igual a la de la ruta.
     this.olvidarRuta();
+    s.clickTile(casilla);
     // Si el clic lo ha mandado andar, su ruta se pinta mientras anda y, si no llega,
     // lo que le falta, hasta que se pulse otra cosa.
     const anduvo = heroe !== null && salida !== null && !mismaCasilla(heroe.at, salida);
@@ -530,11 +534,17 @@ export class EscenaAventura {
 }
 
 /**
- * Qué dice la barra al señalar una casilla: qué hay y cuánto cuesta llegar.
+ * Qué dice la barra al señalar una casilla: qué hay y cuánto cuesta llegar, o por qué
+ * no se llega (`motivo`, la frase del núcleo al pulsar; #336).
  * Lo que se lee del estado son datos de la vista —qué objeto hay, de quién—; la
- * ruta ya viene calculada de la sesión.
+ * ruta y el motivo ya vienen calculados de la sesión.
  */
-function describirCasilla(s: Session, p: Point, ruta: readonly PasoDeRuta[]): string {
+function describirCasilla(
+  s: Session,
+  p: Point,
+  ruta: readonly PasoDeRuta[],
+  motivo: string | null,
+): string {
   const { map } = s.state;
   if (!inBounds(map, p)) return '';
   const explorada = s.explorado?.has(p) ?? true;
@@ -573,6 +583,9 @@ function describirCasilla(s: Session, p: Point, ruta: readonly PasoDeRuta[]): st
     const estado = s.estadoDelLugar(objeto.id);
     que = `${objeto.name}${estado === null ? '' : ` (${estado})`}: acaba la marcha allí para entrar`;
   }
+  // El motivo va detrás de lo que hay, que es corto: si la barra no lo deja entero,
+  // `ponerEnLaBarra` corta por frases y lo deja todo en el `title`.
+  if (ruta.length === 0 && motivo !== null) return que === '' ? motivo : `${que} · ${motivo}`;
   if (ruta.length === 0) return que === '' ? '' : `${que}.`;
   const llegada = llegadaDeLaRuta(ruta, s.explorado);
   // La emboscada va DELANTE: es lo que cambia la decisión, y una barra larga se

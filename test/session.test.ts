@@ -26,7 +26,7 @@ import { heroesOf } from '../src/core/state/consultas.js';
 import { applyAdventureAction } from '../src/core/state/game.js';
 import { newGame } from '../src/core/state/setup.js';
 import { guarnicionDeLaCiudad } from '../src/core/state/sitios.js';
-import { HERO_SCOUT_RADIUS } from '../src/core/state/vision.js';
+import { HERO_SCOUT_RADIUS, revealEverything } from '../src/core/state/vision.js';
 import { dwellings } from '../src/core/town/town.js';
 import type { Hex, UnitInfo } from '../src/core/types.js';
 import { unidadesDelJuego } from '../src/core/unidad/catalogo.js';
@@ -424,11 +424,50 @@ describe('sin camino, la barra dice qué lo cierra (M2 de la 2a)', () => {
     s.state = newGame({ seed: 1, plan: planDeNodos() });
     const hero = heroesOf(s.state, 0)[0]!;
     hero.at = { x: 14, y: 4 };
+    // Se nombra lo que se mira (#336): el héroe, teletransportado, no ha explorado C.
+    revealEverything(s.state, 0);
     s.moveHeroTo(hero.id, { x: 19, y: 4 });
     expect(s.status).toBe(
       'No hay camino hasta (19,4): lo cierra la ciudad Torreblanca, con guarnición, en (17,4).',
     );
     expect(hero.at).toEqual({ x: 14, y: 4 });
+  });
+
+  it('al señalar se dice lo mismo que al pulsar, y solo cuando no hay camino (#336)', () => {
+    const s = new Session(1);
+    s.state = newGame({ seed: 1, plan: planDeNodos() });
+    const hero = heroesOf(s.state, 0)[0]!;
+    hero.at = { x: 14, y: 4 };
+    hero.movePoints = 9000;
+    revealEverything(s.state, 0);
+    s.selectedHeroId = hero.id;
+    const cerrada = { x: 19, y: 4 };
+
+    const señalada = s.rutaSeñalada(cerrada);
+    expect(señalada.ruta).toEqual([]);
+    expect(señalada.motivo).toBe(
+      'No hay camino hasta (19,4): lo cierra la ciudad Torreblanca, con guarnición, en (17,4).',
+    );
+    // Un hecho, un sitio: la misma frase que la barra al pulsar.
+    s.moveHeroTo(hero.id, cerrada);
+    expect(s.status).toBe(señalada.motivo);
+
+    // Con camino, la ruta de siempre y sin motivo.
+    const abierta = { x: 13, y: 4 };
+    const conCamino = s.rutaSeñalada(abierta);
+    expect(conCamino.ruta.length).toBeGreaterThan(0);
+    expect(conCamino.ruta).toEqual(s.previewPath(abierta));
+    expect(conCamino.motivo).toBeNull();
+
+    // Su propia casilla no es «sin camino»: el camino es vacío porque ya está.
+    expect(s.rutaSeñalada(hero.at)).toEqual({ ruta: [], motivo: null });
+    // Sin héroe elegido, ni ruta ni motivo.
+    s.selectedHeroId = null;
+    expect(s.rutaSeñalada(cerrada)).toEqual({ ruta: [], motivo: null });
+    // Fuera de su turno, tampoco.
+    s.selectedHeroId = hero.id;
+    s.state.current = 1;
+    expect(s.rutaSeñalada(cerrada)).toEqual({ ruta: [], motivo: null });
   });
 });
 

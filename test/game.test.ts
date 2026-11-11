@@ -64,6 +64,7 @@ import { newGame } from '../src/core/state/setup.js';
 import { dueñoDeLaCiudad, guarnicionDeLaCiudad } from '../src/core/state/sitios.js';
 import type { GameContext, GameState } from '../src/core/state/tipos.js';
 import { ordenDelDia } from '../src/core/state/turnos.js';
+import { revealEverything } from '../src/core/state/vision.js';
 import { building, buildingsOfFaction, nivelDeMorada } from '../src/core/town/buildings.js';
 import { crecimientoDelNivel, ECONOMIA, oroDelIndice } from '../src/core/town/economia.js';
 import {
@@ -1668,6 +1669,9 @@ describe('el mapa de nodos se juega', () => {
     const { state, c } = enLaRed();
     const hero = heroById(state, 'hero-0');
     hero.movePoints = 9000;
+    // El motivo pasa por la niebla de quien mueve (#336): aquí se ve todo lo que
+    // se nombra. Lo que no se ve tiene su test, abajo.
+    revealEverything(state, 0);
     const mover = (to: { x: number; y: number }) => () =>
       applyAdventureAction(state, { type: 'move_hero', hero: hero.id, to }, c, 0);
 
@@ -1691,6 +1695,118 @@ describe('el mapa de nodos se juega', () => {
     // grupo que se infiltra y por qué este no.
     expect(mover({ x: 11, y: 0 })).toThrow(
       /^no hay camino hasta \(11,0\) sin cruzar una barrera: solo la cruza un grupo que se infiltra, y no se infiltra: /,
+    );
+  });
+
+  it('sin camino, el rechazo no nombra lo que cierra si quien mueve no lo ve: «algo que no ves» (#336)', () => {
+    // El caso del crítico: el héroe de 1 en su lado del mapa y dos héroes de 0 en
+    // los dos pasos entre B y C. Nombraba a los dos con su casilla —un radar sobre
+    // la niebla, al pulsar y en el rechazo del agente—.
+    const { state, c } = enLaRed();
+    state.guarniciones = {}; // sin Torreblanca de por medio: solo los dos héroes
+    state.current = 1;
+    const hero = heroById(state, 'hero-1');
+    hero.movePoints = 9000;
+    const guarda = heroById(state, 'hero-0');
+    guarda.at = { x: 11, y: 2 };
+    state.heroes.push({ ...guarda, id: 'hero-9', name: 'Otro Guarda', at: { x: 11, y: 6 } });
+    const mover = () =>
+      applyAdventureAction(state, { type: 'move_hero', hero: hero.id, to: { x: 8, y: 4 } }, c, 1);
+    const motivo = (): string => {
+      try {
+        mover();
+      } catch (err) {
+        return (err as Error).message;
+      }
+      throw new Error('el move_hero tenía que lanzar');
+    };
+
+    // Ni el uno ni el otro se ven: se dice que algo cierra el paso, sin qué ni dónde.
+    expect(motivo()).toBe('no hay camino hasta (8,4): lo cierra algo que no ves');
+    expect(motivo()).not.toContain(guarda.name);
+    expect(motivo()).not.toContain('(11,');
+
+    // Mirando uno y no el otro: se nombra el que se ve, y lo otro sin número.
+    hero.at = { x: 14, y: 4 };
+    const { fog } = state.players.find((p) => p.id === 1)!;
+    expect(fog.has({ x: 11, y: 2 }) || fog.has({ x: 11, y: 6 })).toBe(false);
+    fog.marcarCuadrado({ x: 11, y: 2 }, 0);
+    expect(motivo()).toBe(
+      `no hay camino hasta (8,4): lo cierran el héroe rival ${guarda.name} en (11,2) y algo más que no ves`,
+    );
+    expect(motivo()).not.toContain('Otro Guarda');
+
+    // Y mirando los dos, los dos con su nombre.
+    revealEverything(state, 1);
+    expect(motivo()).toBe(
+      `no hay camino hasta (8,4): lo cierran el héroe rival ${guarda.name} en (11,2) y el héroe rival Otro Guarda en (11,6)`,
+    );
+  });
+
+  it('la guarnición y los asaltantes que cierran, también por la niebla: se nombran solo si se miran ahora (#336)', () => {
+    const { state, c } = enLaRed();
+    const hero = heroById(state, 'hero-0');
+    hero.movePoints = 9000;
+    const motivo = (to: Point): string => {
+      try {
+        applyAdventureAction(state, { type: 'move_hero', hero: hero.id, to }, c, 0);
+      } catch (err) {
+        return (err as Error).message;
+      }
+      throw new Error('el move_hero tenía que lanzar');
+    };
+    // Torreblanca cierra el paso de C a D. Explorada pero lejos de toda mirada,
+    // «con guarnición» afirmaría el estado de hoy: no se nombra.
+    revealEverything(state, 0);
+    hero.at = { x: 8, y: 4 };
+    expect(motivo({ x: 19, y: 4 })).toBe('no hay camino hasta (19,4): lo cierra algo que no ves');
+    // Mirándola, sí.
+    hero.at = { x: 14, y: 4 };
+    expect(motivo({ x: 19, y: 4 })).toBe(
+      'no hay camino hasta (19,4): lo cierra la ciudad Torreblanca, con guarnición, en (17,4)',
+    );
+
+    // Dos grupos de asaltantes en los dos pasos entre B y C, vistos por el jugador 1.
+    state.guarniciones = {};
+    state.current = 1;
+    const otro = heroById(state, 'hero-1');
+    otro.movePoints = 9000;
+    otro.at = { x: 14, y: 4 };
+    const tropa = guarnicionNeutral('templarios').slice(0, 1);
+    state.raiders = [
+      { id: 'raider-a', at: { x: 11, y: 2 }, troops: tropa },
+      { id: 'raider-b', at: { x: 11, y: 6 }, troops: tropa },
+    ];
+    const deOtro = (): string => {
+      try {
+        applyAdventureAction(state, { type: 'move_hero', hero: otro.id, to: { x: 8, y: 4 } }, c, 1);
+      } catch (err) {
+        return (err as Error).message;
+      }
+      throw new Error('el move_hero tenía que lanzar');
+    };
+    expect(deOtro()).toBe('no hay camino hasta (8,4): lo cierra algo que no ves');
+    state.players.find((p) => p.id === 1)!.fog.marcarCuadrado({ x: 11, y: 6 }, 0);
+    expect(deOtro()).toBe(
+      'no hay camino hasta (8,4): lo cierran un grupo de asaltantes en (11,6) y algo más que no ves',
+    );
+  });
+
+  it('la muralla de una ciudad sin explorar no se nombra; explorada, sí con sus puertas (#336)', () => {
+    const { state, c } = enLaRed();
+    const hero = heroById(state, 'hero-0');
+    hero.at = { x: 14, y: 4 };
+    hero.movePoints = 9000;
+    const muralla = { x: 16, y: 4 }; // del recinto de Torreblanca, en (17,4)
+    const { fog } = state.players.find((p) => p.id === 0)!;
+    expect(fog.has(muralla)).toBe(false);
+    const mover = () =>
+      applyAdventureAction(state, { type: 'move_hero', hero: hero.id, to: muralla }, c, 0);
+    // Bajo el negro, la muralla no se pisa igual, y se dice sin decir qué hay.
+    expect(mover).toThrow(/^no hay camino hasta \(16,4\)$/);
+    revealEverything(state, 0);
+    expect(mover).toThrow(
+      /^\(16,4\) es la muralla de Torreblanca: a una ciudad se entra por sus puertas/,
     );
   });
 

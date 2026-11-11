@@ -71,7 +71,9 @@ import type { BattleStack, Side } from '../src/core/battle/types.js';
 import { COMBATE_COMPLETO } from '../src/core/combate.js';
 import { EQUIPO_DEL_JUEGO } from '../src/core/equipo/atado.js';
 import type { Pieza } from '../src/core/equipo/pieza.js';
+import { infiltracionBlocker } from '../src/core/hero/infiltracion.js';
 import { Casillas } from '../src/core/map/casillas.js';
+import { barreraEn } from '../src/core/map/map.js';
 import { DESPEJADO } from '../src/core/state/clima.js';
 import { baseOf, heroesOf } from '../src/core/state/consultas.js';
 import { faccionesDeLaSemilla } from '../src/core/state/setup.js';
@@ -276,6 +278,66 @@ describe('el mapa con el dedo', () => {
       /(^|· )Tierras desconocidas · hoy andas \d+ de los \d+ pasos? que se ven\.$/,
     );
     expect(s.status.toLowerCase().split('tierras desconocidas')).toHaveLength(2);
+  });
+
+  it('señalar una barrera sin camino dice por qué, lo mismo que al pulsar; con el dedo, al primer toque (#336)', () => {
+    // Una casilla de barrera explorada, en pantalla, a la que el héroe elegido no
+    // tiene camino y no se infiltra: la barra callaba al señalar lo que decía al pulsar.
+    const [ancho, alto] = [800, 600];
+    const camaraDe = (s: Session) =>
+      centrarEn({ tile: TILE_INICIAL, x: 0, y: 0 }, focoDe(s), {
+        ancho,
+        alto,
+        mapaAncho: s.state.map.width,
+        mapaAlto: s.state.map.height,
+      });
+    const { semilla, caso: barrera } = primeraSemillaCon(
+      'una barrera explorada y en pantalla, sin camino para un héroe que no se infiltra',
+      (sem) => {
+        const otra = new Session(sem);
+        const heroe = otra.selectedHero!;
+        if (infiltracionBlocker(heroe) === null) return undefined;
+        const camara = camaraDe(otra);
+        for (let dy = -6; dy <= 6; dy++)
+          for (let dx = -6; dx <= 6; dx++) {
+            const p = { x: heroe.at.x + dx, y: heroe.at.y + dy };
+            if (p.x < 0 || p.y < 0 || p.x >= otra.state.map.width || p.y >= otra.state.map.height)
+              continue;
+            if (!otra.explorado!.has(p) || barreraEn(otra.state.map, p) === null) continue;
+            const px = casillaAPixel(camara, p);
+            if (px.x < 0 || px.y < 0 || px.x >= ancho || px.y >= alto) continue;
+            const r = otra.rutaSeñalada(p);
+            if (r.ruta.length === 0 && r.motivo !== null) return p;
+          }
+        return undefined;
+      },
+    );
+    const conElRaton = new Session(semilla);
+    const escena = new EscenaAventura(() => conElRaton);
+    escena.encuadrar(ancho, alto);
+    const p = casillaAPixel(camaraDe(conElRaton), barrera);
+    escena.mover(p.x, p.y);
+    const señalada = conElRaton.status;
+    expect(señalada).toMatch(
+      new RegExp(
+        `^No hay camino hasta \\(${barrera.x},${barrera.y}\\) sin cruzar una barrera: solo la cruza un grupo que se infiltra, y no se infiltra: .*\\.$`,
+      ),
+    );
+    expect(escena.rutaVisible).toHaveLength(0);
+    // Al pulsar, la misma frase: un hecho, un sitio.
+    const antes = { ...conElRaton.selectedHero!.at };
+    if (escena.soltar()) escena.pulsar(p.x, p.y, false);
+    expect(conElRaton.status).toBe(señalada);
+    expect(conElRaton.selectedHero!.at).toEqual(antes);
+
+    // Con el dedo, el primer toque lo dice, y sin «Toca otra vez»: no hay a dónde ir.
+    const conElDedo = new Session(semilla);
+    const tactil = new EscenaAventura(() => conElDedo);
+    tactil.encuadrar(ancho, alto);
+    tactil.bajar(p.x, p.y);
+    if (tactil.soltar()) tactil.pulsar(p.x, p.y, true);
+    expect(conElDedo.status).toBe(señalada);
+    expect(conElDedo.status).not.toContain('Toca otra vez');
   });
 
   it('pulsar la casilla del propio héroe dice algo verdadero, no «No hay camino»', () => {
