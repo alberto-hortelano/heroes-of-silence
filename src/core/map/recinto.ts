@@ -68,6 +68,27 @@ export interface RectDelRecinto {
 /** Lo que hay del medio del recinto a su borde. */
 const MEDIO = (LADO_DEL_RECINTO - 1) / 2;
 
+/** De la ciudad al anillo de los accesos de sus puertas, en pasos de rey: su recinto (`LADO_DEL_RECINTO`) y uno más. */
+export const HASTA_LOS_ACCESOS = MEDIO + 1;
+
+/**
+ * Qué parte de la entrada de la ciudad de `ciudad` es la casilla `p`: su
+ * recinto (el 3 × 3), el anillo de los accesos de sus puertas (el 5 × 5 sin el
+ * 3 × 3) o ninguna. Es **la regla de «nada en la entrada de una ciudad»**, una
+ * vez: la leen la puerta de los planes (`problemasDeRecintos` para pueblos,
+ * monstruos y cofres, y `puebloDelMuroBlocker` para el pueblo del muro) y el
+ * vestido del generador, que marca con ella lo que no siembra. Hasta #305
+ * (11-11-2026) el vestido llevaba su 5 × 5 escrito a mano y el plan solo
+ * miraba el 3 × 3 de lo que no era un pueblo del muro, así que el agente podía
+ * plantar un pueblo, un monstruo o un cofre en la puerta de una ciudad, que el
+ * generador no pone nunca (QA de «ciudades en su región», H5).
+ */
+export function parteDeLaEntrada(ciudad: Point, p: Point): 'recinto' | 'acceso' | null {
+  const d = chebyshev(ciudad, p);
+  if (d <= MEDIO) return 'recinto';
+  return d <= HASTA_LOS_ACCESOS ? 'acceso' : null;
+}
+
 /** Si el recinto con el medio en `centro` cabe entero en un mapa de `W × H`. */
 export function cabeElRecinto(centro: Point, W: number, H: number): boolean {
   return (
@@ -346,7 +367,7 @@ export function tramoDelRecinto(ciudades: readonly Point[], p: Point, q: Point):
 
 /** Si la casilla `p` cae en el recinto de alguna de `ciudades`. */
 export const enAlgunRecinto = (ciudades: readonly Point[], p: Point): boolean =>
-  ciudades.some((c) => chebyshev(c, p) <= MEDIO);
+  ciudades.some((c) => parteDeLaEntrada(c, p) === 'recinto');
 
 /** El papel de una casilla en el paso por los recintos. */
 export const FUERA = 0;
@@ -563,6 +584,9 @@ export function queEsElObjeto(o: GameMap['objects'][number]): string {
  * - cualquier cosa dentro de un recinto que no sea su ciudad —un nodo, otra
  *   ciudad, un pueblo, un monstruo, un cofre, y lo de
  *   `otros`: los asaltantes—;
+ * - un pueblo, un monstruo o un cofre en el anillo de los accesos de sus
+ *   puertas (`parteDeLaEntrada`): es su entrada, y el generador no siembra
+ *   nada ahí (#305, 11-11-2026);
  * - un camino que cruza la muralla: a una ciudad se llega de un acceso a su
  *   puerta y de la puerta a ella (`PUERTAS_DE_LA_CIUDAD`), y el que entra por
  *   la puerta sigue a la ciudad;
@@ -616,17 +640,30 @@ export function problemasDeRecintos(
       );
     }
   }
-  const dentroDe: (OcupaUnaCasilla & { readonly id?: string })[] = [
-    ...map.objects.map((o) => ({ quien: queEsElObjeto(o), at: o.at, id: o.id })),
-    ...otros,
+  // Lo que tampoco va en los accesos: lo que siembra el generador (pueblos,
+  // monstruos y cofres), que nunca pone ahí. Un nodo en un acceso lo mira la
+  // red de las puertas, y los asaltantes tienen su regla (`problemasDeAsaltantes`).
+  const dentroDe: (OcupaUnaCasilla & { readonly id?: string; readonly enLaEntrada: boolean })[] = [
+    ...map.objects.map((o) => ({
+      quien: queEsElObjeto(o),
+      at: o.at,
+      id: o.id,
+      enLaEntrada: o.kind === 'village' || o.kind === 'monster' || o.kind === 'chest',
+    })),
+    ...otros.map((o) => ({ ...o, enLaEntrada: false })),
   ];
   for (const { c, r } of conRecinto) {
     for (const o of dentroDe) {
       if (o.id === c.id) continue;
-      if (!enElRecintoDeLaCiudad(r, o.at)) continue;
-      problemas.push(
-        `${o.quien} de ${casilla(o.at)} cae dentro del recinto de la ciudad ${nombre(c)}, de ${casilla({ x: r.i0, y: r.j0 })} a ${casilla({ x: r.i1, y: r.j1 })}: dentro de su muralla solo va ella`,
-      );
+      if (enElRecintoDeLaCiudad(r, o.at)) {
+        problemas.push(
+          `${o.quien} de ${casilla(o.at)} cae dentro del recinto de la ciudad ${nombre(c)}, de ${casilla({ x: r.i0, y: r.j0 })} a ${casilla({ x: r.i1, y: r.j1 })}: dentro de su muralla solo va ella`,
+        );
+      } else if (o.enLaEntrada && parteDeLaEntrada(c.at, o.at) === 'acceso') {
+        problemas.push(
+          `${o.quien} de ${casilla(o.at)} está a ${chebyshev(c.at, o.at)} casillas de la ciudad ${nombre(c)}, en el anillo de los accesos de sus puertas: es la entrada de la ciudad, por donde su región llega a ella, y ahí no va nada; ponlo a ${HASTA_LOS_ACCESOS + 1} casillas o más de toda ciudad, contando la diagonal como una`,
+        );
+      }
     }
   }
   if (problemas.length > 0) return problemas;

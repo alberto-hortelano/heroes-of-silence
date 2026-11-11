@@ -31,9 +31,11 @@ import { type PasoTorcido, problemasDeNiveles, tramosTorcidos } from '../niveles
 import { puertaDe } from '../puertas.js';
 import {
   cabeElRecinto,
+  HASTA_LOS_ACCESOS,
   type MapaDelRecinto,
   ORDEN_DE_LAS_CARAS,
   PUERTAS_DE_LA_CIUDAD,
+  parteDeLaEntrada,
   pasosDelRecinto,
   problemasDeRecintos,
   puertasPosibles,
@@ -492,20 +494,22 @@ export function vestirRed(
   // Ni nada en sus accesos ni en el puente: son su entrada.
   const enUnAcceso = new Uint8Array(N);
   /**
-   * El 5 × 5 de la ciudad de la casilla `c`, dentro del mapa: su recinto (el 3 × 3;
-   * el de las del muro ya está marcado desde arriba) y sus accesos, el anillo de
-   * fuera. Para las del muro y para las de mitad de una región.
+   * La entrada de la ciudad de la casilla `c`, dentro del mapa: su recinto (el
+   * 3 × 3; el de las del muro ya está marcado desde arriba) y sus accesos, el
+   * anillo de fuera. Para las del muro y para las de mitad de una región. La
+   * regla es `parteDeLaEntrada`, la misma con la que la puerta de los planes
+   * rechaza lo que el agente ponga ahí (#305; antes, un 5 × 5 escrito aquí).
    */
   const marcarElRecinto = (c: number): void => {
-    const cx = c % W;
-    const cy = (c - cx) / W;
-    for (let dy = -2; dy <= 2; dy++)
-      for (let dx = -2; dx <= 2; dx++) {
-        const x = cx + dx;
-        const y = cy + dy;
+    const ciudad = aPunto(c, W);
+    for (let dy = -HASTA_LOS_ACCESOS; dy <= HASTA_LOS_ACCESOS; dy++)
+      for (let dx = -HASTA_LOS_ACCESOS; dx <= HASTA_LOS_ACCESOS; dx++) {
+        const x = ciudad.x + dx;
+        const y = ciudad.y + dy;
         if (x < 0 || y < 0 || x >= W || y >= H) continue;
-        if (Math.max(Math.abs(dx), Math.abs(dy)) <= 1) enUnRecinto[y * W + x] = 1;
-        else enUnAcceso[y * W + x] = 1;
+        const parte = parteDeLaEntrada(ciudad, { x, y });
+        if (parte === 'recinto') enUnRecinto[y * W + x] = 1;
+        else if (parte === 'acceso') enUnAcceso[y * W + x] = 1;
       }
   };
   for (const c of ciudades) marcarElRecinto(c);
