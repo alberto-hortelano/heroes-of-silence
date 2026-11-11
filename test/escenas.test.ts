@@ -401,53 +401,25 @@ describe('la batalla en el lienzo', () => {
     expect(s.status).toBe(previo);
   });
 
-  it('un gesto que espera a la jugada se hace al acabarla, una vez y sin aviso de espera (#158 d)', () => {
-    const s = sesionEnBatalla();
-    const escena = escenaDeBatalla(() => s);
-    s.status = '¡Batalla!';
-    const dura = jugarUnTramo(s);
-    const previo = s.status;
-
-    // Lo que hace «Continuar» con la última muerte aún contándose.
-    let veces = 0;
-    escena.alAcabar(10, () => veces++);
-    expect(escena.ocupada).toBe(true);
-    expect(veces).toBe(0);
-    expect(s.status).not.toBe(AVISO_DE_ESPERA);
-    expect(s.status).toBe(previo);
-    escena.sincronizar(20);
-    expect(veces).toBe(0);
-
-    escena.sincronizar(10 + dura + 1000);
-    expect(escena.ocupada).toBe(false);
-    expect(veces).toBe(1);
-    escena.sincronizar(10 + dura + 2000);
-    expect(veces).toBe(1);
-
-    // Con la cola vacía, se hace en el acto.
-    escena.alAcabar(10 + dura + 3000, () => veces++);
-    expect(veces).toBe(2);
-  });
-
-  it('«Continuar» se atiende antes de preguntar si la jugada sigue, y no pone el aviso (#158 d)', () => {
-    // Lo que hace `main.ts` con un clic en un botón. Preguntar por la jugada en
-    // curso ya escribe el aviso de espera, así que «Continuar» no puede pasar
-    // por ahí: la pregunta no se tiene que hacer siquiera.
+  it('«Ver al enemigo» se atiende antes de preguntar si la jugada sigue, y no pone el aviso; «Continuar», ya no (#158 d, #341)', () => {
+    // Lo que hace \`clic.ts\` con un clic en un botón. Preguntar por la jugada en curso ya
+    // escribe el aviso de espera, así que mirar al enemigo no puede pasar por ahí.
     let preguntas = 0;
     const enCurso = () => {
       preguntas++;
       return true;
     };
-    expect(repartirClic('finish-battle', 'battle', enCurso)).toBe('al-acabar');
-    expect(repartirClic('ver-enemigo', 'battle', enCurso)).toBe('mirar');
+    expect(repartirClic('ver-enemigo', enCurso)).toBe('mirar');
     expect(preguntas).toBe(0);
-    // Los demás botones sí esperan a la jugada.
-    expect(repartirClic('auto-battle', 'battle', enCurso)).toBe('nada');
-    expect(preguntas).toBe(1);
-    expect(repartirClic('auto-battle', 'battle', () => false)).toBe('gesto');
-    expect(repartirClic(null, 'battle', () => false)).toBe('nada');
-    // Fuera de la batalla, «Continuar» es un gesto más.
-    expect(repartirClic('finish-battle', 'adventure', () => false)).toBe('gesto');
+    // Los demás botones sí esperan a la jugada. «Continuar» también desde #341: solo sale
+    // con el tablero quieto (\`finalALaVista\`), así que nunca la encuentra en curso, y si
+    // la encontrara sería un clic de antes del fotograma que lo quita.
+    expect(repartirClic('auto-battle', enCurso)).toBe('nada');
+    expect(repartirClic('finish-battle', enCurso)).toBe('nada');
+    expect(preguntas).toBe(2);
+    expect(repartirClic('auto-battle', () => false)).toBe('gesto');
+    expect(repartirClic('finish-battle', () => false)).toBe('gesto');
+    expect(repartirClic(null, () => false)).toBe('nada');
   });
 
   it('el segundo clic de un doble clic no cuenta en ningún botón de la partida, caiga donde caiga, y se mira antes que nada (decisión del usuario, 07-11-2026)', () => {
@@ -460,14 +432,12 @@ describe('la batalla en el lienzo', () => {
       preguntas++;
       return false;
     };
-    for (const escena of ['adventure', 'town', 'battle'] as const) {
-      for (const accion of BOTONES_DE_MUESTRA) {
-        expect(repartirClic(accion, escena, libre, 2), `${accion} en ${escena}`).toBe('nada');
-      }
-      // También «Ver al enemigo» y «Continuar», que se atienden antes que la jugada en curso.
-      expect(repartirClic('ver-enemigo', escena, libre, 2)).toBe('nada');
-      expect(repartirClic('finish-battle', escena, libre, 2)).toBe('nada');
+    for (const accion of BOTONES_DE_MUESTRA) {
+      expect(repartirClic(accion, libre, 2), accion).toBe('nada');
     }
+    // También «Ver al enemigo», que se atiende antes que la jugada en curso, y «Continuar».
+    expect(repartirClic('ver-enemigo', libre, 2)).toBe('nada');
+    expect(repartirClic('finish-battle', libre, 2)).toBe('nada');
     // Y sin preguntar por la jugada, que ya pondría el aviso de espera en la barra: un
     // segundo clic que no cuenta no hace nada.
     expect(preguntas).toBe(0);
@@ -478,16 +448,16 @@ describe('la batalla en el lienzo', () => {
     // que se ve hasta «Confirmar» o «Defender», y un doble clic mueve dos (H-V2-1 del QA).
     for (const accion of ['mover-en-el-reparto', 'defensa-menos', 'defensa-mas']) {
       expect(
-        repartirClic(accion, 'adventure', () => false, 2),
+        repartirClic(accion, () => false, 2),
         accion,
       ).toBe('gesto');
       expect(
-        repartirClic(accion, 'battle', () => false, 3),
+        repartirClic(accion, () => false, 3),
         accion,
       ).toBe('gesto');
       // La jugada en curso los frena, como a todos.
       expect(
-        repartirClic(accion, 'battle', () => true, 2),
+        repartirClic(accion, () => true, 2),
         accion,
       ).toBe('nada');
     }
@@ -495,14 +465,13 @@ describe('la batalla en el lienzo', () => {
     for (const clics of [1, 0]) {
       for (const accion of BOTONES_DE_MUESTRA) {
         expect(
-          repartirClic(accion, 'town', () => false, clics),
+          repartirClic(accion, () => false, clics),
           accion,
         ).toBe('gesto');
       }
-      expect(repartirClic('ver-enemigo', 'battle', () => true, clics)).toBe('mirar');
-      expect(repartirClic('finish-battle', 'battle', () => true, clics)).toBe('al-acabar');
-      expect(repartirClic('finish-battle', 'adventure', () => false, clics)).toBe('gesto');
-      expect(repartirClic(null, 'town', () => false, clics)).toBe('nada');
+      expect(repartirClic('ver-enemigo', () => true, clics)).toBe('mirar');
+      expect(repartirClic('finish-battle', () => false, clics)).toBe('gesto');
+      expect(repartirClic(null, () => false, clics)).toBe('nada');
     }
   });
 
@@ -517,13 +486,13 @@ describe('la batalla en el lienzo', () => {
     const cuentan = (m: string): string[] => [
       ...new Set(
         botones(m)
-          .filter((b) => repartirClic(b.accion, 'adventure', () => false, 2) === 'gesto')
+          .filter((b) => repartirClic(b.accion, () => false, 2) === 'gesto')
           .map((b) => b.texto),
       ),
     ];
     const noCuentan = (m: string): string[] =>
       botones(m)
-        .filter((b) => repartirClic(b.accion, 'adventure', () => false, 2) === 'nada')
+        .filter((b) => repartirClic(b.accion, () => false, 2) === 'nada')
         .map((b) => b.texto);
     // La guarnición de la base, con el héroe de salida dentro (y la guarnición con que nace
     // la base) y uno ya dejado: Cancelar y Confirmar a la vista.
@@ -655,37 +624,43 @@ describe('la batalla en el lienzo', () => {
     expect(barraDeLaBatalla('En el mapa.', null, true)).toBe('En el mapa.');
   });
 
-  it('«Continuar» no se apaga con la jugada contándose: espera él solo (#165, #158 d)', () => {
+  it('«Continuar» no sale mientras se cuenta el golpe que decide: la barra sigue con lo de antes, apagado, y sale con «Victoria» o «Derrota» (#341)', () => {
+    // Hasta #341 salía en cuanto el estado traía el final, con el último golpe aún
+    // contándose, y su clic esperaba a la cola (#158 d): era lo único de la partida que
+    // adelantaba el final desde #257.
     const s = sesionEnBatalla();
     const escena = escenaDeBatalla(() => s);
+    // La barra que pinta `main.ts` antes de cada jugada de la persona: el tablero quieto.
+    let antes = '';
     for (let i = 0; i < 500 && s.battle!.finished === null; i++) {
+      antes = marcadoDe(renderActions(s, false));
       // La rueda del golpe, si espera a la persona (F5): Normal.
       if (s.ruedaPendiente !== null) s.elegirEnLaRueda('normal');
       else s.playBattleAction(agresiva(s.battle!));
     }
     expect(s.battle!.finished).not.toBeNull();
     escena.sincronizar(10);
-    // La última muerte aún se cuenta y «Continuar» ya está, encendido.
     expect(escena.ocupada).toBe(true);
-    const acciones = marcadoDe(renderActions(s, escena.ocupada));
-    expect(acciones).toContain('data-action="finish-battle"');
-    expect(acciones).not.toContain('fieldset');
-  });
+    const contando = marcadoDe(renderActions(s, escena.ocupada));
+    expect(contando).not.toContain('finish-battle');
+    expect(contando).not.toContain('Continuar');
+    // Lo de antes de la jugada, con los botones apagados en su sitio (#165): «Resolver
+    // sola» dentro del `fieldset` del aviso de espera y la casilla de la rueda, fuera.
+    expect(
+      contando.endsWith(
+        `<fieldset class="contando" disabled title="${AVISO_DE_ESPERA}"><button data-action="auto-battle">Resolver sola</button></fieldset>`,
+      ),
+    ).toBe(true);
+    const sinApagar = (m: string) => m.replace(/<fieldset[^>]*>|<\/fieldset>/g, '');
+    expect(sinApagar(contando)).toBe(sinApagar(antes));
 
-  it('un gesto que espera a la jugada se olvida si la batalla ya no es la misma (#158 d)', () => {
-    const s = sesionEnBatalla();
-    let actual: Session = s;
-    const escena = escenaDeBatalla(() => actual);
-    jugarUnTramo(s);
-    let veces = 0;
-    escena.alAcabar(10, () => veces++);
-    expect(veces).toBe(0);
-    // Otra sesión, otra batalla: el «Continuar» de la anterior no se hace aquí.
-    actual = sesionEnBatalla();
-    escena.sincronizar(1_000_000);
-    actual = s;
-    escena.sincronizar(2_000_000);
-    expect(veces).toBe(0);
+    // Contado el último golpe, «Continuar» y el final del lateral, en el mismo fotograma.
+    escena.sincronizar(100_000_000);
+    expect(escena.ocupada).toBe(false);
+    expect(marcadoDe(renderActions(s, escena.ocupada))).toBe(
+      '<button data-action="finish-battle" class="primary">Continuar</button>',
+    );
+    expect(marcadoDe(renderSide(s, escena.ocupada))).toMatch(/<h2>(Victoria|Derrota)<\/h2>/);
   });
 
   it('fuera del centro, la caja de la figura sigue siendo de la figura', () => {
@@ -946,7 +921,7 @@ describe('los gestos de la batalla, los mismos en la partida y la arena (R3 de l
     expect(gestos.clic('battle-spell', boton, 1)).toBe(true);
     expect(s.hechizos.selectedSpell).toBeNull();
     // En la partida, el segundo clic ni llega a los gestos (`repartirClic`).
-    expect(repartirClic('battle-spell', 'battle', () => false, 2)).toBe('nada');
+    expect(repartirClic('battle-spell', () => false, 2)).toBe('nada');
   });
 });
 

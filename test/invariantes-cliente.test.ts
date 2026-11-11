@@ -529,12 +529,24 @@ describe('invariantes del proyecto', () => {
     const enLaArena = infractoresDeCodigo([ARENA], ramifica).filter((l) =>
       delPanelDeLaArena.has(Number(l.split(' → ')[0]!.split(':')[1])),
     );
-    const PARTIDA = ficheros('src/client/partida/batalla');
+    // Los paneles de la partida también (#341, 11-11-2026): la barra de acciones sacaba
+    // «Continuar» en cuanto el estado traía el final, con el golpe que decide aún
+    // contándose. Si vuelve a decidir por su cuenta —un `contandoAun &&` junto al
+    // `finished`—, es una regla aparte; la común es `finalALaVista`. Roto a mano: con
+    // `!contandoAun && session.batallaALaVista?.finished != null` en `renderActions` sale
+    // rojo con su línea; con `session.batallaALaVista?.finished != null` a secas (lo de
+    // antes de #341), el «que mire algo» de abajo, y el test de `escenas.test.ts`.
+    const PANELES = ruta('src/client/partida/paneles.ts');
+    const PARTIDA = [...ficheros('src/client/partida/batalla'), PANELES];
     expect([...enLaArena, ...infractoresDeCodigo(PARTIDA, ramifica)]).toEqual([]);
-    // Y que mire algo: las dos le pasan `contandoAun` a la regla común.
+    // Y que mire algo: las dos le pasan `contandoAun` a la regla común, y las acciones de
+    // la partida sacan «Continuar» con el final que se ve.
     for (const r of [ARENA, ruta('src/client/partida/batalla/panel.ts')]) {
       expect(codigoDe(r)).toMatch(/panelDeBatalla\([^,]+,\s*contandoAun,/);
     }
+    expect(codigoDe(PANELES)).toMatch(
+      /finalALaVista\([^,]+,\s*contandoAun\)\s*!==\s*null\)\s*\{\s*return html`<button data-action="finish-battle"/,
+    );
   });
 
   it('la pieza que pinta el clima no lee la sesión: le dan el clima del sitio', () => {

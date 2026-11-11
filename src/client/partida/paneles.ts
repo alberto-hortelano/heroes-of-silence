@@ -24,6 +24,7 @@
 import type { RentaDelDia } from '@core/state/renta.js';
 import { conMiles } from '@core/texto.js';
 import type { Hero } from '@core/types.js';
+import { finalALaVista } from '../batalla/panel.js';
 import { DESHABILITADO, fondoDeColor, type Html, html, NADA, srcDeImagen } from '../comun/html.js';
 import { asset } from '../render/assets.js';
 import { COLOR_DEL_ORO } from '../render/palette.js';
@@ -156,10 +157,12 @@ export function renderActions(session: Session, contandoAun = false): Html {
     case 'lugar':
       return html`<button data-action="salir-del-lugar" title="Escape">Volver al mapa</button>`;
     case 'battle': {
-      const battle = session.batallaALaVista;
-      // «Continuar» no se apaga: espera solo a que acabe la jugada (#158 d,
-      // `EscenaBatalla.alAcabar`) y cierra una batalla que ya no cambia.
-      if (battle !== null && battle.finished !== null) {
+      // «Continuar» sale con el tablero quieto (`finalALaVista`), a la vez que
+      // «Victoria» o «Derrota» en el lateral: mientras se cuenta el golpe que decide,
+      // la barra sigue con lo que llevaba, apagado (#341, 11-11-2026). Con el botón
+      // ya no hay jugada que esperar y un clic basta; hasta #341 salía contando y su
+      // clic esperaba a la cola (#158 d).
+      if (finalALaVista(session.batallaALaVista, contandoAun) !== null) {
         return html`<button data-action="finish-battle" class="primary">Continuar</button>`;
       }
       // «Solo la rueda del héroe» (22-10-2026) se cambia también a media batalla
