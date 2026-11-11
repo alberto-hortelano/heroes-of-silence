@@ -239,18 +239,40 @@ export async function cerrarLaGuarnicion(
 /**
  * Lleva el marco del lienzo hasta `xEnLienzo` si el tablero es más ancho que la
  * pantalla (el móvil), y devuelve la caja del lienzo después de desplazarlo.
+ *
+ * Antes sube (o baja) el escenario hasta que el marco se ve entero, como hace quien
+ * juega en el móvil: allí el lateral va debajo del tablero, y pulsar «Terminar turno»
+ * desplaza `#stage` hasta el botón y deja el tablero fuera de la pantalla. Desde que
+ * la barra de la batalla tiene cuatro líneas (#264, 11-11-2026) el botón ya no se veía
+ * sin desplazar a 390 × 844, y el ratón iba a un píxel por encima de la pantalla: la
+ * barra de la rueda en el móvil decía «» en vez de «Golpearías desde (4,3)». Si aun
+ * así el marco no se ve, lo dice: un clic fuera de la pantalla no llega a nada.
  */
 export async function alcanzar(
   page: Page,
   xEnLienzo: number,
 ): Promise<{ x: number; y: number; width: number; height: number }> {
-  await page.evaluate((x) => {
+  const fuera = await page.evaluate((x) => {
     const l = document.getElementById('lienzo');
-    if (l !== null && l.scrollWidth > l.clientWidth) {
+    if (l === null) return 'no está';
+    // `nearest`: si ya se ve entero, no se mueve nada (el escritorio).
+    l.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    if (l.scrollWidth > l.clientWidth) {
       const visible = x - l.scrollLeft;
       if (visible < 30 || visible > l.clientWidth - 30) l.scrollLeft = x - l.clientWidth / 2;
     }
+    const r = l.getBoundingClientRect();
+    // Si cabe en la ventana, entero; si es más alto que ella, que se vea algo. Con el
+    // fallo de arriba iba de −354 a 26: medio fuera no basta, el enemigo caía arriba.
+    const mal =
+      r.height <= innerHeight
+        ? r.top < -1 || r.bottom > innerHeight + 1
+        : r.bottom <= 0 || r.top >= innerHeight;
+    return mal
+      ? `va de ${Math.round(r.top)} a ${Math.round(r.bottom)} px en una pantalla de ${innerHeight}`
+      : null;
   }, xEnLienzo);
+  if (fuera !== null) throw new Error(`el marco del lienzo no se ve: ${fuera}`);
   return await caja(page);
 }
 
