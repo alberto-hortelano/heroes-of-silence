@@ -314,6 +314,11 @@ export function instalarElClic(pagina: PaginaDeLaPartida): void {
           throw new Error(`la línea de la crónica no dice a qué casilla lleva: «${dx}, ${dy}»`);
         }
         aventura.mirarLaCasilla({ x, y });
+        // En el móvil (≤ 760 px) el lateral va debajo del mapa y lo que se desplaza es
+        // `#stage`: la cámara se movía con el mapa fuera de la pantalla y tocar la línea no
+        // hacía nada visible (H1 del QA de #202, 11-11-2026). `nearest` no desplaza nada si
+        // el mapa ya se ve entero, como en el escritorio; sin `behavior`, el de la hoja.
+        lienzo.scrollIntoView({ block: 'nearest', inline: 'nearest' });
         break;
       }
       case 'menu':

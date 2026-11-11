@@ -575,7 +575,7 @@ describe('la crónica de la pantalla deja de mentir', () => {
       linea({ kind: 'troops_taken', hero: 'h', site: 't', creature: TROPA_BARATA, count: 1 }),
     ).toContain(`El jugador 1 recoge 1 × ${goblin} de la guarnición en\u00a0(0,\u00a00)`);
     expect(linea({ kind: 'defense_set', hero: 'h', site: 't', fighting: 4, staying: 1 })).toContain(
-      'El jugador 1 defiende con 4 individuos y deja fuera 1',
+      'El jugador 1 defiende con 4 individuos y deja fuera 1 individuo',
     );
   });
 

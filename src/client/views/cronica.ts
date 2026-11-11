@@ -564,8 +564,8 @@ export function renderLog(
             false,
             `${
               mio
-                ? `Defiendes${donde} con ${individuos(e.fighting)} y dejas fuera ${e.staying}`
-                : `${jugador(e.actor)} defiende${donde} con ${individuos(e.fighting)} y deja fuera ${e.staying}`
+                ? `Defiendes${donde} con ${individuos(e.fighting)} y dejas fuera ${individuos(e.staying)}`
+                : `${jugador(e.actor)} defiende${donde} con ${individuos(e.fighting)} y deja fuera ${individuos(e.staying)}`
             }${fuera}`,
             e.at,
           );
