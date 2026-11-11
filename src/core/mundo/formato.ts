@@ -363,6 +363,17 @@ export interface Cobro {
 }
 
 /**
+ * Quién puso una marca: su jugador y, si lo había, el nombre de su héroe. Como un
+ * `Cobro`, pero el héroe puede faltar: una marca de `alPerder` la pone el dueño del
+ * que perdió, que quizá ya cayó (`cierre.ts`). La frase de una opción apagada por una
+ * marca que puso el otro dice quién fue (#283, 11-11-2026).
+ */
+interface Autor {
+  readonly jugador: PlayerId;
+  readonly heroe: string | null;
+}
+
+/**
  * Lo que una partida lleva de su mundo (`GameState.mundo`): la historia, que no
  * cambia, y lo que sí, que es estado de la partida. El mundo es uno para los dos
  * jugadores: lo que uno cambia o se lleva, el otro ya no lo encuentra. Lo único de
@@ -374,6 +385,13 @@ export interface EstadoDelMundo {
   readonly estados: Record<string, string>;
   /** Las marcas puestas, en el orden en que se pusieron. */
   readonly marcas: string[];
+  /**
+   * Quién puso cada marca, por la marca (#283, 11-11-2026). Al lado de `marcas` y no
+   * dentro: la lista la leen tal cual `trasLosEfectos`, la validación y la IA, que
+   * preguntan si está y no quién. Lo escribe la única escritura de `marcas`
+   * (`aplicarEfectos`), y lo lee la frase de `{ no: { marca } }` (`mundo/reglas.ts`).
+   */
+  readonly quienPuso: Record<string, Autor>;
   /**
    * Las opciones con premio ya cobradas (`daPremio`), por `claveDeOpcion`, con quién.
    * **Cada premio se cobra una vez** por regla del núcleo y no por cómo esté escrita
@@ -544,6 +562,7 @@ export function estadoInicialDelMundo(historia: Historia): EstadoDelMundo {
     historia,
     estados: Object.fromEntries(historia.lugares.map((l) => [l.id, l.estadoInicial])),
     marcas: [],
+    quienPuso: {},
     cobradas: {},
     vencidos: {},
     conversaciones: {},

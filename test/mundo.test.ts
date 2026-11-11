@@ -48,6 +48,7 @@ import { settleBattle } from '../src/core/state/cierre.js';
 import { applyAdventureAction } from '../src/core/state/game.js';
 import { newGame } from '../src/core/state/setup.js';
 import type { AdventureAction, GameState } from '../src/core/state/tipos.js';
+import { NOMBRE_DE_FACCION } from '../src/core/types.js';
 import { leerCrudos, validarEnDisco } from '../tools/mundo/disco.js';
 import { medirMundo } from '../tools/mundo/medida.js';
 import { leerBancoDeDisco } from '../tools/npcs/banco.js';
@@ -766,6 +767,85 @@ describe('elegir en un lugar', () => {
     elegirComo(state, 0, yo.id, 'gracias', 0);
     expect(state.players[0]!.oro).toBe(oro + 500);
     expect(state.mundo!.conversaciones).toEqual({});
+  });
+
+  /**
+   * Quién puso la marca (#283, 11-11-2026): si el rival cerró una opción con su
+   * marca, a quien juega se le dice que fue él, delante de la frase «ya» del mundo,
+   * como con lo que se llevó; si la puso quien pregunta, la frase sola. Leer la carta
+   * no es un premio: lo que la apaga es la condición escrita.
+   */
+  it('una opción apagada por una marca del rival dice quién la puso; la propia, la frase sola', () => {
+    const { state, yo, rival } = losDosEnElPuente(leido, 1);
+    const CARTA = { lugar: 'puente-de-corvo', punto: 'garita', nodo: 'dentro', opcion: 0 };
+    const enLaGarita = (jugador: number, hero: string) =>
+      applyAdventureAction(state, { type: 'elegir_en_lugar', hero, ...CARTA }, ctx, jugador);
+    enLaGarita(1, rival.id);
+    expect(state.mundo!.quienPuso['carta-leida']).toEqual({ jugador: 1, heroe: rival.name });
+    const faccion = NOMBRE_DE_FACCION[state.players[1]!.faction];
+    const delRival = `${rival.name} (${faccion}) pasó antes: la carta del capitán ya está abierta`;
+    state.current = 0;
+    expect(opcionBlocker(state, yo.id, CARTA)).toBe(delRival);
+    // La pantalla lo dice igual, y la acción lanza con eso mismo.
+    const a = anteDelHeroe(state, yo.id);
+    if ('motivo' in a) throw new Error(a.motivo);
+    const garita = a.lugar.puntos.find((p) => p.id === 'garita')!;
+    expect(opcionesDe(a, garita, 'dentro')[0]!.motivo).toBe(delRival);
+    expect(() => enLaGarita(0, yo.id)).toThrow(`no se puede elegir eso: ${delRival}`);
+    // Para quien la puso, la frase del mundo, sin su propio nombre delante.
+    state.current = 1;
+    expect(opcionBlocker(state, rival.id, CARTA)).toBe('la carta del capitán ya está abierta');
+  });
+
+  it('una marca de «alPerder» no tiene héroe: la frase dice la facción del otro, sin lanzar', () => {
+    const conLaDerrota = leerMundo(
+      prueba((h) => {
+        const puente = h.lugares[0] as unknown as {
+          dialogos: Record<string, { nodos: Record<string, { opciones: { si?: unknown[] }[] }> }>;
+        };
+        puente.dialogos.garita!.nodos.dentro!.opciones[0]!.si = [
+          { no: { marca: 'derrota-en-el-pozo' } },
+        ];
+      }),
+      'prueba',
+      BANCO,
+    );
+    const state = partidaDelMundo(conLaDerrota);
+    const [yo, rival] = [0, 1].map((o) => state.heroes.find((h) => h.owner === o)!);
+    rival!.at = { x: 16, y: 13 };
+    state.current = 1;
+    const enElPozo = (nodo: string, opcion: number) =>
+      applyAdventureAction(
+        state,
+        {
+          type: 'elegir_en_lugar',
+          hero: rival!.id,
+          lugar: 'pozo-de-valdesombra',
+          punto: 'pozo',
+          nodo,
+          opcion,
+        },
+        ctx,
+        1,
+      );
+    enElPozo('brocal', 0);
+    enElPozo('brocal', 1);
+    const pending = state.pendingBattle!;
+    for (const s of pending.battle.stacks) if (s.side === 'attacker') s.count = 0;
+    pending.battle.finished = { winner: 'defender' };
+    settleBattle(state, ctx);
+    expect(state.mundo!.quienPuso['derrota-en-el-pozo']).toEqual({ jugador: 1, heroe: null });
+    state.current = 0;
+    yo!.at = { x: 10, y: 12 };
+    const faccion = NOMBRE_DE_FACCION[state.players[1]!.faction];
+    expect(
+      opcionBlocker(state, yo!.id, {
+        lugar: 'puente-de-corvo',
+        punto: 'garita',
+        nodo: 'dentro',
+        opcion: 0,
+      }),
+    ).toBe(`el rival (${faccion}) pasó antes: lo del pozo ya ha vencido a alguien`);
   });
 
   it('con el héroe del rival, «ese héroe no es tuyo» (no «no es tu turno»)', () => {

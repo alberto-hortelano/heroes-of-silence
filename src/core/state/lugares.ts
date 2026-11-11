@@ -79,6 +79,8 @@ export function aplicarEfectos(
     } else if ('marca' in e) {
       if (mundo.marcas.includes(e.marca)) continue;
       mundo.marcas.push(e.marca);
+      // Quién: la frase del otro jugador lo nombra (#283). Sin héroe, la de `alPerder`.
+      mundo.quienPuso[e.marca] = { jugador: dueño, heroe: hero?.name ?? null };
       emit(state, { kind: 'world_mark', marca: e.marca, lugar: lugar.id, actor: dueño, at });
     } else if ('oro' in e) {
       player.oro += e.oro;
