@@ -96,7 +96,8 @@ nombra lo que `hero.owner` —siempre quien lo lee: la persona al señalar y al 
 rechazo de su `move_hero`— mira ahora (`visibleNow`): el héroe por `heroesALaVista`, el grupo por
 `asaltantesALaVista` y la guarnición si su casilla se mira (es estado de hoy, no recuerdo: una ciudad
 explorada lejos de toda mirada tampoco se nombra). Lo que no se ve es «lo cierra algo que no ves», o
-«… y algo más que no ves» detrás de lo visto: una vez, sin qué, sin dónde y sin número; callarlo como
+«lo cierran A, B y algo más que no ves» detrás de lo visto: una vez, el último de la lista (con «A y B y
+algo más…» se leía mal, H3 del QA, 11-11-2026), sin qué, sin dónde y sin número; callarlo como
 «no hay camino» a secas mentiría. La muralla de una ciudad bajo el negro no se nombra (sale «no hay
 camino hasta (x,y)»). Nombraba con `state.heroes` y `state.raiders` enteros, un radar sobre la niebla.
 Al **señalar**, la barra lo dice también (`Session.rutaSeñalada` → `MarchaEnElMapa.rutaSeñalada`, la

@@ -176,5 +176,25 @@ function hayRaton(): boolean {
 
 /** Si lo que hay en la barra pasa de lo que se ve (`line-clamp` recorta por abajo). */
 function noCabe(el: HTMLElement): boolean {
-  return el.scrollHeight > el.clientHeight;
+  return desbordaLaBarra(el.scrollHeight, el.clientHeight);
+}
+
+/**
+ * Lo que la barra puede medir de más sin que le falte nada: el redondeo de la letra.
+ * Con la de los elfos, dos líneas de 19,5 px dan 40 de texto en 39 de barra, y cuatro,
+ * 79 en 78 (medido a 380, 1024 y 1440 px en las cinco facciones; las otras cuatro dan
+ * justo): todo texto de dos líneas «no cabía» y se cortaba a una, y en la batalla se
+ * perdía la cuarta (H1 del QA de #336, 11-11-2026: a 380 con ratón quedaba «No hay
+ * camino hasta … (el resto, con el ratón quieto)», sin el porqué). Una línea que de
+ * verdad no cabe pasa 19 px; uno es lo que se vio.
+ */
+const REDONDEO_DE_LA_LETRA = 1;
+
+/**
+ * Si un texto de `alto` px desborda una barra de `visible` px. La única cuenta: la
+ * leen el corte y la pasada `arena` de `pnpm capturas`, que mira que la previsión de
+ * la carga quepa.
+ */
+export function desbordaLaBarra(alto: number, visible: number): boolean {
+  return alto > visible + REDONDEO_DE_LA_LETRA;
 }

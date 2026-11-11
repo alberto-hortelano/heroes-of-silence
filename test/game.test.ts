@@ -1736,6 +1736,30 @@ describe('el mapa de nodos se juega', () => {
     );
     expect(motivo()).not.toContain('Otro Guarda');
 
+    // Dos vistos y lo oculto: lo oculto es el último de la lista, con su coma, no
+    // «A y B y algo más que no ves» (H3 del QA, 11-11-2026). Hacia A, con sus dos
+    // entradas cerradas por asaltantes, ningún hostil basta solo y se nombra todo lo
+    // de delante: los dos guardas y un grupo en C, a la vista.
+    const uno = guarnicionNeutral('templarios').slice(0, 1);
+    state.raiders = [
+      { id: 'raider-c', at: { x: 13, y: 3 }, troops: uno },
+      { id: 'raider-a1', at: { x: 5, y: 4 }, troops: uno },
+      { id: 'raider-a2', at: { x: 5, y: 8 }, troops: uno },
+    ];
+    fog.marcarCuadrado({ x: 13, y: 3 }, 0);
+    const haciaA = (): string => {
+      try {
+        applyAdventureAction(state, { type: 'move_hero', hero: hero.id, to: { x: 2, y: 6 } }, c, 1);
+      } catch (err) {
+        return (err as Error).message;
+      }
+      throw new Error('el move_hero tenía que lanzar');
+    };
+    expect(haciaA()).toBe(
+      `no hay camino hasta (2,6): lo cierran el héroe rival ${guarda.name} en (11,2), un grupo de asaltantes en (13,3) y algo más que no ves`,
+    );
+    state.raiders = [];
+
     // Y mirando los dos, los dos con su nombre.
     revealEverything(state, 1);
     expect(motivo()).toBe(

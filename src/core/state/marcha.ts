@@ -305,9 +305,11 @@ export function porQueNoLlega(state: GameState, hero: Hero, to: Point): string {
   const dichos = cierran.map((at) => queLoCierra(state, hero, at, mirando));
   const vistos = dichos.filter((d): d is string => d !== null);
   if (vistos.length === 0) return `${frase}: lo cierra algo que no ves`;
-  // Lo oculto, una vez y sin número, detrás de lo que se ve.
+  // Lo oculto, una vez y sin número, detrás de lo que se ve, como el último de la
+  // lista: «A, B y algo más que no ves», no «A y B y algo más…» (H3 del QA de #336).
   const conLoOculto = vistos.length < dichos.length;
-  return `${frase}: ${vistos.length === 1 && !conLoOculto ? 'lo cierra' : 'lo cierran'} ${enumerar(vistos)}${conLoOculto ? ' y algo más que no ves' : ''}`;
+  const lista = conLoOculto ? [...vistos, 'algo más que no ves'] : vistos;
+  return `${frase}: ${lista.length === 1 ? 'lo cierra' : 'lo cierran'} ${enumerar(lista)}`;
 }
 
 /**
