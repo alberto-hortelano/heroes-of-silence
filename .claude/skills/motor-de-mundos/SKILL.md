@@ -234,8 +234,9 @@ los lugares**, y si elige un desenlace primero, el otro se le cierra a quien jue
   del abad ya está en manos de los orkos», no «ya se lo vendiste a Gruk» ni «tú». El juego
   no dice quién puso una marca.
 - La biblia dice, en `## Desenlaces`, qué encuentra quien llega tarde.
-- La IA del rival elige **la primera opción con premio** en el orden escrito: el desenlace
-  que va primero es el que tomará si llega antes.
+- La IA del rival, si llega antes, toma el desenlace **que más vale** (el oro, el precio de
+  la pieza, el de la tropa, lo que da un encuentro al ganarlo), no el que escribas primero:
+  el orden de las opciones no decide nada. Si los dos valen lo mismo, lo decide la partida.
 
 ## La gente y sus figuras
 
