@@ -98,7 +98,7 @@ export async function veteranos(
   await comprobar(page, espejo, 'resolver la primera batalla de los veteranos');
   await veteranosEnElPanel(page, espejo, 'tras la primera batalla');
   const cronica = await page.locator('#side').innerText();
-  if (!cronica.includes('sube a veterano de rango')) {
+  if (!/sube a rango \d+ de veteranía/.test(cronica)) {
     throw new Error('la crónica de la página no cuenta el ascenso de la tropa');
   }
   await captura(page, 'veteranos-01-panel');
