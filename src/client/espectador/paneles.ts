@@ -214,11 +214,15 @@ function parteDeGuerra(estado: BattleState): Html {
  * los objetos del cable: con ellos la crónica dice «El jugador 0 toma el pueblo de
  * El Soto» y no «toma un paso» (vuelta 1 de QA de la tarea 2, H2). Una ciudad, por
  * su casilla.
+ *
+ * Sin `llevaALaCasilla`: el espectador no tiene cámara que mover (mira el mapa
+ * entero desde lo más lejos, `main.ts`), así que la línea sigue diciendo la
+ * casilla en vez de ser un botón que no llevaría a ninguna parte (#202).
  */
 function crónica(v: SpectatorView): Html {
-  return html`<h3>Crónica</h3>${renderLog(v.log, NADIE, undefined, (id) =>
-    pasoOPuebloSiExiste(v.map.objects, id),
-  )}`;
+  return html`<h3>Crónica</h3>${renderLog(v.log, NADIE, {
+    sitioDe: (id) => pasoOPuebloSiExiste(v.map.objects, id),
+  })}`;
 }
 
 /**

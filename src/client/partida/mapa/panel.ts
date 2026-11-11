@@ -220,12 +220,12 @@ export function renderAdventurePanel(session: Session): Html {
         )}</div>`;
 
   return html`${fin}${heroPanel}${listaHeroes}${listaPueblos}${listaAldeas}
-    <h3>Crónica</h3>${renderLog(
-      session.cronica(60),
-      session.viewer,
-      (id) => session.lugarDelMundo(id),
-      (id) => session.sitioDeLaCronica(id),
-    )}`;
+    <h3>Crónica</h3>${renderLog(session.cronica(60), session.viewer, {
+      lugarDe: (id) => session.lugarDelMundo(id),
+      sitioDe: (id) => session.sitioDeLaCronica(id),
+      // La línea lleva la cámara a su casilla (`mirar-la-casilla`, #202).
+      llevaALaCasilla: true,
+    })}`;
 }
 
 /**

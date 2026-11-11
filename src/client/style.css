@@ -487,6 +487,24 @@ progress.liderazgo::-moz-progress-bar { background: var(--barra); }
   padding: 0.45rem 0.55rem;
 }
 .log div { margin-bottom: 0.15rem; }
+/* La línea de la crónica que lleva a su casilla (#202, solo en la partida): un
+   botón que se lee como las demás líneas, sin fondo, ni borde, ni el alto de un
+   botón. Va antes de `.win` y `.lose`, que le dan el color con su misma
+   especificidad; el contorno del foco, el de todo botón. */
+.log .a-la-casilla {
+  display: block;
+  width: 100%;
+  min-height: 0;
+  margin: 0 0 0.15rem;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+.log .a-la-casilla:hover:not(:disabled) { background: none; text-decoration: underline; }
 .log .win { color: var(--accent); }
 .log .lose { color: var(--danger); }
 

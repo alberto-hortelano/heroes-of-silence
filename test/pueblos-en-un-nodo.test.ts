@@ -277,14 +277,14 @@ describe('el pueblo en el muro en la partida: las reglas de la fase 1', () => {
     // La crónica de la persona y la del espectador (con los objetos del cable).
     const hecho = [...state.log].reverse().find((e) => e.kind === 'node_captured')!;
     const html = (sitioDe: (id: string) => Sitio | null): string =>
-      marcadoDe(renderLog([hecho], 1, undefined, sitioDe));
+      marcadoDe(renderLog([hecho], 1, { sitioDe }));
     expect(html((id) => sitioSiExiste(state, id))).toContain('Pueblo tomado: El Collado');
     expect(html((id) => pasoOPuebloSiExiste(state.map.objects, id))).toContain(
       'Pueblo tomado: El Collado',
     );
-    expect(marcadoDe(renderLog([hecho], 0, undefined, (id) => sitioSiExiste(state, id)))).toContain(
-      'El jugador 1 toma el pueblo de El Collado',
-    );
+    expect(
+      marcadoDe(renderLog([hecho], 0, { sitioDe: (id) => sitioSiExiste(state, id) })),
+    ).toContain('El jugador 1 toma el pueblo de El Collado');
   });
 
   it('con guarnición ajena, pisarlo es pelear, tras la empalizada de madera', () => {

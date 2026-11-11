@@ -303,6 +303,19 @@ export function instalarElClic(pagina: PaginaDeLaPartida): void {
       case 'centrar':
         aventura.centrar();
         break;
+      case 'mirar-la-casilla': {
+        // Una línea de la crónica: lleva la cámara a la casilla del hecho (#202).
+        // Sin el atributo, `Number(null)` daría la casilla (0, 0) sin quejarse.
+        const dx = target.getAttribute('data-x');
+        const dy = target.getAttribute('data-y');
+        const x = Number(dx);
+        const y = Number(dy);
+        if (dx === null || dy === null || !Number.isInteger(x) || !Number.isInteger(y)) {
+          throw new Error(`la línea de la crónica no dice a qué casilla lleva: «${dx}, ${dy}»`);
+        }
+        aventura.mirarLaCasilla({ x, y });
+        break;
+      }
       case 'menu':
         salirAlMenu.showModal();
         break;

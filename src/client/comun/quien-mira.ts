@@ -9,9 +9,13 @@
  *
  * `NADIE` vive aquí y no en el paquete del espectador porque es esta pregunta la
  * que lo necesita: es el único sitio que tiene que distinguir «no es tu bando»
- * de «no tienes bando». En el resto de la crónica no hace falta, porque allí la
- * pregunta ya es de dos —`clase(mio, false)` no pinta nada si no es tuyo— y un
- * centinela que nunca casa contesta bien por accidente.
+ * de «no tienes bando». En el resto de la crónica tampoco hace falta preguntarlo
+ * rama a rama: `renderLog` apaga el color de todas sus líneas para quien no lleva
+ * bando (`quienesDe(viewer).size === 0`). Hasta el 11-11-2026 se contaba con que la
+ * pregunta de dos —`clase(mio, false)`— contestara bien «por accidente» con un
+ * centinela que nunca casa, y no lo hacía en las dos ramas donde lo tuyo es lo
+ * malo (`clase(!mio, mio)`: la caída de un héroe y su vuelta a la base salían en el
+ * verde de victoria en el espectador, #202).
  *
  * Vive en su propio módulo y no en `sesion/partida.ts` por el espectador: `renderLog`
  * lo comparten las dos páginas, y hacer que la crónica (`views/cronica.ts`) importe un
