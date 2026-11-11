@@ -286,7 +286,14 @@ describe('generación de mapas', () => {
       ...plan,
       // Su recinto y sus accesos, los 5×5: una ciudad toca las regiones de los
       // accesos de sus puertas (`regionesDeLaCiudad`), a dos casillas.
-      patches: [...plan.patches, { terrain: 'water' as const, center: neutral.at, radius: 2.9 }],
+      // Su 3×3, de montaña: con agua a los dos lados, la ciudad estaría sobre el
+      // río, que es otro motivo y se mira antes que la red (`problemasDeLaEntrada`,
+      // #340); el que se busca aquí es el de la red.
+      patches: [
+        ...plan.patches,
+        { terrain: 'water' as const, center: neutral.at, radius: 2.9 },
+        { terrain: 'mountain' as const, center: neutral.at, radius: 1.5 },
+      ],
       // Sin caminos: los que llegaban a la ciudad quedarían sobre el agua, y un
       // camino sobre una barrera se rechaza antes de mirar la red. El
       // procedimental los escribe como tramos (#153).

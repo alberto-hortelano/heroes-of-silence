@@ -60,6 +60,12 @@ antes del destino (`battle_started` con `faltan`; el agente lo lee como `remaini
   `agent-contract.test.ts` («forma y valor»: toda jugada con `count` lo deja pasar como número y
   rechaza el texto) y `agent-link.test.ts` (una respuesta con cuatro `count` malos y una jugada buena
   aplica la buena).
+- **Reclutar lo que el pueblo no ofrece** (11-11-2026, #340): el valor de `recruit.creature` lo
+  juzga `recruitBlocker`, que distingue la criatura que no existe («no hay ninguna criatura…»), la
+  que el pueblo no ofrece porque no tiene su morada (con el nombre y el id de la morada, y su
+  facción si es ajena: no vale reintentar) y la que ofrece sin bastantes («solo hay N disponibles»,
+  la única que ve la persona, a quien la morada solo le ofrece lo de `dwellings`). Antes las tres
+  decían «solo hay 0 disponibles». `unequip.slot` lleva el mismo `max(32)` que `equip.slot`.
 
 - **Las guarniciones** (04-11-2026): `leave_troops` y `take_troops` (`{ hero, creature, count,
   veteran? }`, `accionDelAgente` las traduce a `dejar_tropa` y `recoger_tropa`) con el héroe parado

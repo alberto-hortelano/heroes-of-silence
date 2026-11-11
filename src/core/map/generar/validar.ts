@@ -9,6 +9,11 @@
  * asaltantes; y los jugadores de un plan con su base (`basesDelPlan`). Para
  * mirar la red construye el mapa (`buildMap`, `construir.ts`).
  *
+ * Por tandas, y cada una corta: lo que no necesita el mapa, lo que no necesita
+ * la red (el pueblo del muro y la entrada de cada ciudad, `problemasDeLaEntrada`),
+ * la red, y lo que la lee. Lo que se mira antes de la red es la causa de lo que
+ * la red diría después, y el motivo nombra la causa (#340, 11-11-2026).
+ *
  * Era la sección de la validación de `map/generate.ts` hasta la fase N de la
  * reorganización (07-11-2026).
  */
@@ -23,6 +28,7 @@ import {
   enAlgunRecinto,
   HASTA_LOS_ACCESOS,
   parteDeLaEntrada,
+  problemasDeLaEntrada,
   problemasDeRecintos,
 } from '../recinto.js';
 import { estructura, problemasDeRed, regionDeCasilla, tocaUnNodo } from '../regiones.js';
@@ -275,6 +281,24 @@ export function validateMapPlan(plan: MapPlan): string[] {
   }
   if (problemas.length > 0) return problemas;
 
+  // La causa antes que el síntoma (#340, 11-11-2026): lo que cae donde no va
+  // —un pueblo del muro mal puesto, lo que pisa el recinto o la entrada de una
+  // ciudad— estropea la red, y la red cantaba lo que estropeaba: con un pueblo
+  // en la entrada de Valdeluz, «la ciudad "town-0" es la base… y está dentro
+  // de la región» o «el pueblo parte su región», y el agente movía la base.
+  // Ninguna de las dos lee la red, así que se miran antes que ella; el pueblo
+  // del muro primero, que dice de él lo mismo que dirían los accesos.
+  problemas.push(...pueblosDelMuroMalPuestos(map, plan.towns));
+  if (problemas.length > 0) return problemas;
+  problemas.push(
+    ...problemasDeLaEntrada(
+      map,
+      plan.towns,
+      (plan.raiders ?? []).map((r) => ({ quien: 'el grupo de asaltantes', at: r.at })),
+    ),
+  );
+  if (problemas.length > 0) return problemas;
+
   // La red, y con ella la conectividad. Aquí había un `findPath` de cada inicio
   // a cada ciudad, y con el mapa de nodos sobra: cada héroe nace en una
   // ciudad, cada ciudad toca dos regiones y todas se alcanzan unas desde
@@ -288,15 +312,17 @@ export function validateMapPlan(plan: MapPlan): string[] {
   // quien tenga su región, así que no nace con dueño; la base va en el muro,
   // porque se toma como un paso y perderla elimina.
   problemas.push(...problemasDeLasCiudades(plan, map));
-  // Y cada pueblo: en el muro, entre dos regiones y sobre una barrera de tierra;
-  // dentro de una región, en lo que se pisa (pueblos en un nodo, fase 3).
-  problemas.push(...problemasDeLosPueblos(map, plan.towns));
+  // Y cada pueblo: en el muro, entre dos regiones; dentro de una región, en lo
+  // que se pisa (pueblos en un nodo, fase 3). Sobre qué barrera y lejos de toda
+  // ciudad, `pueblosDelMuroMalPuestos`, arriba.
+  problemas.push(...problemasDeLosPueblos(map));
   if (problemas.length > 0) return problemas;
 
   // El recinto de cada ciudad (`recinto.ts`), con la red ya leída: la orilla
-  // de una ciudad-puente se lee de sus regiones. Ni en el borde, ni dos que se
-  // toquen, ni nada dentro: ni un nodo, ni un objeto, ni un grupo. El héroe nace
-  // en la casilla de su base, que es la del medio.
+  // de una ciudad-puente se lee de sus regiones. Lo que no la necesita (ni en el
+  // borde, ni dos que se toquen, ni nada dentro ni en los accesos) ya se miró
+  // arriba, y aquí da vacío: quedan las puertas, los caminos y las regiones. El
+  // héroe nace en la casilla de su base, que es la del medio.
   problemas.push(
     ...problemasDeRecintos(
       map,
@@ -352,18 +378,42 @@ function problemasDeLasCiudades(plan: MapPlan, map: GameMap): string[] {
 }
 
 /**
- * Lo que impide que cada pueblo vaya donde va, con la red ya leída (pueblos en un
- * nodo, fase 3, 05-11-2026). Uno **sobre el muro** (`buildMap` abre su casilla y
- * guarda su `barrera`) tiene que ser un nodo —tocar dos regiones o más— y estar
- * sobre montaña, bosque o acantilado (`BARRERAS_DEL_PUEBLO`): sobre agua el paso
- * es un puente y sobre la muralla, su puerta, y la escena no tiene dónde ponerlo.
- * Uno **entre dos regiones sin muro debajo** (en un hueco) tampoco vale: un nodo
- * cruza una barrera, y sin ella no se sabe cuál, igual que un paso sin muro.
+ * Lo que impide que un pueblo **del muro** (`buildMap` abre su casilla y guarda
+ * su `barrera`) vaya donde va, sin leer la red: sobre montaña, bosque o
+ * acantilado (`BARRERAS_DEL_PUEBLO`), porque sobre agua el paso es un puente y
+ * sobre la muralla, su puerta, y la escena no tiene dónde ponerlo; y donde dice
+ * `puebloDelMuroBlocker`. Se mira antes que la red (#340): un pueblo mal puesto
+ * la estropea, y lo que diría la red sería el síntoma.
  */
-function problemasDeLosPueblos(
+function pueblosDelMuroMalPuestos(
   map: GameMap,
   ciudades: readonly { readonly name: string; readonly at: Point }[],
 ): string[] {
+  const problemas: string[] = [];
+  for (const o of map.objects) {
+    if (o.kind !== 'village' || o.barrera === null) continue;
+    const quien = `el pueblo "${o.name}" de (${o.at.x},${o.at.y})`;
+    const dondeNo = puebloDelMuroBlocker(o.at, map.width, map.height, ciudades);
+    if (!BARRERAS_DEL_PUEBLO.includes(o.barrera)) {
+      problemas.push(
+        `${quien} está sobre ${o.barrera}: en el muro, un pueblo va sobre ${BARRERAS_DEL_PUEBLO.join(', ')}; sobre el agua el paso es un puente y sobre la muralla, su puerta`,
+      );
+    } else if (dondeNo !== null) {
+      problemas.push(`${quien} ${dondeNo}`);
+    }
+  }
+  return problemas;
+}
+
+/**
+ * Lo que impide que cada pueblo vaya donde va, con la red ya leída (pueblos en un
+ * nodo, fase 3, 05-11-2026). Uno **sobre el muro** tiene que ser un nodo —tocar
+ * dos regiones o más—; sobre qué barrera y dónde no, lo dice antes
+ * `pueblosDelMuroMalPuestos`. Uno **entre dos regiones sin muro debajo** (en un
+ * hueco) tampoco vale: un nodo cruza una barrera, y sin ella no se sabe cuál,
+ * igual que un paso sin muro.
+ */
+function problemasDeLosPueblos(map: GameMap): string[] {
   const red = estructura(map);
   const problemas: string[] = [];
   const nombreDe = (r: number): string => `"${map.regions[r]?.id}"`;
@@ -373,15 +423,7 @@ function problemasDeLosPueblos(
     const donde = dondeEsta(red, o.id);
     const regiones = donde?.en === 'muro' ? regionesDelSitio(red, o.id) : [];
     const dentro = donde?.en === 'region' ? donde.region : undefined;
-    const dondeNo =
-      o.barrera === null ? null : puebloDelMuroBlocker(o.at, map.width, map.height, ciudades);
-    if (o.barrera !== null && !BARRERAS_DEL_PUEBLO.includes(o.barrera)) {
-      problemas.push(
-        `${quien} está sobre ${o.barrera}: en el muro, un pueblo va sobre ${BARRERAS_DEL_PUEBLO.join(', ')}; sobre el agua el paso es un puente y sobre la muralla, su puerta`,
-      );
-    } else if (dondeNo !== null) {
-      problemas.push(`${quien} ${dondeNo}`);
-    } else if (o.barrera !== null && dentro !== undefined) {
+    if (o.barrera !== null && dentro !== undefined) {
       problemas.push(
         `${quien} está sobre el muro (${o.barrera}) y solo toca la región ${nombreDe(dentro)}: en el muro, un pueblo va entre dos regiones o más; para tenerlo dentro de la región, ponlo en una casilla que se pisa`,
       );
@@ -396,7 +438,7 @@ function problemasDeLosPueblos(
 
 /**
  * Por qué un pueblo **del muro** no puede ir en `at`, o `null`: **la regla de
- * dónde va**, una vez, para el plan del agente (`problemasDeLosPueblos`) y para el
+ * dónde va**, una vez, para el plan del agente (`pueblosDelMuroMalPuestos`) y para el
  * generador (`pueblosEnElMuro`), que antes tenía la suya y el plan ninguna
  * (vuelta 1 de QA de la tarea 2, H4):
  *

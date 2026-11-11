@@ -96,7 +96,8 @@ export const adventureActionSchema = z.discriminatedUnion('type', [
   z.object({
     type: z.literal('unequip'),
     hero: z.string(),
-    slot: z.string(),
+    // El mismo tope que en `equip` (forma, #340): un hueco es una palabra corta.
+    slot: z.string().max(32),
     veteran: z.string().optional(),
   }),
   z.object({ type: z.literal('end_turn') }),

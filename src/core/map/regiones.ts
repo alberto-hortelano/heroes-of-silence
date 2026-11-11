@@ -498,13 +498,23 @@ export function juntoANodo(map: GameMap): Uint8Array {
 
 export const casilla = (p: Point): string => `(${p.x},${p.y})`;
 
-/** Cómo se nombra un nodo en un problema: la ciudad y el pueblo por su id, el paso por su casilla. */
-function quienEsElNodo(n: Candidato): string {
+/**
+ * Cómo se nombra un nodo en un problema, con las palabras de quien escribió el
+ * plan: la ciudad por su id, que lo escribe él; el pueblo por su nombre y su
+ * casilla, porque su id (`village-N`) lo pone `buildMap` y quien diseñó el plan
+ * nunca lo vio (#340, 11-11-2026: «el pueblo "village-8" parte su región» no
+ * decía cuál); el paso, por su casilla.
+ */
+function quienEsElNodo(map: MapaDeRed, n: Candidato): string {
   switch (n.clase) {
     case 'ciudad':
       return `la ciudad "${n.id}"`;
-    case 'pueblo':
-      return `el pueblo "${n.id}"`;
+    case 'pueblo': {
+      const o = map.objects.find((o) => o.id === n.id);
+      if (o?.kind !== 'village')
+        throw new Error(`el nodo ${n.id} de ${casilla(n.at)} es un pueblo y no está en el mapa`);
+      return `el pueblo "${o.name}" de ${casilla(n.at)}`;
+    }
     case 'paso':
       return `el nodo de ${casilla(n.at)}`;
   }
@@ -529,7 +539,7 @@ function queParteLaZona(
   for (const n of r.nodos) {
     if (n.clase !== 'pueblo') continue;
     const toca = loQueToca(map, n, comp, enRecinto);
-    if (toca.includes(c) && toca.filter(conSemilla).length === 1) return quienEsElNodo(n);
+    if (toca.includes(c) && toca.filter(conSemilla).length === 1) return quienEsElNodo(map, n);
   }
   return null;
 }
@@ -620,7 +630,7 @@ export function problemasDeRed(map: GameMap): string[] {
 
   // 3. Los nodos: pasos de verdad, y no pegados unos a otros.
   for (const [k, n] of red.nodos.entries()) {
-    const quien = quienEsElNodo(n);
+    const quien = quienEsElNodo(map, n);
     if (n.clase !== 'paso' && n.regiones.length === 0) {
       problemas.push(
         `${quien} no toca ninguna región: ${n.clase === 'ciudad' ? 'ponla' : 'ponlo'} dentro de una región, o en el muro entre dos`,

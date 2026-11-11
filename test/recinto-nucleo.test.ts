@@ -20,6 +20,7 @@ import {
 import { RESPONSE_FORMAT } from '../src/core/contract/formato.js';
 import { serializeMapRequest } from '../src/core/contract/peticion-de-mapa.js';
 import { buildMap } from '../src/core/map/generar/construir.js';
+import { generateMapPlan } from '../src/core/map/generar/procedimental.js';
 import { validateMapPlan } from '../src/core/map/generar/validar.js';
 import { chebyshev } from '../src/core/map/geometria.js';
 import {
@@ -43,6 +44,7 @@ import {
   parteDeLaEntrada,
   pasoPermitido,
   pasosDelMapa,
+  problemasDeLaEntrada,
   problemasDeRecintos,
   puertasDeLaCiudad,
   recintoDeLaCiudad,
@@ -52,6 +54,7 @@ import {
 import { RedDeCaminos } from '../src/core/map/red-de-caminos.js';
 import { estructura } from '../src/core/map/regiones.js';
 import type { GameMap } from '../src/core/map/tipos.js';
+import { createRng } from '../src/core/rng.js';
 import { baseOf } from '../src/core/state/consultas.js';
 import { newGame } from '../src/core/state/setup.js';
 import { rango, segunPrisa } from './lento.js';
@@ -353,6 +356,39 @@ describe('lo que impide un recinto (`problemasDeRecintos`), dicho para quien hiz
     expect(parteDeLaEntrada(valdeluz, { x: 5, y: 2 })).toBe('acceso');
     expect(parteDeLaEntrada(valdeluz, { x: 8, y: 4 })).toBeNull();
     expect(HASTA_LOS_ACCESOS).toBe((LADO_DEL_RECINTO - 1) / 2 + 1);
+  });
+
+  it('el pueblo en la entrada se nombra a él, no a la red que estropea (#340)', () => {
+    // Un pueblo de región en el anillo de los accesos lo saca de la red, y lo
+    // que la red decía era el síntoma: en (9,7) la base se queda tocando una
+    // sola región («la ciudad "town-0" es la base… dentro de la región
+    // "region-4"»), y en (9,8) el pueblo corta su región («el pueblo
+    // "village-8" parte su región»). El agente movía la base. Ahora la entrada
+    // se mira antes que la red. En la semilla 12 del procedimental, el caso del
+    // issue: ningún mapa a mano de los de prueba rompe la red así.
+    const plan = generateMapPlan(createRng(12));
+    // Si el generador cambia y Valdeluz se va, que lo diga esto y no un motivo
+    // con otra casilla.
+    expect(plan.towns[0]).toMatchObject({ id: 'town-0', name: 'Valdeluz', at: { x: 11, y: 8 } });
+    const portillo = (x: number, y: number) => ({
+      ...plan,
+      villages: [...plan.villages, { name: 'Portillo', at: { x, y } }],
+    });
+    const enLaEntrada = (at: string): string =>
+      `el pueblo "Portillo" de ${at} está a 2 casillas de la ciudad "Valdeluz" (town-0, en (11,8)), en el anillo de los accesos de sus puertas: es la entrada de la ciudad, por donde su región llega a ella, y ahí no va ni pueblo, ni monstruo, ni cofre; ponlo a 3 casillas o más de toda ciudad, contando la diagonal como una`;
+    expect(validateMapPlan(portillo(9, 7))).toEqual([enLaEntrada('(9,7)')]);
+    expect(validateMapPlan(portillo(9, 8))).toEqual([enLaEntrada('(9,8)')]);
+    expect(validateMapPlan(portillo(13, 8))).toEqual([enLaEntrada('(13,8)')]);
+    // Sobre la barrera, un pueblo del muro: su regla (`puebloDelMuroBlocker`)
+    // dice lo mismo con sus palabras, y una sola vez.
+    expect(validateMapPlan(portillo(9, 9))).toEqual([
+      'el pueblo "Portillo" de (9,9) está a 2 casillas de la ciudad "Valdeluz" de (11,8), en su recinto o en un acceso de sus puertas: por ahí entra su región en la ciudad, y un nodo no puede ir ahí; ponlo a 3 casillas o más de toda ciudad, contando la diagonal como una',
+    ]);
+    // `problemasDeRecintos` sigue diciendo lo mismo: empieza por la entrada.
+    const { map } = buildMap(portillo(9, 8));
+    expect(problemasDeRecintos(map, estructura(map), plan.towns, [])).toEqual(
+      problemasDeLaEntrada(map, plan.towns, []),
+    );
   });
 
   it('una región que llega a la ciudad sin camino por una puerta: sin camino no hay puerta', () => {
