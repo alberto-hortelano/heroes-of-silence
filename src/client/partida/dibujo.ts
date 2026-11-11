@@ -6,6 +6,8 @@
  * (`comun/bucle.ts`, `pedirFotograma`): aquí, lo que pinta (`dibujarFotograma`) y si pide otro
  * (`otroFotograma`). Y el mapa, calentado mientras se está en la base (`calentarElMapa`).
  */
+import { barraDeLaBatalla } from '../batalla/panel.js';
+import { ponerEnLaBarra } from '../comun/barra.js';
 import { pintar } from '../comun/html.js';
 import { escenarioListo, sueloDelMapa } from '../render/escenario/superficie.js';
 import { hayFigurasAnimadas } from '../render/figuras/figura.js';
@@ -171,7 +173,12 @@ export function dibujarFotograma(pagina: PaginaDeLaPartida, ahora: number): void
     estado.fichaALaVista = false;
     llevarLaFichaALaVista(pagina);
   }
-  if (elStatus.textContent !== session.status) elStatus.textContent = session.status;
+  // En la batalla, «La batalla ha terminado.» espera a que el tablero cuente el último
+  // golpe, como el panel (#257); lo que no cabe se corta por frases (#264).
+  const barra = enBatalla
+    ? barraDeLaBatalla(session.status, session.batallaALaVista, contando)
+    : session.status;
+  ponerEnLaBarra(elStatus, barra, canvas);
 }
 
 /** Trae a la vista la ficha del elegido del ayuntamiento y su «Contratar» (`fichaALaVista`). */

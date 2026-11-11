@@ -474,6 +474,20 @@ progress.liderazgo::-moz-progress-bar { background: var(--barra); }
   line-clamp: 2;
   overflow: hidden;
 }
+/* En la batalla, cuatro (#264, 11-11-2026): la previsión de una carga contra quien
+   lleva armadura no cabía en dos a 1024 px y lo último que se perdía era la
+   armadura; en la partida, con «Resolver sola» al lado, la barra deja 640 px a la
+   frase y esa previsión mide cuatro líneas (78 px en 59 con tres, medido a 1024 y
+   a 1100 en la pasada «escritorio»). El alto, fijo igual que el de B1; lo que no
+   quepa lo corta `ponerEnLaBarra` (`comun/barra.ts`) por frases enteras y se lee
+   entero en el bocadillo del lienzo o tocando la barra. */
+#app[data-escena='battle'] #statusbar { min-height: calc(6em + 0.9rem + 1px); }
+#app[data-escena='battle'] #status { -webkit-line-clamp: 4; line-clamp: 4; }
+/* La barra cortada se despliega al tocarla (H2 del QA de #264, 11-11-2026: en el móvil
+   no hay ratón con el que sacar el bocadillo del lienzo). Desplegada crece, y es a
+   propósito: la ha pedido quien toca, y el siguiente texto la pliega. */
+#status[data-cortada] { cursor: pointer; }
+#status[data-desplegada] { display: block; overflow-y: auto; max-height: 40vh; }
 /* La partida no arrancó (`sinArrancar`): el porqué se lee entero. */
 #status[data-sin-arrancar] { display: block; overflow: visible; }
 
@@ -487,6 +501,24 @@ progress.liderazgo::-moz-progress-bar { background: var(--barra); }
   padding: 0.45rem 0.55rem;
 }
 .log div { margin-bottom: 0.15rem; }
+/* La línea de la crónica que lleva a su casilla (#202, solo en la partida): un
+   botón que se lee como las demás líneas, sin fondo, ni borde, ni el alto de un
+   botón. Va antes de `.win` y `.lose`, que le dan el color con su misma
+   especificidad; el contorno del foco, el de todo botón. */
+.log .a-la-casilla {
+  display: block;
+  width: 100%;
+  min-height: 0;
+  margin: 0 0 0.15rem;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+.log .a-la-casilla:hover:not(:disabled) { background: none; text-decoration: underline; }
 .log .win { color: var(--accent); }
 .log .lose { color: var(--danger); }
 
@@ -535,7 +567,10 @@ progress.liderazgo::-moz-progress-bar { background: var(--barra); }
   #lateral { border-left: 0; padding: 12px 0 0; }
   .atlas-panel { max-width: 150px; }
   #statusbar { flex-wrap: wrap; padding: 0.4rem 0.6rem; }
-  #actions button { min-height: 44px; }
+  /* La línea de la crónica que lleva a su casilla (#202), también: a 18,6 px de alto y
+     pegada a la de al lado, se tocaba la vecina (H2 del QA, 11-11-2026). */
+  #actions button,
+  .log .a-la-casilla { min-height: 44px; }
 }
 
 /* Dormir o despertar al héroe (#17): pequeño, bajo su nombre. */

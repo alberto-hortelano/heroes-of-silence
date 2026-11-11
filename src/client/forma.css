@@ -126,6 +126,18 @@
   background: var(--lateral);
   border-color: var(--lateral-rotulo);
 }
+/* Bajo el ratón, la fila-botón (héroes, ciudades, objetos, sitios de la base, tropa,
+   morada, «Lo que hay» del lugar) se queda con su fondo y su tinta: el
+   `button:hover` de `style.css` le ganaba el fondo a `.stack` y ponía el
+   `--boton-encima`, oscuro en los cinco, bajo la tinta oscura del pergamino
+   templario: 1,24 : 1 (#332, 11-11-2026). Aclarar u oscurecer el fondo no vale para
+   todos (los elfos, en reposo, ya van a 4,77), así que el ratón se nota en el filo,
+   doble y del color de los rótulos. La elegida conserva su pergamino. Lo vigila
+   `temas.test.ts`. */
+:root[data-tema] #lateral button.stack:not(.primary):hover:not(:disabled) {
+  background: var(--panel-alt);
+  box-shadow: inset 0 0 0 1px var(--gold);
+}
 /* Lo que lleva colgado una unidad («En el campo», `modificadoresEnCurso`): su verde y
    su rojo son los del lateral (`--lateral-acento`, `--lateral-peligro`), hechos para
    leerse sobre `--lateral`, así que la pastilla lleva ese fondo y no el de la fila.
@@ -210,6 +222,9 @@
    tema medía 4 px de tinta en el imperio y 6 en templarios, frente a 8 en el neutro
    (QA, 13-10-2026, H4). Va con la letra de los símbolos, como en el neutro. */
 :root[data-tema] .stack .count button[data-action='unequip'] { font-family: var(--letra-simbolos); }
+/* La línea de la crónica que lleva a su casilla (#202) es un botón que se lee como
+   texto: ni el relieve ni las esquinas ni el alto de línea de los botones del tema. */
+:root[data-tema] .log .a-la-casilla { line-height: inherit; border-radius: 0; box-shadow: none; }
 
 /* «Fin de turno» (y lo que ocupa su sitio: «Continuar», «Partida nueva»),
    destacado como en la lámina: la letra del título, el adorno delante y el

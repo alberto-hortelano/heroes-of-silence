@@ -511,6 +511,32 @@ describe('invariantes del proyecto', () => {
     expect(paneles).toContain(ruta('src/client/arena/paneles/batalla.ts'));
   });
 
+  it('el lateral mientras se cuenta tiene una regla: la de `panelDeBatalla`, y las páginas no ramifican (#257)', () => {
+    // Mientras el tablero cuenta, el estado ya trae el final de lo que se cuenta: el
+    // panel enseña lo último pintado quieto, apagado, o calla (`panelDeBatalla`). Hasta
+    // #257 la arena callaba con su copia y la partida cantaba «Victoria» antes del
+    // último golpe. Una página que vuelva a decidir por su cuenta qué enseñar contando
+    // —un `if (contandoAun)` en su panel, su propio «Contando la jugada…»— es la cuarta
+    // copia que la crítica pedía no escribir. Roto a mano (11-11-2026): el `if
+    // (contandoAun)` de vuelta en `renderPanelDeBatalla` sale rojo con su línea, y el
+    // «Contando la jugada…» suyo, también.
+    const PANEL = ruta('src/client/batalla/panel.ts');
+    const dichos = infractoresDeCodigo(CLIENTE, /Contando la jugada/);
+    expect(dichos.map((l) => l.split(':')[0])).toEqual([PANEL]);
+    const ramifica = /\bif\s*\(\s*!?\s*contandoAun\b|\bcontandoAun\s*(\?|&&|\|\|)/;
+    const ARENA = ruta('src/client/arena/paneles/batalla.ts');
+    const delPanelDeLaArena = lineasDeLasDeclaraciones(ARENA, ['renderPanelDeBatalla']);
+    const enLaArena = infractoresDeCodigo([ARENA], ramifica).filter((l) =>
+      delPanelDeLaArena.has(Number(l.split(' → ')[0]!.split(':')[1])),
+    );
+    const PARTIDA = ficheros('src/client/partida/batalla');
+    expect([...enLaArena, ...infractoresDeCodigo(PARTIDA, ramifica)]).toEqual([]);
+    // Y que mire algo: las dos le pasan `contandoAun` a la regla común.
+    for (const r of [ARENA, ruta('src/client/partida/batalla/panel.ts')]) {
+      expect(codigoDe(r)).toMatch(/panelDeBatalla\([^,]+,\s*contandoAun,/);
+    }
+  });
+
   it('la pieza que pinta el clima no lee la sesión: le dan el clima del sitio', () => {
     // `render/clima/` la llaman el mapa, la batalla y cualquier escena lateral
     // (la base, la morada y las del «mapa vivo»): si leyera la sesión de la

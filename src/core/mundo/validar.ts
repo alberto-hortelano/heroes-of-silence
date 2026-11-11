@@ -35,9 +35,11 @@ import { chebyshev, inBounds } from '../map/geometria.js';
 import { isEnterable, terrainAt } from '../map/map.js';
 import { FUERA, pasosDelMapa, queEsElObjeto } from '../map/recinto.js';
 import { regionDeCasilla } from '../map/regiones.js';
+import { dueñoDeUnSitio, regionesTrasUnaBase } from '../map/territorio.js';
 import type { GameMap } from '../map/tipos.js';
 import { conPlural } from '../texto.js';
-import { FACTION_IDS, type FactionId, type Point } from '../types.js';
+import { primeraCiudadDe } from '../town/town.js';
+import { FACTION_IDS, type FactionId, type PlayerId, type Point } from '../types.js';
 import { problemasDeGrupo } from '../unidad/catalogo.js';
 import {
   deLaListaBlocker,
@@ -84,8 +86,12 @@ const LARGO = {
  * borde, en algo que se pisa, dentro de una región (ni nodo, ni barrera, ni el río), fuera de todo
  * recinto de ciudad y a `SEPARACION_DE_UN_LUGAR` o más de todo objeto del mapa
  * —con sus puertas y sus reservas, que caben en ese radio— y de los lugares
- * `otros`. Sin camino nuevo hasta él (P3 del usuario). La leen la validación del
- * mundo y la lectura para el motor, que le da casillas de muestra que la pasan.
+ * `otros`. Sin camino nuevo hasta él (P3 del usuario). Y en una región a la que
+ * **lleguen los dos** sin cruzar la base del otro (`regionesTrasUnaBase`, #321,
+ * 11-11-2026): tomar la base acaba la partida, y el mundo es de los dos. Lee las
+ * bases **de nacimiento** (`basesAlNacer`): se llama con el mapa recién hecho del
+ * plan, nunca con uno a media partida. La leen la validación del mundo y la
+ * lectura para el motor, que le da casillas de muestra que la pasan.
  */
 export function lugarBlocker(
   map: GameMap,
@@ -119,7 +125,40 @@ export function lugarBlocker(
       return `${donde} está a ${d} del lugar "${o.name}" en (${o.at.x}, ${o.at.y}): dos lugares van a ${SEPARACION_DE_UN_LUGAR} casillas o más`;
     }
   }
+  // La última porque es la que más cuesta, y así ninguna casilla que ya se
+  // rechazaba cambia de motivo.
+  const region = regionDeCasilla(map, at);
+  const bases = basesAlNacer(map);
+  const tras = regionesTrasUnaBase(map, bases).get(region);
+  if (tras !== undefined) {
+    // La base sale de `bases`: la que cierra es una de las que se le dieron.
+    const base = [...bases.values()].find((b) => b.id === tras.base) as { readonly at: Point };
+    const reg = map.regions[region] as { readonly id: string };
+    return `${donde} está en la región "${reg.id}", a la que el jugador ${tras.jugador} solo llega cruzando la base del otro, la ciudad ${tras.base} en (${base.at.x}, ${base.at.y}), o infiltrándose por la barrera, con un héroe que sepa y días de marcha; tomar la base acaba la partida: el mundo es de los dos, pon el lugar en una región a la que lleguen los dos`;
+  }
   return null;
+}
+
+/**
+ * La base de cada jugador en un mapa recién hecho: la primera ciudad suya
+ * (`primeraCiudadDe`, la regla de `createGame`), por cada dueño que tenga alguna.
+ * El dueño se pregunta a la red (`dueñoDeUnSitio`), que es quien lo lee.
+ */
+function basesAlNacer(
+  map: GameMap,
+): ReadonlyMap<PlayerId, { readonly id: string; readonly at: Point }> {
+  const ciudades = map.objects.filter((o) => o.kind === 'town');
+  const dueños = new Set<PlayerId>();
+  for (const c of ciudades) {
+    const d = dueñoDeUnSitio({ map }, c.id);
+    if (d !== null) dueños.add(d);
+  }
+  const bases = new Map<PlayerId, { readonly id: string; readonly at: Point }>();
+  for (const p of [...dueños].sort((a, b) => a - b)) {
+    const base = primeraCiudadDe(ciudades, p);
+    if (base !== undefined) bases.set(p, base);
+  }
+  return bases;
 }
 
 /** «de» con lo que sigue, contraído: «del pueblo», «de la ciudad». */

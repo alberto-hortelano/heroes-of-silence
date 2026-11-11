@@ -774,10 +774,12 @@ describe('el contrato del agente', () => {
       veteran: 'v-1',
     });
     expect(r.success).toBe(true);
+    // Un `count` de 0 es valor, no forma (#317, 11-11-2026): pasa el zod y lo
+    // rechaza el núcleo, esa jugada sola (abajo, «un count que no vale»).
     expect(
       adventureActionSchema.safeParse({ type: 'take_troops', hero: 'h', creature: TROPA, count: 0 })
         .success,
-    ).toBe(false);
+    ).toBe(true);
     const state = newGame({ seed: 1 });
     expect(
       accionDelAgente({ type: 'take_troops', hero: 'h', creature: TROPA, count: 2 }, state),
@@ -816,6 +818,29 @@ describe('el contrato del agente', () => {
     guarnecer(state, base, ejercito({ creature: TROPA_BARATA, count: tope }));
     return { state, hero, base, tope };
   }
+
+  it('un count que no vale en «leave_troops» o «take_troops» lo rechaza el núcleo con su motivo, y no mueve a nadie', () => {
+    // «Forma y valor» (#317, 11-11-2026): antes el zod se llevaba la respuesta
+    // entera; ahora la jugada llega al intercambio y la descarta él, sola.
+    const { state, hero, base, tope } = llenosEnLaBase();
+    const jugada = (type: string, creature: string, count: number) => () =>
+      jugarDelAgente(state, { type, hero: hero.id, creature, count });
+    for (const [type, creature, count] of [
+      ['leave_troops', TROPA, 0],
+      ['leave_troops', TROPA, 1.5],
+      ['take_troops', TROPA_BARATA, -1],
+      ['take_troops', TROPA_BARATA, 1e21],
+    ] as const) {
+      const verbo = type === 'leave_troops' ? 'dejar' : 'recoger';
+      expect(jugada(type, creature, count)).toThrow(
+        new Error(
+          `no se puede ${verbo} tropa: son individuos: se mueven de 1 en adelante, no ${count}`,
+        ),
+      );
+    }
+    expect(hero.army).toHaveLength(tope - 1);
+    expect(guarnicionDeLaCiudad(state, base)).toHaveLength(tope);
+  });
 
   it('«distribute_troops» cambia uno por otro con los dos llenos, en una jugada, y lo cuenta `recentEvents`', () => {
     // El contrato del agente, al día (10-11-2026), criterio 2.

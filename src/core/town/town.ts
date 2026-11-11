@@ -5,6 +5,7 @@ import type { Hechizo } from '../magia/formato.js';
 import { conMiles, describirCoste } from '../texto.js';
 import type { FactionId, PlayerId, Point } from '../types.js';
 import { unidadDelJuego, unidadesDeMorada } from '../unidad/catalogo.js';
+import { enteroDesde } from '../validar.js';
 import { building, buildingIfExists, buildingsOfFaction, prebuiltBuildings } from './buildings.js';
 
 /**
@@ -212,14 +213,19 @@ export function recruitCost(creatureId: string, count: number): number {
   return unidadDelJuego(creatureId).oro * count;
 }
 
-/** Motivo por el que no se puede reclutar, o `null`. */
+/**
+ * Motivo por el que no se puede reclutar, o `null`. Un `count` que no es un entero
+ * seguro de 1 en adelante, el primero (11-11-2026, #317): el zod del agente ya no
+ * lo filtra («Forma y valor», `docs/areas/agente.md`), y con `count <= 0` a secas
+ * un 1,5 se reclutaba.
+ */
 export function recruitBlocker(
   town: Town,
   creatureId: string,
   count: number,
   oro: number,
 ): string | null {
-  if (count <= 0) return 'cantidad no válida';
+  if (!enteroDesde(count, 1)) return `son individuos: se reclutan de 1 en adelante, no ${count}`;
   const available = town.available[creatureId] ?? 0;
   if (available < count) return `solo hay ${available} disponibles`;
   return oroBlocker(recruitCost(creatureId, count), oro);

@@ -303,6 +303,24 @@ export function instalarElClic(pagina: PaginaDeLaPartida): void {
       case 'centrar':
         aventura.centrar();
         break;
+      case 'mirar-la-casilla': {
+        // Una línea de la crónica: lleva la cámara a la casilla del hecho (#202).
+        // Sin el atributo, `Number(null)` daría la casilla (0, 0) sin quejarse.
+        const dx = target.getAttribute('data-x');
+        const dy = target.getAttribute('data-y');
+        const x = Number(dx);
+        const y = Number(dy);
+        if (dx === null || dy === null || !Number.isInteger(x) || !Number.isInteger(y)) {
+          throw new Error(`la línea de la crónica no dice a qué casilla lleva: «${dx}, ${dy}»`);
+        }
+        aventura.mirarLaCasilla({ x, y });
+        // En el móvil (≤ 760 px) el lateral va debajo del mapa y lo que se desplaza es
+        // `#stage`: la cámara se movía con el mapa fuera de la pantalla y tocar la línea no
+        // hacía nada visible (H1 del QA de #202, 11-11-2026). `nearest` no desplaza nada si
+        // el mapa ya se ve entero, como en el escritorio; sin `behavior`, el de la hoja.
+        lienzo.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+        break;
+      }
       case 'menu':
         salirAlMenu.showModal();
         break;

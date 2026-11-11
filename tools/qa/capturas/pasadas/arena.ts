@@ -15,6 +15,9 @@ import { SesionDeArena } from '../../../../src/client/sesion/sesion-de-arena.js'
 import { VERSION_DEL_ENLACE } from '../../../../src/core/arena/enlace.js';
 import type { HeroeDeArena } from '../../../../src/core/arena/heroe.js';
 import { LADOS, ladoDe } from '../../../../src/core/arena/lados.js';
+import { armaduraDe } from '../../../../src/core/battle/armas.js';
+import { hexEquals } from '../../../../src/core/battle/board.js';
+import type { CasillaDeCarga } from '../../../../src/core/battle/consultas.js';
 import type { BattleAction, BattleStack } from '../../../../src/core/battle/types.js';
 import { COMBATE_COMPLETO } from '../../../../src/core/combate.js';
 import { EQUIPO_DEL_JUEGO } from '../../../../src/core/equipo/atado.js';
@@ -249,10 +252,10 @@ async function jugarArena(
   await page.locator('#ficha [data-arena="girar"]').click();
   await page.locator('#ficha [data-clip="death"]').click();
   // El orco solo se pinta a la vista (`animarFiguras` salta la figura que no se ve):
-  // en 1440×900, con el editor de la muralla abierto, a los bandos y la ficha les
-  // queda una franja de ~70 px —la barra lleva los selectores de la complejidad del
-  // combate desde el 22-10-2026 y el editor crece con sus formas— y su tarjeta queda
-  // bajo «+ Héroe». Se trae a la vista, como haría quien la mira.
+  // su tarjeta puede quedar bajo el borde de su columna. Hasta #246 (11-11-2026) a
+  // 1440×900 la muralla dejaba a los bandos una franja de ~70 px y quedaba siempre;
+  // hoy la columna no baja de 24rem, pero la lista de un bando se desplaza igual.
+  // Se trae a la vista, como haría quien la mira.
   await page
     .locator('#bando-derecha button.ver[data-unidad="orko-dos-armas"]')
     .scrollIntoViewIfNeeded();
@@ -500,11 +503,13 @@ function flechaDelEspejo(espejo: SesionDeArena): (BattleAction & { type: 'cast' 
 
 /**
  * La semilla de la pelea del banco: la primera en la que la persona, en su primer
- * turno, puede lanzar la Flecha mágica y, jugando la pauta, llega a golpear.
+ * turno, puede lanzar la Flecha mágica y, jugando la pauta, llega a golpear con una
+ * carga a quien lleva armadura (el esqueleto arquero, con su jubón): la previsión más
+ * larga de un golpe, la que la barra cortaba a 1024 px (#264).
  */
 function buscarBanco(): number {
   return primeraSemillaCon(
-    'una pelea del banco en que el héroe lanza la Flecha mágica en su primer turno y alguien golpea',
+    'una pelea del banco en que el héroe lanza la Flecha mágica en su primer turno y golpea cargando a quien lleva armadura',
     (semilla) => {
       const espejo = espejoDelBanco(semilla);
       const flecha = flechaDelEspejo(espejo);
@@ -515,7 +520,7 @@ function buscarBanco(): number {
         contestarEnElEspejo(espejo);
         if (espejo.battle.finished !== null) break;
         const jugada = jugadaDeLaPauta(espejo, tramos, 0);
-        if (jugada.tipo === 'golpe') return true;
+        if (jugada.tipo === 'golpe') return cargaDelBanco(espejo, jugada.contra) ?? undefined;
         if (jugada.tipo === 'tramo') {
           espejo.playBattleAction(jugada.mover);
           tramos++;
@@ -526,6 +531,98 @@ function buscarBanco(): number {
     1,
     TOPE_DE_SEMILLAS,
   ).semilla;
+}
+
+/**
+ * La carga con que el banco golpea a `contra`, si `contra` lleva armadura y se le
+ * puede cargar; si no, `null`.
+ */
+function cargaDelBanco(espejo: SesionDeArena, contra: BattleStack): CasillaDeCarga | null {
+  if (armaduraDe(contra.unit) === 0) return null;
+  return espejo.battleCharges().find((c) => c.target === contra.id) ?? null;
+}
+
+/** La barra que se espera con el puntero sobre `contra` en `g`: el ángulo, la carga y la previsión. */
+function barraDelGolpe(
+  espejo: SesionDeArena,
+  contra: BattleStack,
+  accion: BattleAction,
+  nombre: (id: string) => string,
+): string {
+  const p = espejo.prevision(accion);
+  if (p === null) throw new Error('banco: el golpe no tiene previsión');
+  const texto = textoDePrevision(p, nombre);
+  const aqui = (espejo.turnoPropio as { stack: BattleStack }).stack.hex;
+  const desdeDonde = accion.type === 'attack' ? (accion.from ?? aqui) : aqui;
+  // «A distancia» (el selector de arma, 26-10-2026): la barra dice la casilla y a
+  // quién daría hoy, que puede ser otro que el señalado.
+  return accion.type === 'aim'
+    ? `Apuntarías a (${accion.at.col},${accion.at.row}).`
+    : rotuloDeAngulo(
+        desdeDonde,
+        cargaContra(espejo.battleCharges(), { objetivo: contra.id, elegida: desdeDonde }),
+        texto,
+      );
+}
+
+/** Los anchos de escritorio en que la previsión de la carga se lee entera (#264, 11-11-2026). */
+const ANCHOS_DE_LA_BARRA = [
+  { width: 1024, height: 768 },
+  { width: 1100, height: 800 },
+  { width: 1440, height: 900 },
+] as const;
+
+/**
+ * La previsión de la carga contra quien lleva armadura, a 1024, 1100 y 1440 px
+ * (#264): con el puntero sobre el enemigo, la barra la dice ENTERA (`exacta`: el
+ * corte por frases, `ponerEnLaBarra`, no casaría), `#status` no desborda, y el
+ * lienzo mide lo mismo que con el puntero fuera de toda unidad (B1: si la barra
+ * creciera, el lienzo encogería bajo el cursor). Acaba a 1440, donde sigue la pasada.
+ */
+async function laCargaALosTresAnchos(
+  page: Page,
+  espejo: SesionDeArena,
+  contra: BattleStack,
+  carga: CasillaDeCarga,
+  nombre: (id: string) => string,
+): Promise<void> {
+  const esLaCarga = (a: BattleAction | undefined): boolean =>
+    a?.type === 'attack' && a.from !== undefined && hexEquals(a.from, carga.at);
+  for (const tamano of ANCHOS_DE_LA_BARRA) {
+    const que = `banco a ${tamano.width} px`;
+    await page.setViewportSize(tamano);
+    await sleep(300);
+    const b = await caja(page);
+    // Fuera de toda unidad: la esquina de arriba del lienzo.
+    await page.mouse.move(b.x + 4, b.y + 4);
+    await sleep(150);
+    const alto = (await caja(page)).height;
+    const g = await pixelDeUnidad(page, espejo, contra, esLaCarga);
+    if (g.accion === undefined) throw new Error(`${que}: el clic sobre ${contra.id} no da acción`);
+    await page.mouse.move(g.x - 6, g.y);
+    await page.mouse.move(g.x, g.y);
+    const esperado = barraDelGolpe(espejo, contra, g.accion, nombre);
+    await esperarBarra(page, esperado, `${que}: la previsión de la carga`, { exacta: true });
+    const barra = await page.evaluate(() => {
+      const el = document.getElementById('status') as HTMLElement;
+      return { scroll: el.scrollHeight, visible: el.clientHeight };
+    });
+    if (barra.scroll > barra.visible) {
+      throw new Error(
+        `${que}: la barra desborda (${barra.scroll} px de texto en ${barra.visible} px): «${esperado}»`,
+      );
+    }
+    const altoConLaCarga = (await caja(page)).height;
+    if (altoConLaCarga !== alto) {
+      throw new Error(
+        `${que}: el lienzo cambia de alto al pasar el ratón por el enemigo (${alto} → ${altoConLaCarga} px)`,
+      );
+    }
+    if (tamano.width === 1024) await captura(page, 'arena-07-prevision-carga-1024');
+    log(
+      `${que}: la carga contra la armadura se lee entera (${barra.visible} px de barra, lienzo quieto)`,
+    );
+  }
 }
 
 /**
@@ -653,29 +750,19 @@ async function bancoDeCombate(browser: Browser, url: string, problemas: Problema
     if (espejo.battle.finished !== null) break;
     const jugada = jugadaDeLaPauta(espejo, tramos, 0);
     if (jugada.tipo === 'golpe') {
+      const carga = cargaDelBanco(espejo, jugada.contra);
+      if (carga === null) {
+        throw new Error(
+          `banco: el primer golpe, a ${jugada.contra.id}, no es una carga contra armadura`,
+        );
+      }
+      await laCargaALosTresAnchos(page, espejo, jugada.contra, carga, nombre);
       const g = await pixelDeUnidad(page, espejo, jugada.contra);
       if (g.accion === undefined)
         throw new Error(`banco: el clic sobre ${jugada.contra.id} no da acción`);
       await page.mouse.move(g.x - 6, g.y);
       await page.mouse.move(g.x, g.y);
-      const p = espejo.prevision(g.accion);
-      if (p === null) throw new Error('banco: el golpe no tiene previsión');
-      const texto = textoDePrevision(p, nombre);
-      const aqui = (espejo.turnoPropio as { stack: BattleStack }).stack.hex;
-      const desdeDonde = g.accion.type === 'attack' ? (g.accion.from ?? aqui) : aqui;
-      // «A distancia» (el selector de arma, 26-10-2026): la barra dice la casilla y a
-      // quién daría hoy, que puede ser otro que el señalado.
-      const esperado =
-        g.accion.type === 'aim'
-          ? `Apuntarías a (${g.accion.at.col},${g.accion.at.row}).`
-          : rotuloDeAngulo(
-              desdeDonde,
-              cargaContra(espejo.battleCharges(), {
-                objetivo: jugada.contra.id,
-                elegida: desdeDonde,
-              }),
-              texto,
-            );
+      const esperado = barraDelGolpe(espejo, jugada.contra, g.accion, nombre);
       await esperarBarra(page, esperado, 'banco: la previsión del golpe', {
         exacta: g.accion.type !== 'aim',
       });

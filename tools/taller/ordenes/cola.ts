@@ -147,8 +147,8 @@ async function corregir(id: string, correccion: string): Promise<void> {
 /** La cola: vaciarla, mirarla y arreglar lo que se quedó a medias. */
 export const ORDENES_DE_LA_COLA: Readonly<Record<string, Orden>> = {
   trabajar: {
-    uso: `pnpm taller [trabajar] [--npcs]
-    trabaja hasta vaciar la cola; con --npcs, solo los encargos del banco de NPC (lo que lanza «pnpm npcs trabajar»)`,
+    uso: `pnpm taller trabajar [--npcs]
+    trabaja hasta vaciar la cola, pintando con Codex; con --npcs, solo los encargos del banco de NPC y sin rescatar nada (el rescate y esto, «pnpm npcs trabajar»)`,
     correr: async (resto) => {
       await trabajar(resto.includes('--npcs'));
     },

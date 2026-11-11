@@ -16,7 +16,10 @@ import { cargarElMundoPedido, mundoDeLaUrl, mundoPedido } from '../src/client/pa
 import { renderLog } from '../src/client/views/cronica.js';
 import { buildMap } from '../src/core/map/generar/construir.js';
 import type { MapPlan } from '../src/core/map/generar/plan.js';
-import { isEnterable } from '../src/core/map/map.js';
+import { basesDelPlan } from '../src/core/map/generar/validar.js';
+import { isEnterable, reachableFrom } from '../src/core/map/map.js';
+import { regionDeCasilla } from '../src/core/map/regiones.js';
+import { regionesTrasUnaBase } from '../src/core/map/territorio.js';
 import {
   CLAVES_DE_CONDICION,
   CLAVES_DE_EFECTO,
@@ -26,7 +29,7 @@ import {
   VOCABULARIO,
 } from '../src/core/mundo/formato.js';
 import { lecturaParaElMotor } from '../src/core/mundo/lectura.js';
-import { partidaDelMundo } from '../src/core/mundo/partida.js';
+import { mundoNuevo, partidaDelMundo } from '../src/core/mundo/partida.js';
 import {
   anteDelHeroe,
   nodoDeEntrada,
@@ -43,11 +46,14 @@ import {
 import { createRng } from '../src/core/rng.js';
 import { settleBattle } from '../src/core/state/cierre.js';
 import { applyAdventureAction } from '../src/core/state/game.js';
+import { newGame } from '../src/core/state/setup.js';
 import type { AdventureAction, GameState } from '../src/core/state/tipos.js';
+import { NOMBRE_DE_FACCION } from '../src/core/types.js';
 import { leerCrudos, validarEnDisco } from '../tools/mundo/disco.js';
 import { medirMundo } from '../tools/mundo/medida.js';
 import { leerBancoDeDisco } from '../tools/npcs/banco.js';
 import { RAIZ } from './comun.js';
+import { itLento, rango } from './lento.js';
 
 /** El banco de figuras de NPC del repo: contra él se miran las figuras de los mundos. */
 const BANCO = leerBancoDeDisco();
@@ -359,6 +365,111 @@ describe('la lectura para el motor', () => {
   });
 });
 
+/**
+ * Un lugar tras la base del otro (#321, 11-11-2026): en 7 de 120 mapas del
+ * procedimental (tamaños 4, 5 y 7, semillas 1-40) la casa de un bando es un
+ * callejón cuyo único nodo es su base, y tomarla acaba la partida: el otro no la
+ * pisa nunca. r4 s12 (36 × 36) es uno: bases en (8, 8) y (27, 27), y sus casas,
+ * `region-0` y `region-1`.
+ */
+describe('un lugar tras la base del otro (#321)', () => {
+  const pedido = { id: 'prueba', semilla: 12, faccion: 'imperio', regionesPorBando: 4 } as const;
+  const { mundo, plan } = mundoNuevo(pedido);
+  const { map } = buildMap(plan);
+
+  /** Los problemas de la historia de `prueba` en el mundo r4 s12, con su primer lugar en `at`. */
+  const conElPrimeroEn = (at: { x: number; y: number }): string[] => {
+    const c = prueba((h) => {
+      puente(h).at = at;
+    }) as { mundo: unknown; plan: unknown; historia: unknown };
+    return problemasDelMundo({ ...c, mundo, plan }, 'prueba', BANCO);
+  };
+
+  it('lo rechaza la validación del mundo, diciendo quién no llega y por qué base', () => {
+    expect(conElPrimeroEn({ x: 34, y: 22 })).toContainEqual(
+      'historia.json: lugares[0].at: (34, 22) está en la región "region-1", a la que el jugador 0 solo llega cruzando la base del otro, la ciudad town-1 en (27, 27), o infiltrándose por la barrera, con un héroe que sepa y días de marcha; tomar la base acaba la partida: el mundo es de los dos, pon el lugar en una región a la que lleguen los dos',
+    );
+    expect(conElPrimeroEn({ x: 1, y: 1 })).toContainEqual(
+      'historia.json: lugares[0].at: (1, 1) está en la región "region-0", a la que el jugador 1 solo llega cruzando la base del otro, la ciudad town-0 en (8, 8), o infiltrándose por la barrera, con un héroe que sepa y días de marcha; tomar la base acaba la partida: el mundo es de los dos, pon el lugar en una región a la que lleguen los dos',
+    );
+  });
+
+  it('las regiones tras una base: las dos casas en r4 s12, ninguna en el mundo de prueba', () => {
+    const tras = regionesTrasUnaBase(map, basesDelPlan(plan));
+    expect([...tras].map(([r, t]) => [map.regions[r]!.id, t.jugador, t.base]).sort()).toEqual([
+      ['region-0', 1, 'town-0'],
+      ['region-1', 0, 'town-1'],
+    ]);
+    const dePrueba = crudos('prueba').plan as MapPlan;
+    expect(regionesTrasUnaBase(buildMap(dePrueba).map, basesDelPlan(dePrueba)).size).toBe(0);
+  });
+
+  it('la lectura no ofrece casillas en esas casas', () => {
+    const lectura = lecturaParaElMotor(mundo, plan, BANCO);
+    const casas = lectura.regiones.filter((r) => r.id === 'region-0' || r.id === 'region-1');
+    expect(casas.map((r) => [r.id, r.casaDe, r.admitenUnLugar])).toEqual([
+      ['region-0', 0, []],
+      ['region-1', 1, []],
+    ]);
+    // Y las demás sí traen muestras: no se ha vaciado el mapa entero.
+    expect(lectura.regiones.flatMap((r) => r.admitenUnLugar).length).toBeGreaterThan(8);
+  });
+
+  /**
+   * La comprobación independiente, sin `lugarBlocker` por dentro: el Dijkstra de
+   * la partida desde cada héroe de salida, con el héroe rival (que empieza en su
+   * base) como hostil. Toda casilla que admite un lugar la alcanzan los dos, y toda
+   * la que se rechaza por la base, no la alcanza el jugador que dice el motivo.
+   */
+  const alcanceExacto = (semilla: number, regionesPorBando: 4 | 5 | 7): number => {
+    const p = mundoNuevo({ ...pedido, semilla, regionesPorBando }).plan;
+    const state = newGame({ seed: semilla, plan: p });
+    const alcance = new Map(
+      state.heroes.map((h) => {
+        const rival = state.heroes.filter((o) => o.owner !== h.owner).map((o) => o.at);
+        return [h.owner, reachableFrom(state.map, h.at, rival).costes] as const;
+      }),
+    );
+    const llega = (j: number, i: number) => (alcance.get(j)![i] as number) >= 0;
+    let rechazadas = 0;
+    for (let i = 0; i < state.map.width * state.map.height; i++) {
+      const at = { x: i % state.map.width, y: Math.floor(i / state.map.width) };
+      const motivo = lugarBlocker(state.map, at);
+      const donde = `r${regionesPorBando} s${semilla} (${at.x}, ${at.y}) ${motivo ?? ''}`;
+      if (motivo === null) {
+        expect([llega(0, i), llega(1, i)], donde).toEqual([true, true]);
+      } else if (/solo llega cruzando la base/.test(motivo)) {
+        rechazadas++;
+        const j = Number(/el jugador (\d+) solo llega/.exec(motivo)![1]);
+        expect(llega(j, i), donde).toBe(false);
+        expect(regionDeCasilla(state.map, at)).toBeGreaterThanOrEqual(0);
+      }
+    }
+    return rechazadas;
+  };
+
+  it('es exacto contra el Dijkstra de la partida en r4 s12, y no muerde en r4 s1', () => {
+    expect(alcanceExacto(12, 4)).toBe(124);
+    expect(alcanceExacto(1, 4)).toBe(0);
+  });
+
+  itLento('es exacto contra el Dijkstra en los tamaños 4, 5 y 7, semillas 1-40', () => {
+    const conRechazo: string[] = [];
+    for (const r of [4, 5, 7] as const) {
+      for (const s of rango(1, 40)) if (alcanceExacto(s, r) > 0) conRechazo.push(`r${r} s${s}`);
+    }
+    expect(conRechazo).toEqual([
+      'r4 s12',
+      'r4 s22',
+      'r5 s38',
+      'r7 s10',
+      'r7 s20',
+      'r7 s27',
+      'r7 s39',
+    ]);
+  });
+});
+
 describe('elegir en un lugar', () => {
   const leido = leerMundo(crudos('prueba'), 'prueba', BANCO);
   const ctx = { rng: createRng(7) };
@@ -658,6 +769,85 @@ describe('elegir en un lugar', () => {
     expect(state.mundo!.conversaciones).toEqual({});
   });
 
+  /**
+   * Quién puso la marca (#283, 11-11-2026): si el rival cerró una opción con su
+   * marca, a quien juega se le dice que fue él, delante de la frase «ya» del mundo,
+   * como con lo que se llevó; si la puso quien pregunta, la frase sola. Leer la carta
+   * no es un premio: lo que la apaga es la condición escrita.
+   */
+  it('una opción apagada por una marca del rival dice quién la puso; la propia, la frase sola', () => {
+    const { state, yo, rival } = losDosEnElPuente(leido, 1);
+    const CARTA = { lugar: 'puente-de-corvo', punto: 'garita', nodo: 'dentro', opcion: 0 };
+    const enLaGarita = (jugador: number, hero: string) =>
+      applyAdventureAction(state, { type: 'elegir_en_lugar', hero, ...CARTA }, ctx, jugador);
+    enLaGarita(1, rival.id);
+    expect(state.mundo!.quienPuso['carta-leida']).toEqual({ jugador: 1, heroe: rival.name });
+    const faccion = NOMBRE_DE_FACCION[state.players[1]!.faction];
+    const delRival = `${rival.name} (${faccion}) pasó antes: la carta del capitán ya está abierta`;
+    state.current = 0;
+    expect(opcionBlocker(state, yo.id, CARTA)).toBe(delRival);
+    // La pantalla lo dice igual, y la acción lanza con eso mismo.
+    const a = anteDelHeroe(state, yo.id);
+    if ('motivo' in a) throw new Error(a.motivo);
+    const garita = a.lugar.puntos.find((p) => p.id === 'garita')!;
+    expect(opcionesDe(a, garita, 'dentro')[0]!.motivo).toBe(delRival);
+    expect(() => enLaGarita(0, yo.id)).toThrow(`no se puede elegir eso: ${delRival}`);
+    // Para quien la puso, la frase del mundo, sin su propio nombre delante.
+    state.current = 1;
+    expect(opcionBlocker(state, rival.id, CARTA)).toBe('la carta del capitán ya está abierta');
+  });
+
+  it('una marca de «alPerder» no tiene héroe: la frase dice la facción del otro, sin lanzar', () => {
+    const conLaDerrota = leerMundo(
+      prueba((h) => {
+        const puente = h.lugares[0] as unknown as {
+          dialogos: Record<string, { nodos: Record<string, { opciones: { si?: unknown[] }[] }> }>;
+        };
+        puente.dialogos.garita!.nodos.dentro!.opciones[0]!.si = [
+          { no: { marca: 'derrota-en-el-pozo' } },
+        ];
+      }),
+      'prueba',
+      BANCO,
+    );
+    const state = partidaDelMundo(conLaDerrota);
+    const [yo, rival] = [0, 1].map((o) => state.heroes.find((h) => h.owner === o)!);
+    rival!.at = { x: 16, y: 13 };
+    state.current = 1;
+    const enElPozo = (nodo: string, opcion: number) =>
+      applyAdventureAction(
+        state,
+        {
+          type: 'elegir_en_lugar',
+          hero: rival!.id,
+          lugar: 'pozo-de-valdesombra',
+          punto: 'pozo',
+          nodo,
+          opcion,
+        },
+        ctx,
+        1,
+      );
+    enElPozo('brocal', 0);
+    enElPozo('brocal', 1);
+    const pending = state.pendingBattle!;
+    for (const s of pending.battle.stacks) if (s.side === 'attacker') s.count = 0;
+    pending.battle.finished = { winner: 'defender' };
+    settleBattle(state, ctx);
+    expect(state.mundo!.quienPuso['derrota-en-el-pozo']).toEqual({ jugador: 1, heroe: null });
+    state.current = 0;
+    yo!.at = { x: 10, y: 12 };
+    const faccion = NOMBRE_DE_FACCION[state.players[1]!.faction];
+    expect(
+      opcionBlocker(state, yo!.id, {
+        lugar: 'puente-de-corvo',
+        punto: 'garita',
+        nodo: 'dentro',
+        opcion: 0,
+      }),
+    ).toBe(`el rival (${faccion}) pasó antes: lo del pozo ya ha vencido a alguien`);
+  });
+
   it('con el héroe del rival, «ese héroe no es tuyo» (no «no es tu turno»)', () => {
     const { state } = enElLugar('puente-de-corvo');
     const rival = state.heroes.find((h) => h.owner === 1)!;
@@ -736,7 +926,7 @@ describe('elegir en un lugar', () => {
     pending.battle.finished = { winner: 'attacker' };
     settleBattle(state, ctx);
     const texto = marcadoDe(
-      renderLog(state.log, 0, (id) => lugarSiExiste(state.mundo!.historia, id)),
+      renderLog(state.log, 0, { lugarDe: (id) => lugarSiExiste(state.mundo!.historia, id) }),
     );
     expect(texto).toContain('+150 de oro en\u00a0«El pozo de Valdesombra»');
     expect(texto).toContain(

@@ -122,10 +122,29 @@ function condicionBlocker(a: Ante, c: Condicion): string | null {
   if ('no' in n) return condicionBlocker(a, n.no);
   if (condicionBlocker(a, n) !== null) return null;
   if ('estado' in n) return `«${a.lugar.nombre}» ya está ${nombreDeEstado(a.lugar, n.estado)}`;
-  if ('marca' in n) return a.mundo.historia.marcas[n.marca]?.ya ?? `ya está «${n.marca}»`;
+  if ('marca' in n) return marcaPuesta(a, n.marca);
   if ('oro' in n) return `es para quien tenga menos de ${describirCoste(n.oro)}`;
   if ('lleva' in n) return `${a.hero.name} ya lleva ${nombreDePieza(n.lleva)}`;
   return `no es para un héroe de ${n.faccion}`;
+}
+
+/**
+ * Lo que se dice de una marca ya puesta: su frase `ya`, y delante quién la puso si
+ * fue el otro jugador (#283, 11-11-2026: el rival elegía un desenlace y al que
+ * jugaba se le apagaba el otro con una frase del mundo, sin saber que fue él), como
+ * lo que se llevó (`yaCobrado`). La frase del motor describe el mundo y no habla a
+ * «tú» (H6 de `test/motor-de-mundos.test.ts`), así que sirve con nombre y sin él.
+ *
+ * Sin autor se dice la frase sola: la IA prueba mundos supuestos (`trasElegir`, en
+ * `ai/lugares.ts`) con las marcas que pondría, y esas no llevan quién; solo mira si
+ * la opción se apaga, que es lo mismo.
+ */
+function marcaPuesta(a: Ante, marca: string): string {
+  const ya = a.mundo.historia.marcas[marca]?.ya ?? `ya está «${marca}»`;
+  const quien = a.mundo.quienPuso[marca];
+  if (quien === undefined || quien.jugador === a.hero.owner) return ya;
+  const faccion = NOMBRE_DE_FACCION[playerById(a.state, quien.jugador).faction];
+  return `${quien.heroe ?? 'el rival'} (${faccion}) pasó antes: ${ya}`;
 }
 
 /** La primera condición de la lista que no se cumple, con su motivo; `null` si todas. */

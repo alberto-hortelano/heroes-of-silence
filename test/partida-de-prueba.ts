@@ -7,7 +7,7 @@
  * 06-11-2026.)
  */
 import { adventureActionSchema } from '../src/core/contract/esquemas.js';
-import { type AccionDelAgente, accionDelAgente } from '../src/core/contract/vocabulario.js';
+import { accionDelAgente } from '../src/core/contract/vocabulario.js';
 import { Casillas } from '../src/core/map/casillas.js';
 import { pointKey, VECINAS } from '../src/core/map/geometria.js';
 import { findPath, isEnterable, objectAt } from '../src/core/map/map.js';
@@ -26,8 +26,7 @@ import type { Army, Equipo, Hero, PlayerId, Point, Stack, Troop } from '../src/c
  * `accionDelAgente`, que lanza con el motivo si la jugada no se entiende.
  */
 export function traducidaDelAgente(state: GameState, escrito: unknown): AdventureAction {
-  // El `as`, el del director: zod escribe `veteran?: string | undefined`.
-  return accionDelAgente(adventureActionSchema.parse(escrito) as AccionDelAgente, state);
+  return accionDelAgente(adventureActionSchema.parse(escrito), state);
 }
 
 /**

@@ -78,6 +78,23 @@ medidas y nombres, `shared/muralla-de-batalla.ts` (`ALTO_DE_MURALLA` y `PORTADA`
 
 `previsionDe` → `horquillaDeDanio`, `trasElGolpe`; opciones del golpe, `opcionesDeDanio`
 
+**El golpe cuerpo a cuerpo, cruce a cruce de la rueda** (#253 y #264, 11-11-2026,
+`docs/agents/2026-11-11-prevision-de-la-batalla/`): todo golpe va con la rueda y en un punto del
+cruce no hay dado, así que la barra ya no prevé con la horquilla del dado (que Fuerte o Rápido, de
+quien pega o de quien responde, rebasaban). `previsionDe` de un `attack` sin elegir es la
+envolvente de **todos los cruces** de la rueda de la batalla, golpe contra respuesta
+(`previsionDelIntercambio`); con lo elegido, solo de esos (los dos: un cruce, exacto). Cada cruce,
+`intercambioEnElCruce`, como lo juega `melee`: el punto, Defensivo a quien pega, sus golpes en ese
+punto cada uno solo si el atacado sigue en pie (la carga, el primero), y, si lo devuelve, el atacado
+con lo que le queda y lo que el golpe le deja (`atacadoAlDevolver`, la copia común con la previsión
+de la rueda: el miedo y Romper guardia) y la respuesta en el punto contrario. `PrevisionDeGolpe.golpes`
+y `PrevisionDeContraataque.golpes` son horquillas (Rápido); `danio`, cada golpe que llega, el primero
+y los que siguen (`siguientes` se fue); la «Cuenta» va sin la rueda. La barra lo dice «según la
+rueda» (`textoDePrevision`). Los disparadores de un hechizo entre golpe y contraataque (`saltar`) no
+entran en ninguna previsión (backlog). `previsionDeLaRueda` no cambia (la lee el agente). Lo vigila
+el barrido de `test/prevision.test.ts`: todo cruce de las tres ruedas, sin excluir Fuerte ni Rápido,
+y las puntas pasan de verdad.
+
 ### Un hechizo: su formato, si vale y su catálogo (06-11-2026, el editor de magia; `docs/agents/2026-11-06-editor-de-magia/`)
 
 el tipo es el JSON (`Hechizo`, `core/magia/formato.ts`: entrega, objetivo, área, afecta, duración, `seAcabaSiMuere`, sus facciones y efectos de un vocabulario cerrado, cada palabra con su frase en `VOCABULARIO_DE_LA_MAGIA`); todo lo que no vale a la vez, `problemasDelHechizo` y `leerHechizos` (`magia/validar.ts`), y como poder de una unidad, `problemasComoPoder` (y de su facción, `poderDeUnidadBlocker`, `unidad/formato.ts`). **Las facciones** (08-11-2026, petición del usuario: «que cada hechizo pueda pertenecer a una o varias facciones»; `docs/agents/2026-11-08-facciones-de-los-hechizos/`): `Hechizo.facciones`, obligatorio, una o varias de `FACTION_IDS` sin repetir; `problemasDelHechizo` rechaza que falte o no sea una lista, que esté vacía, una que no existe (nombrando las que valen) y una repetida. Sin compatibilidad hacia atrás: un hechizo sin facciones no carga; `data/hechizos.json` lo importa solo `magia/catalogo.ts` (`HECHIZOS_DEL_JUEGO`, `hechizo`, `hechizosDelGremio`, `ordenDelLibro`, `nombreDeHechizo`; lo vigila `invariantes-datos.test.ts`); lo que hace en una frase, `queHaceElHechizo` (`magia/dicho.ts`); lo que el editor le hace, `magia/editar.ts`
@@ -306,3 +323,25 @@ refresca la duración (la mayor), no se acumula
   Mientras la rueda espera, los botones de la batalla salen apagados con su motivo
   (`fieldsetApagado`), y un clic mientras se cuenta una jugada dice «Espera a que termine la jugada.»
   (`alPulsarMientrasCuenta`); en la partida y en la arena (vuelta 1 de QA, 19-10-2026).
+
+- **El lateral mientras se cuenta** (#257, 11-11-2026, `docs/agents/2026-11-11-panel-durante-la-jugada/`):
+  el estado ya trae el final de lo que el tablero cuenta —en la partida, la tanda entera de la IA
+  hasta el turno de la persona—, y el lateral cantaba «Victoria» o «Derrota» antes del último golpe,
+  quitaba de «En el campo» a quien aún no se había visto caer y traía el parte, la ronda y la recarga
+  de después. **Se congela** (`panelDeBatalla`, `batalla/panel.ts`, la regla de la partida y la
+  arena): mientras `EscenaBatalla.ocupada`, el panel es lo último que pintó quieto esa batalla
+  (guardado por su registro, `battle.log`), entero y dentro de un `fieldset` apagado con «Espera a que
+  termine la jugada.»; si no pintó nada quieto (la arena con todo en IA, que se juega entera antes del
+  primer fotograma), calla: «Ronda …» y «Contando la jugada…». La línea de estado, igual:
+  `barraDeLaBatalla` calla «La batalla ha terminado.» hasta que se cuenta el último golpe, y deja pasar
+  el aviso de espera. **Por qué congelar**: callar como la arena hacía que el lateral se encogiera y
+  volviera a crecer en cada jugada propia y en cada tanda de la IA, y quitaba los botones apagados en
+  su sitio de #165; retener por el animador (vidas, recarga, granadas, ronda y parte paso a paso)
+  obligaba a pasar cada cifra nueva del lateral por él y mezclaba su foto con lo que la sesión ofrece
+  ahora (acciones legales, maná). **Lo que se acepta**: durante una tanda larga de la IA el lateral se
+  queda en lo de antes y no avanza golpe a golpe. **El aviso «Enemigo (N)» del móvil**
+  (`EscenaBatalla.enemigosFuera`) cuenta los que se ven en pie (`BattleAnimator.cuantosSeVen`: bajan en
+  el impacto que los tumba, con su barra) y no se vacía con el final hasta que el tablero lo cuenta.
+  «Continuar» sigue saliendo en cuanto el estado termina (#158 d) y el espectador sigue con su
+  `sinElFinal`: fuera de #257. Lo vigilan `escenas.test.ts` y `invariantes-cliente.test.ts` (ninguna
+  página ramifica por `contandoAun` en su panel).

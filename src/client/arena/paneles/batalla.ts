@@ -222,19 +222,11 @@ function rotuloDelGanador(battle: BattleState): string {
  * solo tiene la arena: quién mueve cada unidad, el resultado por lados, «Editar» y
  * «Editar equipo».
  *
- * @param contandoAun si el tablero aún cuenta la última jugada: con la batalla
- *   ya resuelta en el estado, el resultado se calla hasta que el tablero llega a
- *   él, como en el espectador.
+ * @param contandoAun si el tablero aún cuenta la última jugada: el panel no se
+ *   adelanta a lo que se ve —lo último pintado quieto, apagado, o «Contando la
+ *   jugada…» con todo en IA—, con la regla de las dos páginas (`panelDeBatalla`).
  */
 export function renderPanelDeBatalla(s: VistaDeArena, contandoAun: boolean): Html {
-  // Mientras el tablero cuenta, el estado ya va por delante de lo que se ve: el
-  // parte, las vidas y la ficha de la activa contarían el final antes de que
-  // llegue —con todo en IA, la pelea entera—. Se calla todo hasta que el tablero
-  // alcanza al estado.
-  if (contandoAun) {
-    return html`${filaDeCifra('Ronda', '…')}
-      <p>Contando la jugada…</p>`;
-  }
   // Cada uno en el campo: en el despliegue, sin «Editar» (aún no se pelea).
   const fila = (b: BattleState, x: BattleStack, conBoton: boolean) => {
     const nombre = nombreEnElCampo(b, x);
@@ -245,7 +237,7 @@ export function renderPanelDeBatalla(s: VistaDeArena, contandoAun: boolean): Htm
       ...(conBoton ? { boton: botonDeEditar(x, nombre) } : {}),
     };
   };
-  return panelDeBatalla(s, false, {
+  return panelDeBatalla(s, contandoAun, {
     final: (b) => html`<h2>${rotuloDelGanador(b)}</h2>
       <p>Ronda ${b.round}. Semilla ${s.semilla}.</p>
       <div class="stack-list"><button data-arena="otra-vez" class="primary">Otra vez</button></div>

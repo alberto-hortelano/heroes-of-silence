@@ -1,27 +1,41 @@
 /**
  * La IA de reglas en los lugares de un mundo (P4 del usuario, F1a): una regla
- * simple. Recorre los puntos que están, en su orden, y en cada uno su diálogo en
- * anchura desde el inicio —por las opciones que solo navegan y valen—, y se queda
- * con la primera opción que se puede elegir y **da algo aún no cobrado o abre un
- * encuentro no vencido** (una batalla, solo con ventaja clara: `ventajaClara`, la
- * regla de los neutrales). Si no hay ninguna, la primera opción sin premio que
- * **lleva a una** en `PASOS_HACIA_UN_PREMIO` elecciones (leer la carta que convence
- * al guardián, pagar el peaje ante el arcón), probada sobre una copia del mundo
- * (`trasElegir`). Lo que no lleva a ningún premio no se elige: dos opciones sin
- * premio que se encienden la una a la otra (bajar y subir una palanca) no la tienen
- * dando vueltas hasta `MAX_JUGADAS_EN_UN_LUGAR` ni hacen que un lugar sin nada le
- * siga valiendo `VALOR_DE_LUGAR` cada día (M3 de la vuelta 2 de QA de la F1a). Cada
- * premio se cobra una vez por regla del núcleo (`EstadoDelMundo.cobradas` y
- * `vencidos`), así que lo que elige se acaba.
+ * simple. Mira las opciones que se pueden elegir ahora en el lugar —las de los
+ * puntos que están, en los nodos a los que se llega por las opciones que solo
+ * navegan— y, de las que **dan algo aún no cobrado o abren un encuentro no
+ * vencido** (una batalla, solo con ventaja clara: `ventajaClara`, la regla de los
+ * neutrales), se queda con **la que más vale** (`valorDeLaOpcion`, en oro). Si no
+ * hay ninguna, elige entre las opciones sin premio que **llevan a una** en
+ * `PASOS_HACIA_UN_PREMIO` elecciones (leer la carta que convence al guardián, pagar
+ * el peaje ante el arcón), probadas sobre una copia del mundo (`trasElegir`), con la
+ * misma cuenta: lo que vale el premio al que lleva más lo que cuesta ella. Lo que no
+ * lleva a ningún premio no se elige: dos opciones sin premio que se encienden la una
+ * a la otra (bajar y subir una palanca) no la tienen dando vueltas hasta
+ * `MAX_JUGADAS_EN_UN_LUGAR` ni hacen que un lugar sin nada le siga valiendo
+ * `VALOR_DE_LUGAR` cada día (M3 de la vuelta 2 de QA de la F1a). Cada premio se
+ * cobra una vez por regla del núcleo (`EstadoDelMundo.cobradas` y `vencidos`), así
+ * que lo que elige se acaba.
+ *
+ * **El orden en que está escrita la historia no decide nada** (#284, 11-11-2026).
+ * Hasta entonces se quedaba con la primera opción con premio en el orden del
+ * fichero, y era el motor, al escribir, quien elegía el desenlace del rival (y,
+ * como el mundo es de los dos, el que se le cerraba a quien juega). Un empate de
+ * valor —dos desenlaces que dan lo mismo— se desempata por `desempate`: un número
+ * de la semilla de la partida, el jugador y **lo que es la opción** (su punto, su
+ * nodo, su texto, su «si», su «hace», su «ir»), nunca su posición. No tira de
+ * ninguna corriente de azar: `hariaAlgoEn` la usa para puntuar destinos, y mirar el
+ * mapa no puede mover las tiradas de la partida.
  *
  * El agente no entra en los lugares (F4): esto es solo de la IA de reglas. Sin
  * mundo no hay lugares y nada de aquí cambia una partida del banco.
  */
+import { pieza } from '../equipo/pieza.js';
 import { fuerzaDe, poderDe, ventajaClara } from '../hero/fuerza.js';
 import { gruposAlTope } from '../hero/grupos.js';
 import {
   batallaDe,
   daPremio,
+  type Efecto,
   type EstadoDelMundo,
   type Lugar,
   type Opcion,
@@ -38,8 +52,10 @@ import {
   type RefDeOpcion,
   soloNavega,
 } from '../mundo/reglas.js';
+import { hashDeTexto } from '../rng.js';
 import type { GameState } from '../state/tipos.js';
 import type { Hero } from '../types.js';
+import { oroDeUnidad } from '../unidad/catalogo.js';
 
 /**
  * Lo que vale para la IA ir a un lugar donde haría algo. **Inventado** (F1a,
@@ -59,9 +75,18 @@ export const MAX_JUGADAS_EN_UN_LUGAR = 8;
  */
 const PASOS_HACIA_UN_PREMIO = 3;
 
-/** Las opciones con efectos que se pueden elegir ahora en `a`, en el orden en que se leen. */
-function elegibles(a: Ante): { readonly ref: RefDeOpcion; readonly opcion: Opcion }[] {
-  const out: { ref: RefDeOpcion; opcion: Opcion }[] = [];
+/** Una opción que se puede elegir ahora, con dónde está. */
+interface Elegible {
+  readonly ref: RefDeOpcion;
+  readonly opcion: Opcion;
+}
+
+/**
+ * Las opciones con efectos que se pueden elegir ahora en `a`. El orden en que salen
+ * es el de la historia, y **nadie lo usa para elegir** (`laQueMasVale`).
+ */
+function elegibles(a: Ante): Elegible[] {
+  const out: Elegible[] = [];
   for (const p of puntosDe(a)) {
     for (const nodo of nodosAlcanzables(a, p)) {
       for (const [i, o] of nodoDe(a, p, nodo).opciones.entries()) {
@@ -83,6 +108,88 @@ function esUnPremio(a: Ante, o: Opcion, miPoder: number): boolean {
 }
 
 /**
+ * Lo que vale un efecto, en oro: el oro que da (o, negativo, el que se paga), el
+ * precio de la pieza que entra (o, negativo, el de la que sale), el de la tropa que
+ * se une (`oroDeUnidad`, el de un novato) y, una batalla, lo que da su encuentro al
+ * ganarlo. El estado y las marcas no valen nada por sí mismos: lo que abren lo cuenta
+ * la opción a la que llevan (`mejorJugada`). Sin medir equilibrio (no se piden
+ * medidas de jugabilidad): es la única escala que el catálogo ya tiene para las
+ * cuatro cosas.
+ */
+function valorDelEfecto(a: Ante, e: Efecto): number {
+  if ('oro' in e) return e.oro;
+  if ('pieza' in e) return pieza(e.pieza).precio;
+  if ('quitar' in e) return -pieza(e.quitar).precio;
+  if ('tropa' in e) return e.tropa.n * oroDeUnidad(e.tropa.unidad);
+  if ('batalla' in e) {
+    const encuentro = a.lugar.encuentros[e.batalla];
+    return encuentro === undefined ? 0 : sumaDelValor(a, encuentro.alGanar);
+  }
+  return 0;
+}
+
+function sumaDelValor(a: Ante, efectos: readonly Efecto[] | undefined): number {
+  let total = 0;
+  for (const e of efectos ?? []) total += valorDelEfecto(a, e);
+  return total;
+}
+
+/**
+ * Lo que vale elegir `o`, en oro: la suma de sus efectos (`valorDelEfecto`). Con
+ * batalla, lo suyo se da al ganarla junto a lo de «alGanar», y se suma igual.
+ */
+function valorDeLaOpcion(a: Ante, o: Opcion): number {
+  return sumaDelValor(a, o.hace);
+}
+
+/**
+ * El desempate entre dos opciones que valen lo mismo: un entero de la semilla de la
+ * partida, el jugador que elige y lo que **es** la opción —su punto y su nodo (ids,
+ * no posiciones), su texto, su «si», su «hace» y su «ir»—, sin su índice. Así el
+ * empate no lo decide el orden escrito (ni el motor, que no sabe la semilla) y cambia
+ * de una partida a otra: dos desenlaces que dan lo mismo no se juegan siempre igual
+ * desde el lado del rival. Es un hash (`hashDeTexto`), no una tirada: no gasta
+ * ninguna corriente de azar, porque `hariaAlgoEn` lo pregunta al puntuar destinos.
+ */
+function desempate(a: Ante, x: Elegible): { readonly n: number; readonly clave: string } {
+  const o = x.opcion;
+  const clave = JSON.stringify([
+    x.ref.punto,
+    x.ref.nodo,
+    o.texto,
+    o.si ?? [],
+    o.hace ?? [],
+    o.ir ?? null,
+  ]);
+  return {
+    n: hashDeTexto(`lugar|${a.state.seed}|${a.hero.owner}|${a.lugar.id}|${clave}`),
+    clave,
+  };
+}
+
+/**
+ * De los candidatos, con lo que vale cada uno, el que más vale; con empate, el de
+ * menor `desempate` y, si el hash coincide, el de menor clave (lo que es la opción,
+ * comparado por unidades de código: igual en cualquier plataforma). Dos opciones con
+ * la misma clave son la misma por lo que hacen y dónde están, y da igual cuál salga.
+ */
+function laQueMasVale(
+  a: Ante,
+  candidatos: readonly { readonly x: Elegible; readonly valor: number }[],
+): { readonly x: Elegible; readonly valor: number } | null {
+  let mejor: { x: Elegible; valor: number; n: number; clave: string } | null = null;
+  for (const c of candidatos) {
+    const { n, clave } = desempate(a, c.x);
+    const gana =
+      mejor === null ||
+      c.valor > mejor.valor ||
+      (c.valor === mejor.valor && (n < mejor.n || (n === mejor.n && clave < mejor.clave)));
+    if (gana) mejor = { x: c.x, valor: c.valor, n, clave };
+  }
+  return mejor;
+}
+
+/**
  * Cómo quedaría el mundo si el dueño del héroe de `a` eligiera `o`: lo determinista
  * (el estado del lugar, las marcas, dónde queda su conversación). Lo que paga o
  * entrega no se descuenta: es una pregunta de por dónde se va, no de si alcanza.
@@ -101,21 +208,33 @@ function trasElegir(a: Ante, ref: RefDeOpcion, o: Opcion): Ante {
 }
 
 /**
- * Lo que la IA elige en `a`: la primera opción que es un premio (`esUnPremio`) y, si
- * no hay, la primera sin premio tras la que se llega a uno en `pasos` elecciones.
+ * Lo que la IA elige en `a` y lo que vale: de las opciones que son un premio
+ * (`esUnPremio`), la que más vale (`laQueMasVale`); si no hay, de las sin premio tras
+ * las que se llega a uno en `pasos` elecciones, la que más vale contando el premio al
+ * que lleva. Ninguna de las dos mira la posición de la opción.
  */
-function primera(a: Ante, miPoder: number, pasos = PASOS_HACIA_UN_PREMIO): RefDeOpcion | null {
+function mejorJugada(
+  a: Ante,
+  miPoder: number,
+  pasos = PASOS_HACIA_UN_PREMIO,
+): { readonly ref: RefDeOpcion; readonly valor: number } | null {
   const todas = elegibles(a);
-  const premio = todas.find((x) => esUnPremio(a, x.opcion, miPoder));
-  if (premio !== undefined) return premio.ref;
+  const premios = todas
+    .filter((x) => esUnPremio(a, x.opcion, miPoder))
+    .map((x) => ({ x, valor: valorDeLaOpcion(a, x.opcion) }));
+  if (premios.length > 0) {
+    const elegida = laQueMasVale(a, premios);
+    return elegida === null ? null : { ref: elegida.x.ref, valor: elegida.valor };
+  }
   if (pasos <= 1) return null;
-  const camino = todas.find(
-    (x) =>
-      batallaDe(x.opcion) === null &&
-      !daPremio(x.opcion) &&
-      primera(trasElegir(a, x.ref, x.opcion), miPoder, pasos - 1) !== null,
-  );
-  return camino?.ref ?? null;
+  const caminos: { x: Elegible; valor: number }[] = [];
+  for (const x of todas) {
+    if (batallaDe(x.opcion) !== null || daPremio(x.opcion)) continue;
+    const tras = mejorJugada(trasElegir(a, x.ref, x.opcion), miPoder, pasos - 1);
+    if (tras !== null) caminos.push({ x, valor: valorDeLaOpcion(a, x.opcion) + tras.valor });
+  }
+  const elegida = laQueMasVale(a, caminos);
+  return elegida === null ? null : { ref: elegida.x.ref, valor: elegida.valor };
 }
 
 function conVentaja(a: Ante, encuentro: string, miPoder: number): boolean {
@@ -135,7 +254,7 @@ export function jugadaEnElLugar(state: GameState, hero: Hero): RefDeOpcion | nul
   const mundo = state.mundo;
   const lugar = lugarEn(state, hero.at);
   if (mundo === undefined || lugar === null) return null;
-  return primera({ state, mundo, hero, lugar }, fuerzaDe(hero));
+  return mejorJugada({ state, mundo, hero, lugar }, fuerzaDe(hero))?.ref ?? null;
 }
 
 /**
@@ -146,5 +265,5 @@ export function jugadaEnElLugar(state: GameState, hero: Hero): RefDeOpcion | nul
 export function hariaAlgoEn(state: GameState, hero: Hero, lugar: Lugar, miPoder: number): boolean {
   const mundo = state.mundo;
   if (mundo === undefined) return false;
-  return primera({ state, mundo, hero, lugar }, miPoder) !== null;
+  return mejorJugada({ state, mundo, hero, lugar }, miPoder) !== null;
 }

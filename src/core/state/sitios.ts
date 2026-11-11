@@ -73,7 +73,7 @@ import {
   type Troop,
 } from '../types.js';
 import { unidadDelJuego, unidadDelJuegoSiExiste } from '../unidad/catalogo.js';
-import { deLaLista, entero, esObjeto, objetoCon } from '../validar.js';
+import { deLaLista, entero, enteroDesde, esObjeto, objetoCon } from '../validar.js';
 import type { Ocupante } from './events.js';
 import type { AdventureAction, GameState } from './tipos.js';
 
@@ -918,7 +918,7 @@ function elIntercambio(
   if ('motivo' in donde) return donde;
   const { hero, sitio } = donde;
   if (deja && !donde.suyo) return { motivo: soloRecoger(sitio) };
-  if ('count' in pedido && (!Number.isSafeInteger(pedido.count) || pedido.count < 1)) {
+  if ('count' in pedido && !enteroDesde(pedido.count, 1)) {
     return { motivo: `son individuos: se mueven de 1 en adelante, no ${pedido.count}` };
   }
   const origen = deja ? hero.army : guarnicionDe(state, sitio);

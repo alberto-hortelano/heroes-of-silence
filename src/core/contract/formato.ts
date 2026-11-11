@@ -38,7 +38,7 @@ import { hechizo } from '../magia/catalogo.js';
 import { queHaceElHechizo } from '../magia/dicho.js';
 import { LADO_MAXIMO_DEL_PLAN, LADO_MINIMO_DEL_PLAN } from '../map/generar/plan.js';
 import { BARRERAS_DEL_PUEBLO } from '../map/map.js';
-import { LADO_DEL_RECINTO, SEPARACION_DE_CIUDADES } from '../map/recinto.js';
+import { HASTA_LOS_ACCESOS, LADO_DEL_RECINTO, SEPARACION_DE_CIUDADES } from '../map/recinto.js';
 import { BARRERAS, BARRERAS_DE_DESNIVEL, NIVELES } from '../map/terrain.js';
 import { OBRAS_DE_UN_PUESTO } from '../map/tipos.js';
 import { CLIMA, PEDIDOS_QUE_SE_MIRAN, TIEMPOS } from '../state/clima.js';
@@ -776,7 +776,9 @@ Reglas que se validan antes de aceptarlo:
   medio. Por eso: una ciudad va a una casilla del borde del mapa o más; dos
   ciudades, a ${SEPARACION_DE_CIUDADES} casillas o más, contando la diagonal como una; y dentro de un
   recinto no va nada más que su ciudad —ni un nodo, ni otra ciudad, ni un
-  pueblo, un monstruo, un cofre o un grupo de asaltantes—.
+  pueblo, un monstruo, un cofre o un grupo de asaltantes—. Y ni pueblo, ni
+  monstruo, ni cofre a ${HASTA_LOS_ACCESOS} casillas o menos de una ciudad: ese anillo son los
+  accesos de sus puertas, su entrada.
 - A una ciudad se entra por las PUERTAS de su recinto, y el resto del recinto no
   se pisa. Las puertas posibles son seis, relativas a la ciudad en {x,y}: la
   del norte en {x,y-1}, con su acceso en {x,y-2}; la del sur en {x,y+1}, con el

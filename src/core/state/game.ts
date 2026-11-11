@@ -193,6 +193,7 @@ export function createGame(config: GameConfig): GameState {
       historia: config.mundo.historia,
       estados: { ...config.mundo.estados },
       marcas: [...config.mundo.marcas],
+      quienPuso: { ...config.mundo.quienPuso },
       cobradas: { ...config.mundo.cobradas },
       vencidos: { ...config.mundo.vencidos },
       conversaciones: { ...config.mundo.conversaciones },

@@ -20,16 +20,7 @@ import { unidadDelJuego } from '@core/unidad/catalogo.js';
 import { DICHO_DE_LA_OBRA } from '../comun/dichos.js';
 import { type Html, html, NADA, unir } from '../comun/html.js';
 import { quienesDe } from '../comun/quien-mira.js';
-import { clase } from './notas.js';
 
-/**
- * « en (12, 5)»: dónde pasó un hecho de la crónica, o nada si no pasa en ningún
- * sitio (el día, el final). Es la casilla que el hecho ya trae (`at`) y no un
- * nombre de castillo o de región: el hecho no lleva más, y buscarlo en el estado
- * haría de la crónica algo que el espectador —que no tiene el estado— no puede
- * pintar. La casilla ya pasó la niebla con el hecho (`cronicaPara`): o el hecho
- * es tuyo, o la mirabas cuando ocurrió.
- */
 /**
  * «2 × Orko, 1 × Goblin»: lo que se movió entre un héroe y una guarnición, por tipo.
  * Con comas y no con «y»: la frase del reparto ya junta con «y» lo que deja y lo
@@ -44,12 +35,6 @@ function tropaMovida(
 /** «1 individuo», «6 individuos». */
 function individuos(n: number): string {
   return `${n} ${n === 1 ? 'individuo' : 'individuos'}`;
-}
-
-function enLaCasilla(at: Point | null): string {
-  // Espacios duros: en la caja estrecha la casilla se partía en «(10,» y «4)»
-  // (visto en la captura), y una coordenada partida no se lee como una.
-  return at === null ? '' : ` en\u00a0(${at.x},\u00a0${at.y})`;
 }
 
 /** Cómo se llama un cuerpo del tablero en la crónica: el héroe no está en el catálogo. */
@@ -67,7 +52,9 @@ function fraseDeBatalla(
   e: Extract<GameEventDraft, { kind: 'battle_ended' }>,
   suyo: Side | null,
   /** El lugar de la batalla, si es de uno que se conoce: se nombran él y su encuentro. */
-  lugar: Lugar | null = null,
+  lugar: Lugar | null,
+  /** « en (7, 8)», o nada si la línea ya lleva a su casilla (la de `renderLog`). */
+  enLaCasilla: (at: Point | null) => string,
 ): string {
   /**
    * Contra quién (#18), con lo que trae el hecho: el atacante es un héroe (con
@@ -118,11 +105,10 @@ function fraseDeBatalla(
     const bajas = e.lost[s];
     if (bajas.length === 0) continue;
     const quien = bando(s);
-    partes.push(
-      `${quien === 'tú' ? 'pierdes' : `pierde ${quien}`} ${bajas
-        .map((b) => `${b.count}\u00a0× ${nombreDeCuerpo(b.creature)}`)
-        .join(', ')}`,
-    );
+    // Con dos puntos en tercera persona (#202): «pierde el jugador 1 2 × Momia»
+    // se leía como un solo número, el 12.
+    const caidos = bajas.map((b) => `${b.count}\u00a0× ${nombreDeCuerpo(b.creature)}`).join(', ');
+    partes.push(quien === 'tú' ? `pierdes ${caidos}` : `pierde ${quien}: ${caidos}`);
   }
   for (const c of e.casts) {
     const mata = c.killed > 0 ? ` (mata ${c.killed})` : '';
@@ -132,6 +118,30 @@ function fraseDeBatalla(
     );
   }
   return partes.join('; ');
+}
+
+/** Lo que `renderLog` sabe además de los hechos, según quién la pinte. */
+interface LecturaDeLaCronica {
+  /**
+   * El lugar de un mundo por su id, para nombrarlo: los hechos de un lugar llevan
+   * su id y no su casilla, que no dice nada a quien juega. Sin mundo (el
+   * espectador), ninguno, y la frase dice la casilla.
+   */
+  readonly lugarDe?: (id: string) => Lugar | null;
+  /**
+   * El sitio de una guarnición o de un nodo tomado por su id, para nombrarlo («la
+   * guarnición del paso de montaña de (13,7)», «Pueblo tomado: El Soto»): sin él,
+   * la casilla (el espectador lo da de los pasos y los pueblos del cable).
+   */
+  readonly sitioDe?: (id: string) => Sitio | null;
+  /**
+   * Cada línea con casilla es un botón que lleva la cámara a ella (#202), y la
+   * frase deja de decir « en (12, 5)»: el botón ya lleva allí, y una coordenada
+   * que ninguna pantalla enseña no sitúa nada. Solo la partida, que tiene cámara
+   * que mover; el espectador mira el mapa entero desde lo más lejos y sigue
+   * diciendo la casilla.
+   */
+  readonly llevaALaCasilla?: boolean;
 }
 
 /**
@@ -158,24 +168,49 @@ function fraseDeBatalla(
  *
  * `viewer` es quien la lee. El espectador no es nadie —no tiene un «tú»—, y por
  * eso pasa un id que no es de ningún jugador: entonces toda la crónica se lee en
- * tercera persona, que es lo correcto para quien mira desde fuera.
+ * tercera persona, que es lo correcto para quien mira desde fuera, y sin color
+ * (`linea`): ni gana ni pierde nada de lo que pasa.
  */
 export function renderLog(
   log: readonly GameEventDraft[],
   viewer: number,
-  /**
-   * El lugar de un mundo por su id, para nombrarlo: los hechos de un lugar llevan
-   * su id y no su casilla, que no dice nada a quien juega. Sin mundo (el
-   * espectador), ninguno, y la frase dice la casilla.
-   */
-  lugarDe: (id: string) => Lugar | null = () => null,
-  /**
-   * El sitio de una guarnición o de un nodo tomado por su id, para nombrarlo («la
-   * guarnición del paso de montaña de (13,7)», «Pueblo tomado: El Soto»): sin él,
-   * la casilla (el espectador lo da de los pasos y los pueblos del cable).
-   */
-  sitioDe: (id: string) => Sitio | null = () => null,
+  { lugarDe = () => null, sitioDe = () => null, llevaALaCasilla = false }: LecturaDeLaCronica = {},
 ): Html {
+  /**
+   * El color de la línea, para quien no lleva bando, ninguno: lo decide aquí una
+   * vez y no cada rama. Con la pregunta de dos de cada rama, `clase(!mio, mio)`
+   * —la caída y la vuelta a la base de un héroe, donde lo tuyo es lo malo— salía
+   * en el verde de victoria en el espectador, que no es nadie y para quien `mio`
+   * es siempre falso (#202).
+   */
+  const sinBando = quienesDe(viewer).size === 0;
+  /**
+   * Una línea de la crónica: verde lo que te suma, rojo lo que te resta (como
+   * `clase` en el parte de batalla) y, con `llevaALaCasilla` y una casilla, el
+   * botón que lleva la cámara a `lleva`. Sin él, el marcado de siempre.
+   */
+  const linea = (bueno: boolean, malo: boolean, contenido: string, lleva: Point | null): Html => {
+    const tono = sinBando ? null : bueno ? 'win' : malo ? 'lose' : null;
+    if (llevaALaCasilla && lleva !== null) {
+      const clases = tono === null ? 'a-la-casilla' : `a-la-casilla ${tono}`;
+      return html`<button type="button" class="${clases}" data-action="mirar-la-casilla" data-x="${lleva.x}" data-y="${lleva.y}" title="Ver en el mapa">${contenido}</button>`;
+    }
+    return tono === null
+      ? html`<div>${contenido}</div>`
+      : html`<div class="${tono}">${contenido}</div>`;
+  };
+  /**
+   * « en (12, 5)»: dónde pasó un hecho de la crónica, o nada si no pasa en ningún
+   * sitio (el día, el final) o si la línea ya lleva a su casilla. Es la casilla que
+   * el hecho ya trae (`at`) y no un nombre de castillo o de región: el hecho no
+   * lleva más, y buscarlo en el estado haría de la crónica algo que el espectador
+   * —que no tiene el estado— no puede pintar. La casilla ya pasó la niebla con el
+   * hecho (`cronicaPara`): o el hecho es tuyo, o la mirabas cuando ocurrió.
+   */
+  const enLaCasilla = (at: Point | null): string =>
+    // Espacios duros: en la caja estrecha la casilla se partía en «(10,» y «4)»
+    // (visto en la captura), y una coordenada partida no se lee como una.
+    at === null || llevaALaCasilla ? '' : ` en\u00a0(${at.x},\u00a0${at.y})`;
   /** «El osario», con sus comillas, si se conoce; si no, `null`. */
   const nombreDelLugar = (lugar: string): string | null => {
     const l = lugarDe(lugar);
@@ -192,6 +227,10 @@ export function renderLog(
    * español, y no es teórico: en pantalla salió «Castillo de tú capturado» y
    * habría salido «Mina capturada a el jugador 1». El número es el mismo que
    * enseña todo lo demás — dos numeraciones para la misma cosa es una trampa.
+   *
+   * El genitivo de quien lee, «tuyo», concuerda con lo que lleva delante: solo
+   * va tras un nombre masculino del texto («un héroe tuyo»), nunca tras el de
+   * una unidad del catálogo, que puede ser «Sacerdotisa» (#202).
    */
   const jugador = (id: number | null): string =>
     id === null ? 'Alguien' : id === viewer ? 'Tú' : `El jugador ${id}`;
@@ -227,6 +266,8 @@ export function renderLog(
     // `default`: un `kind` al que nadie le haya escrito su frase tiene que
     // ponerse rojo, no colarse por la rama de abajo. Quien lo pone rojo es el
     // `never` del final, igual que en `contract/mapa-conocido.ts`.
+    //
+    // Cada rama lleva a `e.at` salvo la dispersión de un grupo, que lo esconde.
     .map((e): Html => {
       const mio = e.actor === viewer;
       // Dónde (#18): «Paso tomado» no decía cuál, y con once nodos por bando
@@ -235,30 +276,47 @@ export function renderLog(
       const aqui = enLaCasilla(e.at);
       switch (e.kind) {
         case 'day_start':
-          return html`<div>— Día ${e.day} —</div>`;
+          return linea(false, false, `— Día ${e.day} —`, e.at);
         case 'gold_gained':
           return mio
-            ? html`<div class="win">+${conMiles(e.amount)} de oro${enElLugar(
-                e.from === 'lugar' ? e.lugar : undefined,
+            ? linea(
+                true,
+                false,
+                `+${conMiles(e.amount)} de oro${enElLugar(
+                  e.from === 'lugar' ? e.lugar : undefined,
+                  e.at,
+                )}`,
                 e.at,
-              )}</div>`
+              )
             : NADA;
         case 'gold_paid':
           return mio
-            ? html`<div class="lose">−${conMiles(e.amount)} de oro${enElLugar(e.lugar, e.at)}</div>`
+            ? linea(false, true, `−${conMiles(e.amount)} de oro${enElLugar(e.lugar, e.at)}`, e.at)
             : NADA;
         case 'place_state':
           // El nombre del lugar y el de su estado los escribió el motor: van en
           // huecos de texto y la plantilla los escapa.
-          return html`<div${clase(mio, false)}>«${e.nombre}» queda ${e.dicho}</div>`;
+          return linea(mio, false, `«${e.nombre}» queda ${e.dicho}`, e.at);
         case 'item_given':
-          return html`<div${clase(false, mio)}>${
-            mio ? 'Entregado' : `${jugador(e.actor)} entrega`
-          }${enElLugar(e.lugar, e.at)}: ${pieza(e.item).nombre}</div>`;
+          return linea(
+            false,
+            mio,
+            `${mio ? 'Entregado' : `${jugador(e.actor)} entrega`}${enElLugar(e.lugar, e.at)}: ${
+              pieza(e.item).nombre
+            }`,
+            e.at,
+          );
         case 'troops_joined':
-          return html`<div${clase(mio, false)}>${
-            mio ? 'Se te unen' : `Se unen ${alJugador(e.actor)}`
-          } ${e.count} × ${unidadDelJuego(e.creature).name}${enElLugar(e.lugar, e.at)}</div>`;
+          // Con dos puntos tras el jugador (#202): «Se unen al jugador 1 3 × …» se
+          // leía como un solo número.
+          return linea(
+            mio,
+            false,
+            `${mio ? 'Se te unen' : `Se unen ${alJugador(e.actor)}:`} ${e.count} × ${
+              unidadDelJuego(e.creature).name
+            }${enElLugar(e.lugar, e.at)}`,
+            e.at,
+          );
         case 'node_captured': {
           // El pueblo del muro se toma como un paso y es el mismo hecho, pero se
           // nombra por lo que es: «Paso tomado en (8, 14)» de El Soto no decía qué
@@ -267,79 +325,119 @@ export function renderLog(
           const sitio = sitioDe(e.node);
           if (sitio?.kind === 'pueblo') {
             const nombre = nombreDelSitio(sitio);
-            return html`<div${clase(mio, e.from === viewer)}>${
+            return linea(
+              mio,
+              e.from === viewer,
               mio
                 ? `Pueblo tomado${e.from === null ? '' : ` ${alJugador(e.from)}`}: ${nombre}`
                 : e.from === viewer
                   ? `${jugador(e.actor)} te ha quitado ${nombre}`
-                  : `${jugador(e.actor)} toma el pueblo de ${nombre}`
-            }</div>`;
+                  : `${jugador(e.actor)} toma el pueblo de ${nombre}`,
+              e.at,
+            );
           }
-          return html`<div${clase(mio, e.from === viewer)}>${
-            mio
-              ? `Paso tomado${e.from === null ? '' : ` ${alJugador(e.from)}`}`
-              : e.from === viewer
-                ? `${jugador(e.actor)} te ha quitado un paso`
-                : `${jugador(e.actor)} toma un paso`
-          }${aqui}</div>`;
+          return linea(
+            mio,
+            e.from === viewer,
+            `${
+              mio
+                ? `Paso tomado${e.from === null ? '' : ` ${alJugador(e.from)}`}`
+                : e.from === viewer
+                  ? `${jugador(e.actor)} te ha quitado un paso`
+                  : `${jugador(e.actor)} toma un paso`
+            }${aqui}`,
+            e.at,
+          );
         }
         case 'town_captured':
           // El criterio 9: a costa de quién. «Castillo capturado» a secas era
           // media verdad justo en el evento que decide la partida.
-          return html`<div${clase(mio, e.from === viewer)}>${
-            mio
-              ? `Has capturado un castillo ${e.from === null ? 'neutral' : deJugador(e.from)}`
-              : e.from === viewer
-                ? `${jugador(e.actor)} te ha capturado un castillo`
-                : `${jugador(e.actor)} captura un castillo ${
-                    e.from === null ? 'neutral' : deJugador(e.from)
-                  }`
-          }${aqui}</div>`;
+          return linea(
+            mio,
+            e.from === viewer,
+            `${
+              mio
+                ? `Has capturado un castillo ${e.from === null ? 'neutral' : deJugador(e.from)}`
+                : e.from === viewer
+                  ? `${jugador(e.actor)} te ha capturado un castillo`
+                  : `${jugador(e.actor)} captura un castillo ${
+                      e.from === null ? 'neutral' : deJugador(e.from)
+                    }`
+            }${aqui}`,
+            e.at,
+          );
         case 'town_owner_changed': {
           // La ciudad de dentro de una región, que va con ella: nadie la toma.
           const ciudad = sitioOCasilla(e.town, e.at, (s) => nombreDelSitio(s), 'una ciudad');
-          return html`<div${clase(e.to === viewer, e.from === viewer)}>${
+          return linea(
+            e.to === viewer,
+            e.from === viewer,
             e.to === viewer
               ? `${ciudad} es tuya: su región ya es tuya`
               : e.from === viewer
                 ? `Pierdes ${ciudad}: su región ya no es tuya`
-                : `${ciudad} pasa ${e.to === null ? 'a no ser de nadie' : alJugador(e.to)}`
-          }</div>`;
+                : `${ciudad} pasa ${e.to === null ? 'a no ser de nadie' : alJugador(e.to)}`,
+            e.at,
+          );
         }
         case 'site_occupied': {
           const sitio = sitioOCasilla(e.site, e.at, (s) => nombreDelSitio(s), 'un sitio');
+          // «una guarnición tuya»: `deJugador` dice «tuyo», que es para «un héroe».
           const quien =
             e.by.kind === 'heroe'
               ? `un héroe ${deJugador(e.by.dueño)}`
               : e.by.dueño === null
                 ? 'una guarnición neutral'
-                : `una guarnición ${deJugador(e.by.dueño)}`;
+                : e.by.dueño === viewer
+                  ? 'una guarnición tuya'
+                  : `una guarnición ${deJugador(e.by.dueño)}`;
           // Mío: me lo ocupan (rojo). Del ocupante: lo ocupa él (verde).
           const ocupa = quien.charAt(0).toUpperCase() + quien.slice(1);
-          return html`<div${clase(e.by.dueño === viewer, mio)}>${
+          return linea(
+            e.by.dueño === viewer,
+            mio,
             mio
               ? `${ocupa} ocupa ${sitio}: no te da nada hasta que eches al ocupante`
-              : `${ocupa} ocupa ${sitio}`
-          }</div>`;
+              : `${ocupa} ocupa ${sitio}`,
+            e.at,
+          );
         }
         case 'site_freed': {
           const sitio = sitioOCasilla(e.site, e.at, (s) => nombreDelSitio(s), 'un sitio');
-          return html`<div${clase(mio, false)}>${
-            mio ? `${sitio} queda libre: vuelve a darte lo suyo` : `${sitio} queda libre`
-          }</div>`;
+          return linea(
+            mio,
+            false,
+            mio ? `${sitio} queda libre: vuelve a darte lo suyo` : `${sitio} queda libre`,
+            e.at,
+          );
         }
         case 'built':
-          return html`<div${clase(mio, false)}>${
-            mio ? 'Construido' : `${jugador(e.actor)} construye`
-          }${aqui}: ${building(e.building).name}</div>`;
+          return linea(
+            mio,
+            false,
+            `${mio ? 'Construido' : `${jugador(e.actor)} construye`}${aqui}: ${
+              building(e.building).name
+            }`,
+            e.at,
+          );
         case 'recruited':
-          return html`<div${clase(mio, false)}>${
-            mio ? 'Reclutados' : `${jugador(e.actor)} recluta`
-          } ${e.count} × ${unidadDelJuego(e.creature).name}${aqui}</div>`;
+          return linea(
+            mio,
+            false,
+            `${mio ? 'Reclutados' : `${jugador(e.actor)} recluta`} ${e.count} × ${
+              unidadDelJuego(e.creature).name
+            }${aqui}`,
+            e.at,
+          );
         case 'dismissed':
-          return html`<div${clase(mio, false)}>${
-            mio ? 'Licenciados' : `${jugador(e.actor)} licencia`
-          } ${e.count} × ${unidadDelJuego(e.creature).name}${aqui}</div>`;
+          return linea(
+            mio,
+            false,
+            `${mio ? 'Licenciados' : `${jugador(e.actor)} licencia`} ${e.count} × ${
+              unidadDelJuego(e.creature).name
+            }${aqui}`,
+            e.at,
+          );
         // Lo que no cupo tras una batalla (08-11-2026, «Levantar zombi»): quién lo
         // deja y, si es una guarnición, lo que se perdió con ellos (P7).
         case 'left_behind': {
@@ -353,44 +451,83 @@ export function renderLog(
             e.lost.length === 0
               ? ''
               : `; se pierde lo que llevaban: ${e.lost.map((id) => pieza(id).nombre).join(', ')}`;
-          return html`<div${clase(false, mio)}>${quien} ${e.count} × ${unidadDelJuego(e.creature).name}${aqui}: no cabe tras la batalla${pierde}</div>`;
+          return linea(
+            false,
+            mio,
+            `${quien} ${e.count} × ${unidadDelJuego(e.creature).name}${aqui}: no cabe tras la batalla${pierde}`,
+            e.at,
+          );
         }
         case 'hero_hired':
-          return html`<div${clase(mio, false)}>${
-            mio ? 'Héroe contratado' : `${jugador(e.actor)} contrata un héroe`
-          }${aqui}</div>`;
+          return linea(
+            mio,
+            false,
+            `${mio ? 'Héroe contratado' : `${jugador(e.actor)} contrata un héroe`}${aqui}`,
+            e.at,
+          );
         case 'loot_found':
           // El botín se cuenta porque cae en la mochila, que no se ve en el mapa:
           // sin esta línea la pieza aparecería en el panel sin saber de dónde.
-          return html`<div${clase(mio, false)}>${
-            mio ? 'Botín' : `${jugador(e.actor)} se lleva un botín`
-          } ${
-            e.from === 'lugar'
-              ? `de ${nombreDelLugar(e.lugar) ?? `un lugar${aqui}`}`
-              : e.from === 'raider'
-                ? `de unos asaltantes${aqui}`
-                : `de una ciudad neutral${aqui}`
-          }: ${pieza(e.item).nombre}</div>`;
+          return linea(
+            mio,
+            false,
+            `${mio ? 'Botín' : `${jugador(e.actor)} se lleva un botín`} ${
+              e.from === 'lugar'
+                ? `de ${nombreDelLugar(e.lugar) ?? `un lugar${aqui}`}`
+                : e.from === 'raider'
+                  ? `de unos asaltantes${aqui}`
+                  : `de una ciudad neutral${aqui}`
+            }: ${pieza(e.item).nombre}`,
+            e.at,
+          );
         case 'item_bought':
-          return html`<div${clase(mio, false)}>${
-            mio ? 'Comprado en la armería' : `${jugador(e.actor)} compra en la armería`
-          }${aqui}: ${pieza(e.item).nombre}</div>`;
-        case 'hero_promoted':
+          return linea(
+            mio,
+            false,
+            `${mio ? 'Comprado en la armería' : `${jugador(e.actor)} compra en la armería`}${aqui}: ${
+              pieza(e.item).nombre
+            }`,
+            e.at,
+          );
+        case 'hero_promoted': {
           // El nombre lo escribió el narrador: va en un hueco de texto y la
           // plantilla lo escapa, como el de cualquier pueblo del agente.
-          return html`<div${clase(mio, false)}>Un ${unidadDelJuego(e.creature).name} ${deJugador(
-            e.actor,
-          )} se hace héroe${aqui}: ${e.name}</div>`;
+          //
+          // Con posesivo y no con «Un … tuyo» (#202): el nombre de la unidad puede
+          // ser femenino («Un Sacerdotisa») y el catálogo no dice el género. «Tu» y
+          // «su» valen para cualquiera.
+          const unidad = unidadDelJuego(e.creature).name;
+          return linea(
+            mio,
+            false,
+            mio
+              ? `Haces héroe a tu ${unidad}${aqui}: ${e.name}`
+              : `${jugador(e.actor)} hace héroe a su ${unidad}${aqui}: ${e.name}`,
+            e.at,
+          );
+        }
         // La guarnición se nombra por su sitio (H4 del QA de la fase 1): «la guarnición
         // del paso de montaña de (13,7)» dice cuál; «en (13, 7)», no.
         case 'troops_left':
-          return html`<div${clase(mio, false)}>${mio ? 'Dejas' : `${jugador(e.actor)} deja`} ${tropaMovida(
-            [e],
-          )} ${enLaGuarnicion(e.site, e.at)}</div>`;
+          return linea(
+            mio,
+            false,
+            `${mio ? 'Dejas' : `${jugador(e.actor)} deja`} ${tropaMovida([e])} ${enLaGuarnicion(
+              e.site,
+              e.at,
+            )}`,
+            e.at,
+          );
         case 'troops_taken':
-          return html`<div${clase(mio, false)}>${mio ? 'Recoges' : `${jugador(e.actor)} recoge`} ${tropaMovida(
-            [e],
-          )} ${deLaGuarnicion(e.site, e.at)}</div>`;
+          return linea(
+            mio,
+            false,
+            `${mio ? 'Recoges' : `${jugador(e.actor)} recoge`} ${tropaMovida([e])} ${deLaGuarnicion(
+              e.site,
+              e.at,
+            )}`,
+            e.at,
+          );
         case 'troops_exchanged': {
           const deja = e.left.length === 0 ? null : tropaMovida(e.left);
           const recoge = e.taken.length === 0 ? null : tropaMovida(e.taken);
@@ -399,29 +536,49 @@ export function renderLog(
             recoge === null ? null : `${mio ? 'recoges' : 'recoge'} ${recoge}`,
           ].filter((x) => x !== null);
           const frase = partes.join(' y ');
-          return html`<div${clase(mio, false)}>${
-            mio ? frase.charAt(0).toUpperCase() + frase.slice(1) : `${jugador(e.actor)} ${frase}`
-          } ${enLaGuarnicion(e.site, e.at)}</div>`;
+          return linea(
+            mio,
+            false,
+            `${
+              mio ? frase.charAt(0).toUpperCase() + frase.slice(1) : `${jugador(e.actor)} ${frase}`
+            } ${enLaGuarnicion(e.site, e.at)}`,
+            e.at,
+          );
         }
         case 'outpost_upgraded': {
           const elPuesto = sitioOCasilla(e.site, e.at, nombreDelSitio, 'el puesto');
           const obra = DICHO_DE_LA_OBRA[e.to].cronica(mio, elPuesto);
-          return html`<div${clase(mio, false)}>${mio ? obra : `${jugador(e.actor)} ${obra}`} por ${describirCoste(e.cost)}</div>`;
+          return linea(
+            mio,
+            false,
+            `${mio ? obra : `${jugador(e.actor)} ${obra}`} por ${describirCoste(e.cost)}`,
+            e.at,
+          );
         }
         case 'defense_set': {
           const sitio = sitioDe(e.site);
           const donde = sitio === null ? '' : ` ${nombreDelSitio(sitio)}`;
           const fuera = sitio === null ? aqui : '';
-          return html`<div${clase(mio, false)}>${
-            mio
-              ? `Defiendes${donde} con ${individuos(e.fighting)} y dejas fuera ${e.staying}`
-              : `${jugador(e.actor)} defiende${donde} con ${individuos(e.fighting)} y deja fuera ${e.staying}`
-          }${fuera}</div>`;
+          return linea(
+            mio,
+            false,
+            `${
+              mio
+                ? `Defiendes${donde} con ${individuos(e.fighting)} y dejas fuera ${individuos(e.staying)}`
+                : `${jugador(e.actor)} defiende${donde} con ${individuos(e.fighting)} y deja fuera ${individuos(e.staying)}`
+            }${fuera}`,
+            e.at,
+          );
         }
         case 'spells_learned':
-          return html`<div${clase(mio, false)}>${
-            mio ? 'Aprendido' : `${jugador(e.actor)} aprende`
-          }${aqui}: ${e.spells.map((id) => nombreDeHechizo(id)).join(', ')}</div>`;
+          return linea(
+            mio,
+            false,
+            `${mio ? 'Aprendido' : `${jugador(e.actor)} aprende`}${aqui}: ${e.spells
+              .map((id) => nombreDeHechizo(id))
+              .join(', ')}`,
+            e.at,
+          );
         case 'battle_ended': {
           // Lo que sobrevive de la batalla (#93): antes, «Batalla resuelta» y
           // nada más, ni quién ganó. El bando de quien lee sale de `owners`, que
@@ -432,38 +589,68 @@ export function renderLog(
               : e.owners.defender === viewer
                 ? 'defender'
                 : null;
-          return html`<div${clase(suyo === e.winner, suyo !== null && suyo !== e.winner)}>${fraseDeBatalla(e, suyo, e.foe.kind === 'lugar' ? lugarDe(e.foe.lugar) : null)}</div>`;
+          return linea(
+            suyo === e.winner,
+            suyo !== null && suyo !== e.winner,
+            fraseDeBatalla(
+              e,
+              suyo,
+              e.foe.kind === 'lugar' ? lugarDe(e.foe.lugar) : null,
+              enLaCasilla,
+            ),
+            e.at,
+          );
         }
         case 'hero_defeated':
           // `actor` es el dueño del MUERTO, así que aquí «mío» es la derrota y
           // lo del rival es una victoria. Antes las dos salían en rojo, y a la
           // persona se le pintaba como propia la muerte del héroe enemigo.
-          return html`<div${clase(!mio, mio)}>${
-            mio ? 'Un héroe tuyo ha caído' : `Ha caído un héroe ${deJugador(e.actor)}`
-          }${aqui}</div>`;
+          return linea(
+            !mio,
+            mio,
+            `${mio ? 'Un héroe tuyo ha caído' : `Ha caído un héroe ${deJugador(e.actor)}`}${aqui}`,
+            e.at,
+          );
         case 'hero_returned':
           // Volver a la base es perder (la tropa o el oro) pero no la partida:
           // el color es el de una derrota tuya o una victoria sobre el rival.
-          return html`<div${clase(!mio, mio)}>${
-            mio
-              ? 'Un héroe tuyo vuelve a la base'
-              : `Un héroe ${deJugador(e.actor)} vuelve a su base`
-          }${aqui}${e.surrendered ? ` tras rendirse por ${e.gold} de oro` : ''}</div>`;
+          return linea(
+            !mio,
+            mio,
+            `${
+              mio
+                ? 'Un héroe tuyo vuelve a la base'
+                : `Un héroe ${deJugador(e.actor)} vuelve a su base`
+            }${aqui}${e.surrendered ? ` tras rendirse por ${conMiles(e.gold)} de oro` : ''}`,
+            e.at,
+          );
         case 'rank_up':
           // El rango reparte cuerpo y liderazgo, pero eso no se ve en el mapa:
           // si no se contara aquí, subir pasaría sin que nadie lo notara. Todo
           // héroe nace en el 5 (una sola escala con la tropa), así que la
           // primera línea de estas que se lee es «sube a rango 6». El nivel no
           // va: es el de sus cifras de hoy, no el de entonces.
-          return html`<div${clase(mio, false)}>Un héroe ${deJugador(e.actor)} sube a rango ${
-            e.rank
-          }${aqui}</div>`;
-        case 'troop_rank_up':
+          return linea(
+            mio,
+            false,
+            `Un héroe ${deJugador(e.actor)} sube a rango ${e.rank}${aqui}`,
+            e.at,
+          );
+        case 'troop_rank_up': {
           // La tropa también sube, y es lo que se pidió que se viera: un
           // veterano no se distingue en el mapa, así que el ascenso se cuenta.
-          return html`<div${clase(mio, false)}>Un ${unidadDelJuego(e.creature).name} ${deJugador(
-            e.actor,
-          )} sube a veterano de rango ${e.rank}${aqui}</div>`;
+          // Ni «Un», ni «tuyo», ni «veterano» concuerdan con un nombre femenino
+          // (#202): la frase no depende del género de la unidad.
+          const unidad = unidadDelJuego(e.creature).name;
+          return linea(
+            mio,
+            false,
+            mio
+              ? `Tu ${unidad} sube a rango ${e.rank} de veteranía${aqui}`
+              : `${jugador(e.actor)}: su ${unidad} sube a rango ${e.rank} de veteranía${aqui}`,
+            e.at,
+          );
+        }
         case 'game_over': {
           // El ganador es `actor`, y ya no hay un `winner` al lado diciendo lo
           // mismo: `visibleTo` enrutaba por uno y esta línea pintaba por el
@@ -475,7 +662,7 @@ export function renderLog(
           // impedir, un panel más allá, y esta línea la pinta también el
           // espectador, que no tiene bando.
           const fin = desenlaceDe(e.actor, quienesDe(viewer));
-          return html`<div${clase(fin === 'ganada', fin === 'perdida')}>Fin de la partida</div>`;
+          return linea(fin === 'ganada', fin === 'perdida', 'Fin de la partida', e.at);
         }
 
         // Los que la pantalla NO pinta, escritos uno a uno en vez de
@@ -493,25 +680,39 @@ export function renderLog(
           // emboscada: ahí la batalla no la pidió nadie y hay que decir por qué
           // se ha parado el héroe.
           if (e.attacker.kind !== 'raider') return NADA;
-          return html`<div${clase(false, mio)}>${
-            mio
-              ? '¡Emboscada! Unos asaltantes atacan a un héroe tuyo'
-              : `Unos asaltantes emboscan a un héroe ${deJugador(e.actor)}`
-          }${aqui}</div>`;
+          return linea(
+            false,
+            mio,
+            `${
+              mio
+                ? '¡Emboscada! Unos asaltantes atacan a un héroe tuyo'
+                : `Unos asaltantes emboscan a un héroe ${deJugador(e.actor)}`
+            }${aqui}`,
+            e.at,
+          );
         case 'march_halted':
           // Es lo que explica que el héroe se haya quedado a medio camino con
           // puntos de sobra: sin esta línea parecería un fallo de la marcha.
-          return html`<div>${
-            mio ? 'Un héroe tuyo se detiene' : `Un héroe ${deJugador(e.actor)} se detiene`
-          }${aqui}: ${loQueLaPara(e.troops)}</div>`;
+          return linea(
+            false,
+            false,
+            `${
+              mio ? 'Un héroe tuyo se detiene' : `Un héroe ${deJugador(e.actor)} se detiene`
+            }${aqui}: ${loQueLaPara(e.troops)}`,
+            e.at,
+          );
         case 'raider_dispersed':
           // Sin casilla, y es la única: `actor` es quien cerró la región, que
           // puede estar lejos, y el hecho le consta por ser suyo aunque no viera
           // al grupo. Su `at` es donde estaba el grupo, que la niebla le
-          // escondía: decirlo aquí sería enseñarle la patrulla que no veía.
-          return html`<div${clase(mio, false)}>${
-            mio ? 'Los asaltantes de tu región se dispersan' : 'Unos asaltantes se dispersan'
-          }</div>`;
+          // escondía: decirlo aquí —o llevar la cámara allí— sería enseñarle la
+          // patrulla que no veía.
+          return linea(
+            mio,
+            false,
+            mio ? 'Los asaltantes de tu región se dispersan' : 'Unos asaltantes se dispersan',
+            null,
+          );
         // Que hay un grupo en el mapa es un hecho DE MAPA, y el mapa lo pinta:
         // contarlo aquí eran catorce líneas el día 1, y esta crónica no pasa por
         // la niebla. Uno solo —ni los de salida ni los que brotan—, para que la
@@ -535,6 +736,6 @@ export function renderLog(
       const sinFrase: never = e;
       throw new Error(`hecho de la crónica sin frase: ${JSON.stringify(sinFrase)}`);
     })
-    .filter((linea) => linea !== NADA);
+    .filter((l) => l !== NADA);
   return html`<div class="log" data-al-final="cronica">${unir(lineas)}</div>`;
 }

@@ -239,18 +239,40 @@ export async function cerrarLaGuarnicion(
 /**
  * Lleva el marco del lienzo hasta `xEnLienzo` si el tablero es más ancho que la
  * pantalla (el móvil), y devuelve la caja del lienzo después de desplazarlo.
+ *
+ * Antes sube (o baja) el escenario hasta que el marco se ve entero, como hace quien
+ * juega en el móvil: allí el lateral va debajo del tablero, y pulsar «Terminar turno»
+ * desplaza `#stage` hasta el botón y deja el tablero fuera de la pantalla. Desde que
+ * la barra de la batalla tiene cuatro líneas (#264, 11-11-2026) el botón ya no se veía
+ * sin desplazar a 390 × 844, y el ratón iba a un píxel por encima de la pantalla: la
+ * barra de la rueda en el móvil decía «» en vez de «Golpearías desde (4,3)». Si aun
+ * así el marco no se ve, lo dice: un clic fuera de la pantalla no llega a nada.
  */
 export async function alcanzar(
   page: Page,
   xEnLienzo: number,
 ): Promise<{ x: number; y: number; width: number; height: number }> {
-  await page.evaluate((x) => {
+  const fuera = await page.evaluate((x) => {
     const l = document.getElementById('lienzo');
-    if (l !== null && l.scrollWidth > l.clientWidth) {
+    if (l === null) return 'no está';
+    // `nearest`: si ya se ve entero, no se mueve nada (el escritorio).
+    l.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    if (l.scrollWidth > l.clientWidth) {
       const visible = x - l.scrollLeft;
       if (visible < 30 || visible > l.clientWidth - 30) l.scrollLeft = x - l.clientWidth / 2;
     }
+    const r = l.getBoundingClientRect();
+    // Si cabe en la ventana, entero; si es más alto que ella, que se vea algo. Con el
+    // fallo de arriba iba de −354 a 26: medio fuera no basta, el enemigo caía arriba.
+    const mal =
+      r.height <= innerHeight
+        ? r.top < -1 || r.bottom > innerHeight + 1
+        : r.bottom <= 0 || r.top >= innerHeight;
+    return mal
+      ? `va de ${Math.round(r.top)} a ${Math.round(r.bottom)} px en una pantalla de ${innerHeight}`
+      : null;
   }, xEnLienzo);
+  if (fuera !== null) throw new Error(`el marco del lienzo no se ve: ${fuera}`);
   return await caja(page);
 }
 
@@ -281,6 +303,7 @@ export async function pixelDeUnidad(
   page: Page,
   espejo: ControlDeBatalla,
   s: BattleStack,
+  vale?: (accion: BattleAction | undefined) => boolean,
 ): Promise<{ x: number; y: number; accion: BattleAction | undefined }> {
   const b0 = await caja(page);
   const t0 = tableroPara(b0.width, b0.height);
@@ -288,21 +311,30 @@ export async function pixelDeUnidad(
   const t = tableroPara(b.width, b.height);
   const c = cajaDeFigura(t, centroDeStack(stackHexes(s)));
   const escena = escenaDelEspejo(espejo, b.width, b.height);
-  for (const alto of [0.5, 0.35, 0.65, 0.8, 0.2]) {
-    // En un píxel entero de la página: el ratón llega entero al navegador, y
-    // con la caja en media fila (el móvil, `y` 45,78) el espejo leía otro punto.
-    // Junto a la bisectriz de dos casillas, ese medio píxel cambiaba desde dónde
-    // se golpea: la página se plantaba en (4,3) y el espejo en (3,3).
-    const px = Math.round(b.x + c.x);
-    const py = Math.round(b.y + c.suelo - c.alto * alto);
-    const [x, y] = [px - b.x, py - b.y];
-    if (escena.objetivoEn(x, y)?.id === s.id) {
+  // Sin `vale`, por el eje del cuerpo; con él (una acción concreta: desde dónde se
+  // golpea lo decide el ángulo del puntero), también a los lados.
+  const lados = vale === undefined ? [0] : [0, -0.15, 0.15, -0.3, 0.3, -0.45, 0.45];
+  const altos =
+    vale === undefined ? [0.5, 0.35, 0.65, 0.8, 0.2] : [0.5, 0.35, 0.65, 0.8, 0.2, 0.1, 0.9];
+  for (const lado of lados) {
+    for (const alto of altos) {
+      // En un píxel entero de la página: el ratón llega entero al navegador, y
+      // con la caja en media fila (el móvil, `y` 45,78) el espejo leía otro punto.
+      // Junto a la bisectriz de dos casillas, ese medio píxel cambiaba desde dónde
+      // se golpea: la página se plantaba en (4,3) y el espejo en (3,3).
+      const px = Math.round(b.x + c.x + c.ancho * lado);
+      const py = Math.round(b.y + c.suelo - c.alto * alto);
+      const [x, y] = [px - b.x, py - b.y];
+      if (escena.objetivoEn(x, y)?.id !== s.id) continue;
       // La acción que el cliente mandará al pulsar AHÍ: con el ángulo, el píxel
       // decide desde qué casilla se golpea, así que el espejo tiene que saberlo.
-      return { x: px, y: py, accion: escena.accionContraEn(x, y) };
+      const accion = escena.accionContraEn(x, y);
+      if (vale === undefined || vale(accion)) return { x: px, y: py, accion };
     }
   }
-  throw new Error(`no hay un punto del cuerpo de ${s.id} que el clic lea como suyo`);
+  throw new Error(
+    `no hay un punto del cuerpo de ${s.id} que el clic lea como suyo${vale === undefined ? '' : ' con la acción que se busca'}`,
+  );
 }
 
 /** Los píxeles RGBA de un cuadrado de 9×9 del lienzo, alrededor de un punto en CSS px. */

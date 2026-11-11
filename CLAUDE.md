@@ -242,7 +242,7 @@ Cada hecho tiene un sitio; la ruta, relativa a `src/core/` o `src/client/` (a `s
 | Caminos de un plan al mapa | `caminosDelPlan` (`map/generar/construir.ts`) |
 | Lo explorado: la niebla por regiones | `zonaDeNiebla`, `regionesQueDescubre` (`map/niebla.ts`); la única escritura de `fog`, `descubrir` (`state/vision.ts`) |
 | Por dónde se entra en un pueblo | `puertaDe`, `rodeosParaEntrar` (`map/puertas.ts`) |
-| El recinto de una ciudad, en el núcleo | `recintoDeLaCiudad`, `pasosDelRecinto`, `problemasDeRecintos` (`map/recinto.ts`) |
+| El recinto de una ciudad, en el núcleo | `recintoDeLaCiudad`, `pasosDelRecinto`, `problemasDeRecintos`; su entrada, `parteDeLaEntrada` (`map/recinto.ts`) |
 | Qué barreras admiten los niveles de dos regiones | `admiteLosNiveles` (`map/terrain.ts`) |
 | Franjas de barrera y nivel de cada casilla | `franjasDeBarrera`, `nivelesDelRelieve` (`map/niveles.ts`) |
 | Qué muro se queda: el cierre de un paso | `lineaDeLaPuerta`, `muroDeLaLinea`, `murallasDelMapa` (`map/murallas.ts`) |
@@ -303,6 +303,7 @@ Cada hecho tiene un sitio; la ruta, relativa a `src/core/` o `src/client/` (a `s
 | Armadura | `trasLaArmadura`, `armaduraDe` (`battle/armas.ts`) |
 | La rueda en pantalla | `DialogoDeLaRueda` (`batalla/rueda/dialogo.ts`); `ajustarLaRueda`, `contrincante` (`batalla/rueda/rueda.ts`) |
 | La batalla contada en cola | `BattleAnimator` (`batalla/anim.ts`) |
+| El lateral mientras se cuenta | `panelDeBatalla` (lo último pintado quieto, apagado), `barraDeLaBatalla` (`batalla/panel.ts`) |
 | Los modificadores en curso | `modificadoresEnCurso` (`views/notas.ts`) |
 
 ### El catálogo
@@ -334,7 +335,9 @@ Cada hecho tiene un sitio; la ruta, relativa a `src/core/` o `src/client/` (a `s
 | Con qué hoja se pinta un héroe | `figuraDelHeroe` (`hero/tipos-de-heroe.ts`), de `data/figuras-de-heroe.json` |
 | Las hojas que se pintan | `registrarLasHojas` (`render/figuras/personajes.ts`) |
 | Formatear un precio | `describirCoste`, `conMiles` (`core/texto.ts`) |
+| La línea de la crónica: su color, y su casilla o el botón que lleva a ella | `renderLog` (`views/cronica.ts`); la cámara, `mirarLaCasilla` |
 | Tema de la interfaz | `ponerTema`, `quitarTema` (`comun/temas.ts`), los únicos que escriben `data-tema` |
+| Lo que cabe en la barra de abajo | `ponerEnLaBarra` (`comun/barra.ts`): corta por frases (o «;», «, », palabras); lo entero, al `title` del lienzo o al tocarla |
 | Piezas en imagen de los temas | `PIEZAS`, `cssDePiezas` (`tools/taller/temas/piezas.ts`) |
 
 ### La arena
@@ -354,7 +357,7 @@ Cada hecho tiene un sitio; la ruta, relativa a `src/core/` o `src/client/` (a `s
 | Qué | Dónde |
 |---|---|
 | Un mundo: si vale | `problemasDelMundo`, `leerMundo` (`mundo/validar.ts`) |
-| Dónde puede ir un lugar | `lugarBlocker` (`mundo/validar.ts`) |
+| Dónde puede ir un lugar | `lugarBlocker` (`mundo/validar.ts`); la región tras una base, `regionesTrasUnaBase` (`map/territorio.ts`) |
 | Si una opción de un lugar se puede elegir | `opcionBlocker`, `motivoDeLaOpcion` (`mundo/reglas.ts`) |
 | Lo que hace un lugar | `aplicarEfectos` (`state/lugares.ts`), privada |
 | La inicial de un lugar o de una cosa | `inicialDelNombre` (`mundo/formato.ts`) |
@@ -410,7 +413,7 @@ Verificadas contra fheroes2 salvo donde dice «regla nuestra». El detalle, con 
 | Murallas del mapa | ciudad tras piedra, pueblo tras madera, paso tras su obra; escalera a todo el atacante | nuestra |
 | Obras del puesto | empalizada (1 500) y muralla (4 000), de una en una y sin bajar | nuestra |
 | Lugares | de 1 a 8 por mundo; cada premio se cobra una vez; el mundo es de los dos | nuestra |
-| Ciudad amurallada | un recinto de 3 × 3; se entra por sus puertas, donde llega un camino | nuestra |
+| Ciudad amurallada | un recinto de 3 × 3; se entra por sus puertas, donde llega un camino; nada en sus accesos | nuestra |
 | Rueda del golpe | los dos eligen a ciegas; el cruce fija la tirada; cifras por nivel del arma; ruedas de 7, 5 y 3 | nuestra |
 | Armadura | `max(0, daño − armadura)` en cada golpe, lo último; ninguna pieza da PV | nuestra |
 | Orden de turnos | en serpiente: quien cierra un día abre el siguiente (`ordenDelDia`) | nuestra |
@@ -436,7 +439,8 @@ inventado lo dice en su `_comment`.
 Patrón listen/respond: `heroes_listen` bloquea hasta que hay decisión, la petición trae el formato
 de respuesta embebido, el agente responde una vez con `heroes_respond`, y el veredicto de lo
 anterior llega pegado a la siguiente petición, también cuando acertó. Sus acciones se descartan una
-a una con su motivo; todo pasa por la niebla; del contrato se exportan esquemas, no alias de tipo.
+a una con su motivo (en la aventura, el zod juzga la forma y el valor —un `count`, un hueco— se
+juzga jugada a jugada, 11-11-2026); todo pasa por la niebla; del contrato se exportan esquemas, no alias de tipo.
 Defiende sus batallas y diseña el mapa (si el plan no vale, el procedimental y se le dice por qué).
 Reparte tropa (`distribute_troops`) y mejora el puesto (`upgrade_outpost`), y **los hechos le llegan
 traducidos** (10-11-2026: ni una clave ni un enumerado en español; `contract/hechos.ts`).
@@ -454,8 +458,9 @@ despliegue, la guarnición y la defensa, un tema por facción, el clima y la nie
 
 ## El taller
 
-`pnpm taller` pinta el arte con Codex por la suscripción (encargos en cola, guías, derivados); sin
-imágenes, cada renderizador pinta su marcador. El detalle, en `docs/art/taller.md`; las unidades,
+`pnpm taller trabajar` pinta el arte con Codex por la suscripción (encargos en cola, guías,
+derivados); `pnpm taller` a secas solo enseña las órdenes (#327, 11-11-2026). Sin imágenes, cada
+renderizador pinta su marcador. El detalle, en `docs/art/taller.md`; las unidades,
 en `docs/art/unidades.md`; las peticiones, en `docs/art/peticiones.md`.
 
 ### Revisar las animaciones

@@ -120,7 +120,9 @@ historia.
 
 - **Entre `lugares.de` y `lugares.a` lugares** (de la lectura), **cada uno en una región
   distinta**. Repártelos por el mapa —al menos uno cerca de la base del jugador
-  (`casaDe: 0` o sus vecinas) para que se encuentre pronto—.
+  (`casaDe: 0` o sus vecinas) para que se encuentre pronto—. Si una casa trae `admitenUnLugar`
+  vacío (porque el otro solo llegaría cruzando su base, o porque no cabe nada a la distancia de los
+  objetos), usa una vecina.
 - **Una trama principal** que encadena al menos tres de ellos por marcas: lo que se hace
   o se sabe en uno abre, cierra o cambia algo en otro (quién está, qué ofrece, qué se le
   puede decir). Los demás pueden ser lugares de paso, más cortos, con su propia historia
@@ -229,11 +231,12 @@ Los estados y las marcas son de la partida, no de cada jugador: **el rival tambi
 los lugares**, y si elige un desenlace primero, el otro se le cierra a quien juega. Por eso:
 
 - El `ya` de una marca de desenlace **describe el mundo**, nunca a quien la puso: «el sello
-  del abad ya está en manos de los orkos», no «ya se lo vendiste a Gruk» ni «tú». El juego
-  no dice quién puso una marca.
+  del abad ya está en manos de los orkos», no «ya se lo vendiste a Gruk» ni «tú». Quién la
+  puso lo antepone el juego cuando fue el rival («Gruk (Orkos) pasó antes: …», #283).
 - La biblia dice, en `## Desenlaces`, qué encuentra quien llega tarde.
-- La IA del rival elige **la primera opción con premio** en el orden escrito: el desenlace
-  que va primero es el que tomará si llega antes.
+- La IA del rival, si llega antes, toma el desenlace **que más vale** (el oro, el precio de
+  la pieza, el de la tropa, lo que da un encuentro al ganarlo), no el que escribas primero:
+  el orden de las opciones no decide nada. Si los dos valen lo mismo, lo decide la partida.
 
 ## La gente y sus figuras
 

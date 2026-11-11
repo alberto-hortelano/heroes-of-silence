@@ -27,6 +27,15 @@ El detalle que vivía en `CLAUDE.md` hasta la fase Doc de la reorganización de 
 
 `describirCoste(oro)` («15 000 oro», o «gratis»); un entero con miles («176 000»), `conMiles`
 
+### La línea de la crónica (11-11-2026, #202, `docs/agents/2026-11-11-cronica-del-espectador/`)
+
+`renderLog` (`views/cronica.ts`) la pinta en la partida y en el espectador, y decide en un solo sitio, `linea`, su color y si lleva a su casilla:
+
+- **Quien no lleva bando no ve color** (`quienesDe(viewer).size === 0`, el espectador con `NADIE`): ni gana ni pierde nada de lo que pasa. Antes cada rama se preguntaba `clase(bueno, malo)` con la pregunta de dos, y las dos donde lo tuyo es lo malo (`clase(!mio, mio)`: la caída de un héroe y su vuelta a la base) salían en el verde de victoria en el espectador. Lo vigila `test/cronica.test.ts` sobre una muestra con un hecho de cada clase (`UNO_DE_CADA`, que el tipo obliga a completar con cada `kind` nuevo).
+- **Las frases no concuerdan con el nombre de una unidad**: el catálogo no dice el género y «Sacerdotisa» es femenino. «Haces héroe a tu Sacerdotisa», «El jugador 1: su Sacerdotisa sube a rango 3 de veteranía», y no «Un Sacerdotisa tuyo»; «tuyo» solo va tras un nombre del texto («un héroe tuyo», «una guarnición tuya»). «N × Nombre» es la notación de la crónica y se queda, pero tras «el jugador 1» va con dos puntos («pierde el jugador 1: 2 × …», «Se unen al jugador 1: 3 × …»): sin ellos se leía «12».
+- **En la partida, cada línea con casilla es un botón** (`llevaALaCasilla`, `<button class="a-la-casilla" data-action="mirar-la-casilla">`) que lleva la cámara al centro de la casilla sin cambiar el zoom (`EscenaAventura.mirarLaCasilla` sobre `mirarA`, desde `partida/clic.ts`), y la frase deja de decir «en (12, 5)»: ninguna pantalla enseña coordenadas. La dispersión de un grupo no lleva: su casilla es la de una patrulla que la niebla escondía. Se lee como texto (`.log .a-la-casilla` en `style.css`, y en `forma.css` sin el relieve ni el alto de línea de los botones del tema). En el móvil (≤ 760 px; QA de #202, 11-11-2026), el lateral va debajo del mapa: la línea, además, desplaza `#stage` hasta el mapa si no se ve entero (`scrollIntoView` con `nearest`, que en el escritorio no mueve nada; antes la cámara se movía fuera de la pantalla y tocar no hacía nada visible), y mide los 44 px de alto mínimo de los demás botones del móvil (a 18,6 px se tocaba la vecina).
+- **El espectador sigue diciendo la casilla**: no tiene cámara que mover (mira el mapa entero desde lo más lejos). Darle una, o que el cable le lleve el nombre de los castillos, es backlog. El nombre de un paso, en los dos, lleva su casilla («el puente de (12,8)», `nombreDelSitio`): es el nombre del sitio en el núcleo, también para el agente.
+
 ### Tema de la interfaz (uno por facción, 19-10-2026, traído de `claude/army-game-theme-ui-28d2ad`)
 
 el tema es la facción tal cual (`FactionId`, `FACTION_IDS`, `esFaccion`, sin alias); las fichas, en el `:root` neutro de `style.css` (las que se leen sin tema) y en `temas.css`: un bloque común (`:root[data-tema]`, lo que los cinco derivan igual, también las de la rueda del golpe, `--rueda-*`) y uno por tema con lo medido en su lámina (`MUESTRAS`, `medirPaleta`, `tools/taller/temas/paleta.ts`); `style.css` las importa con `fuentes.css` (generada de `FUENTES`, `tools/fuentes/bajar.ts`), `forma.css` (la única hoja con reglas de tema, todas bajo `:root[data-tema]`) y `piezas-de-tema.css`. Que «común ∪ tema» defina toda ficha que leen las hojas con tema y el neutro las que se leen sin él (salvo las fijas `--info-*`, solo en el neutro: lo que es información, como el calor de la rueda y el nivel de un arma), lo vigila `temas.test.ts`; quién manda, `ponerTema` y `quitarTema` (los únicos que escriben `data-tema`, `src/client/comun/temas.ts`); el lienzo las lee con `temaDelLienzo` y no escribe ninguna familia de letra a mano; ninguna hoja lleva un color fijo fuera del `:root` (los tres, en `invariantes-cliente.test.ts`). La partida pone el de su jugador (`main.ts`); la arena y el espectador van en neutro (el selector «Tema» de la arena y los encargos de piezas del taller se quedaron en la rama: backlog)
@@ -34,6 +43,30 @@ el tema es la facción tal cual (`FactionId`, `FACTION_IDS`, `esFaccion`, sin al
 ### Piezas en imagen de los temas (marcos en 9 trozos, barra de sección, cartela, remate, sello, texturas)
 
 la lista cerrada y su corte, `PIEZAS`/`DEFINICIONES`, y lo que enseña cada lámina y dónde, `POR_TEMA` (`tools/taller/temas/piezas.ts`); su sitio, su respaldo y todas sus reglas, en `forma.css`; `src/client/piezas-de-tema.css`, **generada** y solo de fichas (`cssDePiezas`, `escribirPiezasDeTema`: las medidas de la tabla y, por pieza en disco, `--pieza-<x>` con su `url()` y la marca vacía `--con-pieza-<x>`; de un marco, su corte medido, `corteDeMarco`; nadie la edita a mano: lo vigila `piezas-de-tema.test.ts`)
+
+### Lo que cabe en la barra (#264, 11-11-2026)
+
+`ponerEnLaBarra` (`comun/barra.ts`), con la que el fotograma de la partida y el de la pelea de la
+arena escriben `#status` (fuera de la pelea, la arena escribe su aviso tal cual): la barra tiene el alto fijo (B1 de QA, 14-10-2026: si creciera, el lienzo encogería bajo el
+cursor), dos líneas y **cuatro en la batalla** (`#app[data-escena='battle']`, `style.css`: la previsión
+de una carga contra quien lleva armadura no cabía en dos a 1024 px y lo primero que caía era la
+armadura; en la partida, con «Resolver sola» al lado, mide cuatro a 1024 y a 1100). Lo que no cabe se corta por **frases enteras** (punto y blanco: los decimales van con
+coma) y el texto entero va al `title` del lienzo; si cabe, el
+lienzo se queda sin `title`. No hay previsión más larga a la que reservar alto (una granada con
+varios alcanzados, una «Cuenta» larga). El corte no se rehace si solo cambia el ancho (backlog).
+Lo comprueba la pasada `arena` de `pnpm capturas` a 1024, 1100 y 1440 px (`laCargaALosTresAnchos`).
+
+Vuelta 2 (QA de #264, 11-11-2026). **H1**: si no cabe ni la primera frase (un hechizo de área junta
+a sus alcanzados con «;» en una: la Tormenta de granizo sobre seis, 590-708 caracteres), se corta
+por sus «;», luego por sus «, » (no la coma de un decimal) y luego por palabras (no el blanco duro
+de `conMiles`), siempre con el aviso a la vista; un corte preferido que deja menos de la mitad de lo
+que cabría por palabras se salta (en el móvil, la ayuda de la tropa se quedaba en «Tu formación»).
+**H2**: el aviso dice dónde se lee el resto según haya ratón (`(hover: hover)`): « … (el resto, con
+el ratón quieto)» (el bocadillo del lienzo) o, en una pantalla táctil, « … (toca aquí para leer el
+resto)»: tocar la barra cortada la despliega entera (`#status[data-desplegada]`, crece hasta el
+40 % del alto y se desplaza; crece a propósito, lo ha pedido quien toca) y otro toque o el texto
+siguiente la pliega. Lo miran `test/barra.test.ts` y, en el navegador, el guion de la vuelta 2
+(`docs/agents/2026-11-11-prevision-de-la-batalla/`).
 
 ## El cliente
 
@@ -76,6 +109,9 @@ la lista cerrada y su corte, `PIEZAS`/`DEFINICIONES`, y lo que enseña cada lám
   es interfaz (chapas, fondo de la vida, galones, la corona, rótulos de la base, recuadro del
   minimapa, letras). La historia y el porqué, en `docs/historia.md` y
   `docs/agents/2026-10-13-tema-por-ejercito/`, `docs/agents/2026-10-13-temas-de-las-laminas/`.
+  La fila-botón del lateral (`button.stack`) no toma el `--boton-encima` del `button:hover`: bajo
+  el ratón conserva su fondo y su tinta y lo dice el filo, doble (en templarios, letra oscura sobre
+  fondo oscuro, 1,24 : 1; #332, 11-11-2026). Lo vigila `temas.test.ts` con la cascada de verdad.
 
 - **Figuras**: 8 direcciones y 6 acciones (`idle`, `ready`, `attack`, `hit`,
   `die`, `win`), **salvo la gente** del banco de NPC (22-10-2026: solo la hoja A, de pie y

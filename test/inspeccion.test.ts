@@ -173,6 +173,22 @@ describe('la escena del mapa en el modo «marcar fallo»', () => {
     expect(centro.x).toBeCloseTo(17.25, 9);
     expect(centro.y).toBeCloseTo(16.5, 9);
   });
+
+  it('`mirarLaCasilla` (una línea de la crónica, #202) deja el centro de la casilla en el del lienzo, al zoom que había', () => {
+    const s = new Session(3);
+    const escena = new EscenaAventura(() => s);
+    escena.encuadrar(1200, 800);
+    // Un zoom que no es el de salida, para ver que no lo toca.
+    escena.mirarA({ x: 5, y: 5 }, 82);
+    escena.encuadrar(1200, 800);
+    escena.mirarLaCasilla({ x: 17, y: 16 });
+    escena.encuadrar(1200, 800);
+    escena.encuadrar(1200, 800);
+    const centro = pixelAMundo(escena.camaraActual, 600, 400);
+    expect(escena.camaraActual.tile).toBe(82);
+    expect(centro.x).toBeCloseTo(17.5, 9);
+    expect(centro.y).toBeCloseTo(16.5, 9);
+  });
 });
 
 describe('cajaEnPixeles: lo que cortan el juego y el taller', () => {
