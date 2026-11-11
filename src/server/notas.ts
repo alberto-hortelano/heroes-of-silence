@@ -433,7 +433,13 @@ const EL_MAPA_LO_PONE_EL_GENERADOR =
  */
 const EN_SU_LUGAR: Readonly<Record<RequestKind, string>> = {
   adventure_turn: `Ese turno lo ${LA_JUEGA_LA_IA}.`,
-  battle_turn: `Ese turno lo ${LA_JUEGA_LA_IA}.`,
+  // Solo la lee `notaSinRespuesta`: un turno de batalla sin forma lo juzga el
+  // director, que juega esa jugada y nada más (`KindQueJuzgaElEnlace`). Sin
+  // respuesta no hay jugada siguiente que esperar: la batalla la termina la IA, y
+  // decía «ese turno», que no era lo que pasaba (#334, 11-11-2026).
+  battle_turn:
+    'La batalla la termina la IA de reglas en tu lugar, sin rendirse: ' +
+    'no se te pedirá nada más de ella.',
   battle_response: BATALLA_SIGUE,
   map_generate: `${mayuscula(EL_MAPA_LO_PONE_EL_GENERADOR)}.`,
   hero_from_troop: SIN_ASCENSO,
@@ -444,8 +450,18 @@ function mayuscula(texto: string): string {
   return texto.charAt(0).toUpperCase() + texto.slice(1);
 }
 
+/**
+ * Las peticiones cuya falta de forma juzga el enlace (`AgentLink.ask`), que la
+ * contesta con `notaRespuestaInvalida` y lanza. Todas menos `battle_turn` (#334,
+ * 11-11-2026): un turno de batalla sin forma cuesta solo esa jugada, la juega la
+ * IA y la batalla sigue, y eso solo lo puede medir y contar el director
+ * (`notaAccionSustituida`). Con el `battle_turn` dentro, el enlace mandaba su
+ * veredicto, lanzaba, y el director dejaba la batalla entera a la IA.
+ */
+export type KindQueJuzgaElEnlace = Exclude<RequestKind, 'battle_turn'>;
+
 /** Su respuesta no encajaba con el esquema y no se aplicó nada de ella. */
-export function notaRespuestaInvalida(kind: RequestKind): string {
+export function notaRespuestaInvalida(kind: KindQueJuzgaElEnlace): string {
   return (
     `Tu respuesta a "${kind}" no encaja con el esquema y no se ha aplicado nada. ` +
     EN_SU_LUGAR[kind]

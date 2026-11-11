@@ -790,7 +790,10 @@ describe('el agente defiende', () => {
     expect(director.state.pendingBattle).toBeNull();
     expect(director.state.log.some((e) => e.kind === 'battle_ended')).toBe(true);
     expect(director.state.current).toBe(1);
-    expect(director.log.some((l) => /falló en la batalla/.test(l))).toBe(true);
+    // «no respondió», y no «falló» (#334): una respuesta sin forma ya no la termina.
+    expect(director.log.some((l) => /no respondió en la batalla.*la termina la IA/.test(l))).toBe(
+      true,
+    );
   });
 
   it('la consulta battle_state le enseña su bando, no el del atacante', async () => {
@@ -2490,6 +2493,70 @@ describe('la rueda del golpe por el contrato (F6)', () => {
       (p) => p.kind === 'battle_turn' && numero(p.requestId) > numero(callada.requestId),
     );
     expect(despues.length).toBeGreaterThan(0);
+  });
+
+  it('un turno de batalla sin forma cuesta esa jugada, no la batalla (#334)', async () => {
+    // Un `wait` retirado y un `attack` con el `target` de número: los dos sin
+    // forma. Hasta el 11-11-2026 el primero ya dejaba la batalla entera a la IA
+    // y la nota decía «ese turno».
+    let turnos = 0;
+    const { agent, director } = await contraElMonstruo(611, (kind, payload) => {
+      if (kind === 'battle_turn') {
+        turnos++;
+        if (turnos === 1) return { action: { type: 'wait' } };
+        if (turnos === 2) return { action: { type: 'attack', target: 7 } };
+        const acciones = payload.legalActions as any[];
+        return { action: acciones.find((a) => a.type === 'attack') ?? acciones[0] };
+      }
+      if (kind === 'battle_response') return { response: 'normal' };
+      return undefined;
+    });
+    const turnosPedidos = agent.seen.filter((p) => p.kind === 'battle_turn');
+    expect(turnosPedidos.length).toBeGreaterThan(2);
+    const veredictos = (id: string) => agent.results.filter((r) => r.requestId === id);
+    const [espera, ataque] = turnosPedidos as [
+      (typeof turnosPedidos)[0],
+      (typeof turnosPedidos)[0],
+    ];
+    // Un veredicto por petición: el enlace ya no manda el suyo antes que el director.
+    expect(veredictos(espera.requestId)).toHaveLength(1);
+    expect(veredictos(ataque.requestId)).toHaveLength(1);
+    const [deLaEspera] = veredictos(espera.requestId);
+    const [delAtaque] = veredictos(ataque.requestId);
+    expect(deLaEspera).toMatchObject({ ok: false });
+    expect(deLaEspera!.problems!.join(' ')).toContain('ya no hay "wait"');
+    expect(delAtaque).toMatchObject({ ok: false });
+    expect(delAtaque!.problems!.some((p) => p.startsWith('action.target:'))).toBe(true);
+    for (const v of [deLaEspera!, delAtaque!]) {
+      expect(v.note).toContain('tu respuesta no encaja con el esquema');
+      expect(v.note).toContain('juega la IA de reglas en tu lugar');
+      expect(v.note).not.toContain('la termina la IA');
+    }
+    // Y la batalla sigue siendo suya: se le piden más turnos y entran.
+    const despues = turnosPedidos.slice(2).flatMap((p) => veredictos(p.requestId));
+    expect(despues.some((v) => v.ok)).toBe(true);
+    expect(director.state.pendingBattle).toBeNull();
+  });
+
+  it('un turno de batalla que no llega deja la batalla a la IA, y la nota lo dice (#334)', async () => {
+    const { agent, director } = await contraElMonstruo(
+      612,
+      (kind) => {
+        if (kind === 'battle_turn') return undefined; // se calla: plazo agotado
+        if (kind === 'battle_response') return { response: 'normal' };
+        return undefined;
+      },
+      600,
+    );
+    const turnosPedidos = agent.seen.filter((p) => p.kind === 'battle_turn');
+    // El primero que no llega es el último que se pide: no hay jugada siguiente.
+    expect(turnosPedidos).toHaveLength(1);
+    const nota = agent.results.find((r) => r.requestId === turnosPedidos[0]!.requestId);
+    expect(nota).toMatchObject({ ok: false });
+    expect(nota!.note).toContain('No llegó tu respuesta a "battle_turn"');
+    expect(nota!.note).toContain('La batalla la termina la IA de reglas en tu lugar');
+    expect(nota!.note).not.toMatch(/ese turno/i);
+    expect(director.state.pendingBattle).toBeNull();
   });
 });
 

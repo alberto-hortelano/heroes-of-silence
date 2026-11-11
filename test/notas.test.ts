@@ -347,20 +347,30 @@ describe('notas para el agente', () => {
   it('cuando no llega respuesta se dice, en vez de callar', () => {
     // El silencio ambiguo era justo lo que este canal promete no hacer: el plazo
     // agotado borraba la petición y el agente no recibía una línea sobre ella.
-    const nota = notaSinRespuesta('battle_turn', 'no respondiste a tiempo (300 s)');
-    expect(nota).toContain('battle_turn');
+    const nota = notaSinRespuesta('adventure_turn', 'no respondiste a tiempo (300 s)');
+    expect(nota).toContain('adventure_turn');
     expect(nota).toContain('no respondiste a tiempo');
     // Y le dice qué NO hacer: contestar tarde es tirar otra decisión.
     expect(nota).toMatch(/no la contestes/i);
     expect(nota).toContain('juega la IA de reglas en tu lugar');
   });
 
+  it('un turno de BATALLA sin respuesta: la batalla la termina la IA, no «ese turno» (#334)', () => {
+    // Decía «Ese turno lo juega la IA», y sin respuesta el director deja la
+    // batalla entera a la IA: no hay jugada siguiente que esperar. La falta de
+    // forma ya no pasa por aquí (la juzga el director, `KindQueJuzgaElEnlace`).
+    const nota = notaSinRespuesta('battle_turn', 'no respondiste a tiempo (300 s)');
+    expect(nota).toContain('battle_turn');
+    expect(nota).toMatch(/no la contestes/i);
+    expect(nota).toMatch(/La batalla la termina la IA de reglas en tu lugar, sin rendirse/);
+    expect(nota).toMatch(/no se te pedirá nada más de ella/);
+    expect(nota).not.toMatch(/ese turno/i);
+  });
+
   it('una respuesta de TURNO que no valida se explica con la frase de siempre', () => {
-    for (const kind of ['adventure_turn', 'battle_turn'] as const) {
-      const nota = notaRespuestaInvalida(kind);
-      expect(nota).toContain(kind);
-      expect(nota).toContain('juega la IA de reglas en tu lugar');
-    }
+    const nota = notaRespuestaInvalida('adventure_turn');
+    expect(nota).toContain('adventure_turn');
+    expect(nota).toContain('juega la IA de reglas en tu lugar');
   });
 
   it('y a un MAPA no se le dice que lo juega la IA de reglas, porque es falso', () => {

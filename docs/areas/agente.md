@@ -48,11 +48,8 @@ antes del destino (`battle_started` con `faltan`; el agente lo lee como `remaini
   las entradas del clima y las líneas de voces; lo juzga `accionDelAgente` o el `*Blocker` del núcleo
   y descarta solo esa jugada con su motivo, y las siguientes siguen. Antes cada jugada lo decidía a su
   manera: un `count: 0` en `leave_troops` se llevaba el turno y en `distribute_troops` no (QA H2 de
-  #319), y `recruitBlocker` aceptaba 1,5 (solo miraba `count <= 0`). **La batalla queda fuera**: su
-  respuesta es una sola jugada y no hay «siguiente» que salvar, así que `surrender.gold` y los hexes
-  siguen en el zod; que un `battle_turn` sin forma deje la batalla entera a la IA, y no solo el
-  turno, es otro fallo (backlog). **El tipo sale del zod**: `AccionDelAgente` es
-  `z.infer<typeof adventureActionSchema>` (`vocabulario.ts`, con `import type`: el ciclo de tipos
+  #319), y `recruitBlocker` aceptaba 1,5 (solo miraba `count <= 0`). **El tipo sale del zod**:
+  `AccionDelAgente` es `z.infer<typeof adventureActionSchema>` (`vocabulario.ts`, con `import type`: el ciclo de tipos
   con `esquemas.ts` queda dentro de `contract/`, que el guardia de ciclos admite), sin el `as` del
   director, y `accionDelAgente` va **sin `default`**: una jugada nueva en el zod sin su caso no
   compila. `equip` y `unequip` se construyen campo a campo (zod escribe `veteran?: string | undefined`
@@ -60,6 +57,24 @@ antes del destino (`battle_started` con `faltan`; el agente lo lee como `remaini
   `agent-contract.test.ts` («forma y valor»: toda jugada con `count` lo deja pasar como número y
   rechaza el texto) y `agent-link.test.ts` (una respuesta con cuatro `count` malos y una jugada buena
   aplica la buena).
+
+  **En la batalla** (11-11-2026, #334 y #338, `docs/agents/2026-11-11-contrato-de-batalla/`) forma
+  y valor cuestan lo mismo, **esa jugada**: la respuesta es una sola jugada y lo siguiente es el
+  próximo `battle_turn` de la misma batalla. La forma la juzga `battleActionSchema` (el `type`, los
+  campos, las casillas enteras, `surrender.gold` entero y no negativo, y `wait`/`defend`, retiradas
+  el 26-10, con su frase); el valor, `accionDeBatallaDelAgente` (el `hit`, que depende de la rueda)
+  y los `*Blocker`. Las dos acaban en `sustituir` (el director): la IA juega esa unidad sin
+  rendirse y un solo veredicto (`notaAccionSustituida`) dice lo que costó. Por eso el enlace no
+  juzga el `battle_turn` (`pedirElTurnoDeBatalla`, no `ask`; `KindQueJuzgaElEnlace`): antes lo
+  informaba, lanzaba, y el director dejaba **la batalla entera** a la IA, un `wait` olvidado
+  incluido, con una nota que decía «ese turno». **Sin respuesta** (plazo agotado, canal caído) la
+  batalla la termina la IA y la nota lo dice (`EN_SU_LUGAR.battle_turn`): esperar el plazo turno a
+  turno costaría hasta 300 s por cada uno de unos 18 turnos, y con el canal caído cada petición
+  fallaría en el acto. `AccionDeBatallaDelAgente` es `z.infer<typeof battleActionSchema>`, sin el
+  `as` del director: `retirada()` es un `refine` que estrecha a `never`, así que el zod rechaza
+  `wait` con su frase y el tipo no la lleva. Lo vigilan `agent-link.test.ts` (un `wait` y un
+  `target` numérico cuestan su jugada y la batalla sigue; el turno callado la deja a la IA) y
+  `notas.test.ts`.
 
 - **Las guarniciones** (04-11-2026): `leave_troops` y `take_troops` (`{ hero, creature, count,
   veteran? }`, `accionDelAgente` las traduce a `dejar_tropa` y `recoger_tropa`) con el héroe parado
