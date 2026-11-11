@@ -71,7 +71,7 @@ Claude Code sin pantalla con la skill `motor-de-mundos`: escribe la biblia de la
 trama y después la historia jugable —lugares con gente y diálogos en árbol,
 encuentros y dos desenlaces que se excluyen— sobre un mapa ya congelado.
 
-**El arte se genera.** Lo pinta el taller (`pnpm taller`) con ChatGPT por la
+**El arte se genera.** Lo pinta el taller (`pnpm taller trabajar`) con ChatGPT por la
 suscripción de Codex, sobre el maniquí del Y Bot: cada figura en ocho
 direcciones, con sus hojas de animación; los edificios de la base, el escenario
 del mapa por piezas y la gente de los mundos, también. Sin una imagen, cada

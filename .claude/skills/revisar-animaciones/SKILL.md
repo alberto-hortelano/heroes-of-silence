@@ -153,7 +153,7 @@ pnpm taller jurado cruzar <id> [dN…]
 
   ```bash
   pnpm taller versiones <id> d<n> <h>   # encola la otra tirada, «esqueleto» y «todo»
-  pnpm taller                           # las pinta
+  pnpm taller trabajar                  # las pinta
   ```
 
   Dile a la persona cuántas pinturas son antes de lanzarlas si son muchas (más de una docena).

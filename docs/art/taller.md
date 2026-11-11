@@ -6,12 +6,13 @@ una API de pago (fal.ai y su `pnpm gen` se retiraron el 06-11-2026, en la reorga
 ```bash
 npx tsx tools/art/poses/cli.ts --todos      # referencias de pose del Y Bot (render local)
 pnpm taller encolar templario-escudo        # la lámina de identidad
-pnpm taller                                 # trabaja hasta vaciar la cola
+pnpm taller trabajar                        # trabaja hasta vaciar la cola (pinta con Codex)
 pnpm taller encolar templario-escudo --atlas
-pnpm taller
+pnpm taller trabajar
 pnpm taller corregir templario-escudo-atlas "el escudo va en el brazo izquierdo"
 pnpm taller estado
 pnpm taller ayuda                           # cómo se escribe cada orden (sale de su tabla, `ORDENES`)
+pnpm taller                                 # lo mismo: a secas, la ayuda y nada más
 pnpm taller encolar --rehacer templario-escudo   # vuelve a pedir lo ya hecho
 pnpm taller retirar <id>                    # borra un pendiente que ya no vale
 pnpm taller devolver <id>                   # de en-curso/ o fallido/ otra vez a pendiente/
@@ -23,11 +24,24 @@ el «orden desconocida»; el cuerpo de cada una vive en `tools/taller/ordenes/`,
 cola, encolar, derivar, los temas, el maniquí, la revisión, la base, el mapa y las vistas), y lo
 que se hace con cada encargo, en `tools/taller/proceso.ts`.
 
+**`pnpm taller` a secas enseña la ayuda; el trabajador es `pnpm taller trabajar`** (#327,
+11-11-2026). Hasta entonces, sin orden se vaciaba la cola, y un agente que lo lanzó por error el
+10-11 pintó con Codex una imagen que nadie había pedido: lo que gasta imágenes se escribe entero.
+Una orden desconocida lo dice, con las que hay, y sale con 1. Cuál se corre lo decide
+`elegirOrden` (`tools/taller/ordenes/orden.ts`), pura, que prueba `test/taller-ordenes.test.ts`.
+
+**`pnpm npcs trabajar` no es otro nombre del mismo trabajador, y se queda** (#327, 11-11-2026):
+primero **rescata** lo que se quedó a medias de cada figura del banco (lo que falta, lo fallido
+con reintentos, lo que dejó en curso un trabajador muerto; `rescatar`, `tools/taller/npcs.ts`) y
+después corre `pnpm taller trabajar --npcs`, que solo toma encargos de NPC y acaba al vaciarlos.
+Es lo que lanza `pnpm dev` al aceptar un mundo (`lanzarElTaller`, `tools/mundo/motor.ts`): si
+fuera `pnpm taller trabajar` a secas, el mundo se llevaría y pintaría lo que otro dejó en la cola.
+
 ## La cola
 
 `tools/taller/cola/{pendiente,en-curso,hecho,fallido}/<id>.json`, fuera de git.
 El estado de un encargo es la carpeta en la que está, y tomarlo es un `rename`
-atómico: pueden correr varios `pnpm taller` a la vez sobre la misma cola. Un
+atómico: pueden correr varios `pnpm taller trabajar` a la vez sobre la misma cola. Un
 fallo no para la cola: el encargo va a `fallido/` con el motivo.
 
 ## Qué hace con cada encargo

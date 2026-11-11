@@ -19,7 +19,10 @@
  *       el trabajador del taller, solo con los encargos de NPC (Codex por la
  *       suscripción); antes rescata lo que se quedó a medias (lo que falta, lo
  *       fallido con reintentos —un encargo que falla se reintenta solo dos veces— y lo
- *       que dejó en curso un trabajador que murió) y acaba al vaciarlos
+ *       que dejó en curso un trabajador que murió) y acaba al vaciarlos. No es un alias
+ *       de `pnpm taller trabajar`: es el rescate y después `pnpm taller trabajar --npcs`,
+ *       y no se lleva lo que otros dejaron en la cola (#327, 11-11-2026; el porqué, en
+ *       docs/art/taller.md)
  *
  * Nada gasta dinero: el taller pinta con Codex por la suscripción, nunca con una API de pago.
  */
@@ -134,7 +137,7 @@ async function rehacer(id: string | undefined): Promise<void> {
 }
 
 /**
- * El trabajador del taller con `--npcs`: el mismo proceso de `pnpm taller`, que
+ * El trabajador del taller con `--npcs`: el mismo proceso de `pnpm taller trabajar`, que
  * arranca su cola al importarse, así que va en un hijo con el mismo `tsx`.
  *
  * Antes, **rescata** lo que se quedó a medias de toda figura sin pintar que no tiene

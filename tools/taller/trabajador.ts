@@ -1,10 +1,11 @@
 /**
  * `pnpm taller`: el trabajador de la cola de imágenes y las órdenes del taller.
  *
- *   pnpm taller                 trabaja hasta vaciar la cola
+ *   pnpm taller                 la ayuda, y nada más (#327: ya no arranca el trabajador)
+ *   pnpm taller trabajar        trabaja hasta vaciar la cola (pinta con Codex)
  *   pnpm taller ayuda           cómo se escribe cada orden y qué hace
  *   pnpm taller <orden> …       una de la tabla `ORDENES`, de la que salen la ayuda y
- *                               la lista del «orden desconocida»
+ *                               la lista del «orden desconocida» (que sale con 1)
  *
  * Por cada encargo (`proceso.ts`): lanza Codex con las referencias en su orden, recorta el
  * halo, empaqueta (si es un atlas), valida con sharp, escribe la imagen, su
@@ -21,7 +22,7 @@ import { ORDENES_DE_DERIVAR } from './ordenes/derivados.js';
 import { ORDENES_DE_ENCOLAR } from './ordenes/encolar.js';
 import { ORDENES_DEL_MANIQUI } from './ordenes/maniqui.js';
 import { ORDENES_DEL_MAPA } from './ordenes/mapa.js';
-import type { Orden } from './ordenes/orden.js';
+import { elegirOrden, type Orden } from './ordenes/orden.js';
 import { ORDENES_DE_LA_REVISION } from './ordenes/revision.js';
 import { ORDENES_DE_LOS_TEMAS } from './ordenes/temas.js';
 import { ORDENES_DE_LAS_VISTAS } from './ordenes/vistas.js';
@@ -46,20 +47,26 @@ const ORDENES: Readonly<Record<string, Orden>> = {
     uso: `pnpm taller ayuda
     esta lista`,
     correr: () => {
-      console.log(
-        Object.values(ORDENES)
-          .map((o) => o.uso)
-          .join('\n'),
-      );
+      console.log(ayuda());
     },
   },
 };
 
-const [orden = 'trabajar', ...resto] = process.argv.slice(2);
-// `Object.hasOwn`: «constructor» o «toString» no son órdenes aunque el objeto los herede.
-const laOrden = Object.hasOwn(ORDENES, orden) ? ORDENES[orden] : undefined;
-if (laOrden === undefined)
-  throw new Error(
-    `orden desconocida «${orden}»: hay ${Object.keys(ORDENES).join(', ')} («pnpm taller ayuda» dice cómo se escribe cada una)`,
+function ayuda(): string {
+  return Object.values(ORDENES)
+    .map((o) => o.uso)
+    .join('\n');
+}
+
+const eleccion = elegirOrden(ORDENES, process.argv.slice(2));
+if (eleccion.que === 'ayuda') {
+  console.log(
+    `falta la orden: el trabajador que pinta con Codex es «pnpm taller trabajar»\n\n${ayuda()}`,
   );
-await laOrden.correr(resto);
+} else if (eleccion.que === 'desconocida') {
+  // Sin la pila: el motivo ya dice qué órdenes hay, y la pila de tsx lo enterraba.
+  console.error(eleccion.motivo);
+  process.exitCode = 1;
+} else {
+  await eleccion.orden.correr(eleccion.resto);
+}

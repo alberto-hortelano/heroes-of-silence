@@ -473,7 +473,7 @@ export async function elegir(f: Figura, d: number, h: string): Promise<Eleccion>
   );
   if (hechas.length === 0)
     throw new Error(
-      `no hay ninguna versión pintada de d${d}-${h}: «pnpm taller versiones ${f.id} d${d} ${h}» y «pnpm taller»`,
+      `no hay ninguna versión pintada de d${d}-${h}: «pnpm taller versiones ${f.id} d${d} ${h}» y «pnpm taller trabajar»`,
     );
   const rutaDe = (v: string) =>
     v === 'ahora' ? ahora : `${rutaDeVersion(f, d, h, v as Variante)}.webp`;

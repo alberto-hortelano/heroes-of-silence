@@ -454,8 +454,9 @@ despliegue, la guarnición y la defensa, un tema por facción, el clima y la nie
 
 ## El taller
 
-`pnpm taller` pinta el arte con Codex por la suscripción (encargos en cola, guías, derivados); sin
-imágenes, cada renderizador pinta su marcador. El detalle, en `docs/art/taller.md`; las unidades,
+`pnpm taller trabajar` pinta el arte con Codex por la suscripción (encargos en cola, guías,
+derivados); `pnpm taller` a secas solo enseña las órdenes (#327, 11-11-2026). Sin imágenes, cada
+renderizador pinta su marcador. El detalle, en `docs/art/taller.md`; las unidades,
 en `docs/art/unidades.md`; las peticiones, en `docs/art/peticiones.md`.
 
 ### Revisar las animaciones
