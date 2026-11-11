@@ -248,10 +248,19 @@ canvas.figura { background: var(--fondo-figura); border: 1px solid var(--borde-t
 }
 
 /* La muralla: una franja bajo los bandos y la ficha, con la rejilla de batalla
-   en botones hexagonales (odd-r: las filas impares, media casilla a la derecha). */
-#montaje { grid-template-rows: minmax(0, 1fr) auto; }
+   en botones hexagonales (odd-r: las filas impares, media casilla a la derecha).
+   Los bandos y la ficha mandan (#246, 11-11-2026): su fila no baja de 24rem, lo
+   que piden la cabecera de un bando y una unidad, y el título de la ficha con la
+   primera fila de su tabla de cifras, también la de quien dispara (un clip más);
+   la muralla se queda con lo que sobra hasta su alto y, si no le llega, se
+   desplaza. Con `minmax(0, 1fr) auto` mandaba ella: su fila `auto` tomaba el alto
+   de los mandos (el texto de la regla y las formas de ejemplo) y los bandos y la
+   ficha medían 0 px a 1024×768 y a 1280×800, y 70 a 1440×900: el clic en el
+   nombre de una unidad caía en la rejilla. El tope deja 3rem a la muralla, su
+   cabecera con «Plegar», si el montaje es más bajo que la fila. */
+#montaje { grid-template-rows: minmax(min(24rem, 100% - 3rem), 1fr) minmax(0, auto); }
 #catalogo { grid-row: 1 / span 2; }
-#muralla { grid-column: 2 / -1; grid-row: 2; overflow: visible; }
+#muralla { grid-column: 2 / -1; grid-row: 2; }
 .muralla { display: flex; gap: 1rem; align-items: flex-start; flex-wrap: wrap; }
 .muralla .rejilla { padding: 4px 0 12px; flex: none; }
 .muralla .fila { display: flex; height: 21px; }
@@ -301,6 +310,24 @@ canvas.figura { background: var(--fondo-figura); border: 1px solid var(--borde-t
 .muralla .formas { display: grid; grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr)); gap: 0.25rem; }
 .muralla .forma { display: grid; gap: 0.1rem; padding: 0.25rem; background: var(--panel-alt); border: 1px solid var(--borde-tenue); }
 .muralla .forma .botones { display: flex; gap: 0.2rem; }
+/* Ancha, el alto de la muralla es el de su rejilla: los mandos van a su lado y se
+   desplazan dentro de ese alto (`contain: size`: no lo empujan, y la fila los
+   estira hasta él). Así la franja mide lo mismo con el texto que lleve. La
+   rejilla, sin aire de más: abajo, solo los 9 px que la casilla de la última
+   fila (30 px) asoma de su fila (21); con eso la muralla entra entera a 1280×800
+   (225 px de 227; con el aire de antes, 232, se desplazaba 5 px). */
+@media (min-width: 761px) {
+  .muralla { display: grid; grid-template-columns: max-content minmax(0, 34rem); }
+  .muralla .rejilla { padding: 0 0 9px; }
+  .muralla .mandos {
+    contain: size;
+    align-self: stretch;
+    overflow-y: auto;
+    align-content: start;
+    min-width: 0;
+    padding-right: 4px;
+  }
+}
 
 @media (max-width: 760px) {
   #montaje { display: block; overflow-y: auto; }
