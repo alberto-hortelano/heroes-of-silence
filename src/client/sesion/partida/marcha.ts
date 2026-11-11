@@ -14,7 +14,7 @@ import { type AsaltantesALaVista, emboscadaEnLaRuta } from '@core/state/asaltant
 import { heroById } from '@core/state/consultas.js';
 import type { GameEvent } from '@core/state/events.js';
 import { applyAdventureAction } from '@core/state/game.js';
-import { barreraDeMañana, caminoHasta, pasosDeHoy } from '@core/state/marcha.js';
+import { barreraDeMañana, caminoHasta, pasosDeHoy, porQueNoLlega } from '@core/state/marcha.js';
 import { HERO_SCOUT_RADIUS, miradasDe } from '@core/state/vision.js';
 import type { Hero, Point, VistaAsaltante } from '@core/types.js';
 import { mensajeDe } from '../../../shared/errores.js';
@@ -37,6 +37,17 @@ export interface RoutePreview extends PathStep {
    * (`barreraDeMañana`).
    */
   readonly barrera?: string;
+}
+
+/**
+ * Lo que se enseña al señalar una casilla (`Session.rutaSeñalada`): la ruta y, si no
+ * hay camino, por qué (`porQueNoLlega`, la misma frase que da el núcleo al pulsar, ya
+ * con su mayúscula y su punto). `motivo` es `null` con ruta, sin héroe, fuera de turno
+ * y en la propia casilla del héroe, que no son «sin camino».
+ */
+export interface RutaSeñalada {
+  readonly ruta: RoutePreview[];
+  readonly motivo: string | null;
 }
 
 /**
@@ -113,10 +124,29 @@ export class MarchaEnElMapa {
    * lo recordara.
    */
   ruta(to: Point): RoutePreview[] {
+    return this.calcular(to, false).ruta;
+  }
+
+  /**
+   * La ruta hasta `to` y, si no hay camino, por qué (#336, 11-11-2026): al señalar, la
+   * barra callaba lo que decía al pulsar. Solo la pide quien lo enseña (señalar): el
+   * motivo cuesta varios Dijkstras (`porQueNoLlega`), y `rutaQueQueda` y el clic no lo
+   * leen.
+   */
+  rutaSeñalada(to: Point): RutaSeñalada {
+    return this.calcular(to, true);
+  }
+
+  private calcular(to: Point, conMotivo: boolean): RutaSeñalada {
     const hero = this.dueño.heroeSeleccionado();
-    if (hero === null || !this.dueño.esTuTurno()) return [];
+    if (hero === null || !this.dueño.esTuTurno()) return { ruta: [], motivo: null };
     const camino = caminoHasta(this.dueño.estado(), hero, to);
-    if (camino === null) return [];
+    if (camino === null) {
+      // La misma frase que al pulsar (`andar`): la del núcleo, que ya pasa por la
+      // niebla de quien mueve.
+      const motivo = conMotivo ? comoFrase(porQueNoLlega(this.dueño.estado(), hero, to)) : null;
+      return { ruta: [], motivo };
+    }
     // Con los grupos que la persona ve y no con todos: uno que no se ve no
     // avisa, o la ruta le contaría lo que tapa la niebla.
     const emboscada = emboscadaEnLaRuta(
@@ -127,13 +157,14 @@ export class MarchaEnElMapa {
     );
     const hoy = pasosDeHoy(camino, hero);
     const barrera = barreraDeMañana(this.dueño.estado().map, camino, hoy);
-    return camino.map((paso, i) => ({
+    const ruta = camino.map((paso, i) => ({
       ...paso,
       hoy: i < hoy,
       peligro: emboscada !== null && i >= emboscada.paso,
       ...(emboscada !== null && i === emboscada.paso ? { emboscada: emboscada.raider } : {}),
       ...(barrera !== null && i === hoy ? { barrera } : {}),
     }));
+    return { ruta, motivo: null };
   }
 
   /**

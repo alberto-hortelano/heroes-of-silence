@@ -218,7 +218,7 @@ Cada hecho tiene un sitio; la ruta, relativa a `src/core/` o `src/client/` (a `s
 | Quién hay en una base y qué dice | `vecinosDeLaBase`, `vozDe`; las voces del narrador, solo `ponerVoces` (`gente/voces.ts`) |
 | Lo que sobra tras la batalla | `tropaQueVuelve`, `sobrantesTrasLaBatalla`, `dejarBlocker` (`state/sobrantes.ts`); lo aplica `settleBattle` |
 | La renta del día (solo oro) | `rentaDelDia` (`state/renta.ts`); lo que no alcanza, `oroBlocker` (`town/town.ts`) |
-| Camino de un héroe | `alcanceDelHeroe`, `caminoHasta` (`state/marcha.ts`); nadie más llama a `findPath` ni a `reachableFrom` |
+| Camino de un héroe | `alcanceDelHeroe`, `caminoHasta` (`state/marcha.ts`); nadie más llama a `findPath` ni a `reachableFrom`; por qué no llega, `porQueNoLlega`, por la niebla de su dueño |
 | Lo que se anda hoy | `pasosDeHoy` (`state/marcha.ts`) |
 | La infiltración | `infiltracionBlocker`, `seInfiltra`, `precioDeLaBarrera` (`hero/infiltracion.ts`) |
 | Territorio | `territorio`, `dueñoComun` (`map/territorio.ts`) |

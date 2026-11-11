@@ -937,6 +937,9 @@ describe('lo que ve el agente', () => {
     expect(COMO_SE_LEE_EL_MAPA).toMatch(/EXPLORA POR REGIONES/);
     expect(COMO_SE_LEE_EL_MAPA).toContain(`en ${HERO_SCOUT_RADIUS} casillas`);
     expect(COMO_SE_LEE_EL_MAPA).toContain(`en ${NODE_SCOUT_RADIUS} alrededor`);
+    // El rechazo de un move_hero sin camino también pasa por la niebla (#336): la
+    // prosa lo dice con las palabras del núcleo (`porQueNoLlega`).
+    expect(COMO_SE_LEE_EL_MAPA).toMatch(/"lo cierra algo\s+que no ves"/);
     expect(RESPONSE_FORMAT.adventure_turn).toMatch(/march_halted/);
     expect(RESPONSE_FORMAT.battle_turn).toMatch(/ASALTANTES emboscan/);
     expect(RESPONSE_FORMAT.map_generate).toMatch(/raiders\?/);

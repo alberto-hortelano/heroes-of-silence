@@ -35,6 +35,8 @@ los que unen un emoji, ni dependen de la tabla Unicode del Node para lo sin asig
 Una marcha que no llega entra como parcial y dice por qué: le faltaron puntos
 (`march_cut`), vio un grupo que la emboscaría (`march_halted`) o la emboscaron
 antes del destino (`battle_started` con `faltan`; el agente lo lee como `remaining`).
+Un `move_hero` sin camino se descarta con `porQueNoLlega`, que pasa por su niebla (11-11-2026, #336):
+nombra lo que cierra si lo ve; si no, «lo cierra algo que no ves» (detalle en `docs/areas/partida.md`).
 
 - **Forma y valor** (11-11-2026, #313 y #317, `docs/agents/2026-11-11-accion-del-agente-del-zod/`):
   la regla de qué se lleva una respuesta de aventura entera y qué solo una jugada. **Forma** es que
