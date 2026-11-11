@@ -736,7 +736,7 @@ describe('elegir en un lugar', () => {
     pending.battle.finished = { winner: 'attacker' };
     settleBattle(state, ctx);
     const texto = marcadoDe(
-      renderLog(state.log, 0, (id) => lugarSiExiste(state.mundo!.historia, id)),
+      renderLog(state.log, 0, { lugarDe: (id) => lugarSiExiste(state.mundo!.historia, id) }),
     );
     expect(texto).toContain('+150 de oro en\u00a0«El pozo de Valdesombra»');
     expect(texto).toContain(

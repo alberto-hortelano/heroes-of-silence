@@ -449,6 +449,15 @@ export class EscenaAventura {
   }
 
   /**
+   * Lleva la cámara al centro de la casilla `p` sin cambiar el zoom: lo que pide
+   * pulsar una línea de la crónica (#202), que dice dónde pasó algo y no lo
+   * enseñaba (la misma convención que `centrarEn`).
+   */
+  mirarLaCasilla(p: Point): void {
+    this.mirarA({ x: p.x + 0.5, y: p.y + 0.5 }, this.camara.tile);
+  }
+
+  /**
    * El punto del mundo y la casilla bajo un píxel del lienzo: la que señala el
    * puntero (`casillaBajo`), con el nodo del puente si se pulsa su tablero.
    */
