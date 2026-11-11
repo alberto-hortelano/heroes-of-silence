@@ -1666,6 +1666,86 @@ describe('el agente sabe cómo le fue', () => {
     ]);
   });
 
+  it('un count que no vale descarta esa jugada y no el turno: la siguiente se aplica', async () => {
+    // «Forma y valor» (#317, 11-11-2026): un `count` de 0, negativo o con decimales
+    // es valor, no forma. El zod lo deja pasar y lo juzga el núcleo jugada a
+    // jugada; antes `recruit`, `dismiss`, `leave_troops` y `take_troops` lo
+    // filtraban en el zod y se llevaban la respuesta entera (la IA jugaba el
+    // turno). Por el circuito: el enlace, `accionDelAgente`, el núcleo y el veredicto.
+    let jugado = false;
+    let construido = '';
+    const { link, agent } = await montar((kind, payload) => {
+      if (kind !== 'adventure_turn') return {};
+      if (jugado) return { actions: [] };
+      jugado = true;
+      const hero = payload.heroes[0].id;
+      const town = payload.towns[0];
+      construido = town.canBuildNow[0].id;
+      return {
+        actions: [
+          { type: 'recruit', town: town.id, creature: TROPA, count: 0 },
+          { type: 'dismiss', hero, creature: TROPA, count: 1.5 },
+          { type: 'leave_troops', hero, creature: TROPA, count: 0 },
+          { type: 'take_troops', hero, creature: TROPA_BARATA, count: -1 },
+          { type: 'build', town: town.id, building: construido },
+        ],
+      };
+    });
+    const director = new Director(link, {
+      seed: 313,
+      agentPlayers: [1],
+      preparar: (s) => {
+        // Su héroe en un paso suyo, con tropa y guarnición: así el intercambio
+        // llega hasta el `count` y el motivo es el de la cantidad, no el del sitio.
+        // El paso más lejano de la base del rival, como en el reparto de arriba.
+        const rival = baseOf(s, 0)!.at;
+        const lejos = (o: { at: Point }) => Math.abs(o.at.x - rival.x) + Math.abs(o.at.y - rival.y);
+        const nodo = s.map.objects
+          .filter((o) => o.kind === 'node')
+          .reduce((a, b) => (lejos(b) > lejos(a) ? b : a));
+        nodo.owner = 1;
+        const heroe = s.heroes.find((h) => h.owner === 1)!;
+        heroe.at = { ...nodo.at };
+        heroe.army = ejercito({ creature: TROPA, count: 2 });
+        ponerLaGuarnicion(
+          s,
+          sitioPorId(s, nodo.id),
+          1,
+          ejercito({ creature: TROPA_BARATA, count: 1 }),
+        );
+        s.players[1]!.oro = 10000;
+        s.raiders.length = 0;
+      },
+    });
+    for (let i = 0; i < 3; i++) await director.playTurn();
+    await respira();
+
+    const turnos = agent.seen.filter((p) => p.kind === 'adventure_turn');
+    expect(turnos).toHaveLength(2);
+    const veredicto = agent.results.find((r) => r.requestId === turnos[0]!.requestId)!;
+    expect(veredicto.ok).toBe(true);
+    expect(veredicto.note).toMatch(/1 de 5/);
+    expect(veredicto.problems).toEqual([
+      expect.stringMatching(
+        /^recruit 0× .*: no se puede reclutar: son individuos: se reclutan de 1 en adelante, no 0$/,
+      ),
+      expect.stringMatching(
+        /^dismiss 1\.5× .*: no se puede licenciar: son individuos: se licencian de 1 en adelante, no 1\.5$/,
+      ),
+      expect.stringMatching(
+        /^leave_troops 0× .*: .*son individuos: se mueven de 1 en adelante, no 0$/,
+      ),
+      expect.stringMatching(
+        /^take_troops -1× .*: .*son individuos: se mueven de 1 en adelante, no -1$/,
+      ),
+    ]);
+    // Y la quinta, la buena, se aplicó: el turno siguiente trae el edificio.
+    expect(turnos[1]!.payload.towns[0].buildings).toContain(construido);
+    expect(turnos[1]!.payload.recentEvents).toContainEqual(
+      expect.objectContaining({ kind: 'built', building: construido }),
+    );
+  });
+
   it('lo que va detrás de un end_turn se cuenta, no desaparece', async () => {
     // El `break` del `end_turn` tiraba las acciones siguientes sin aplicarlas,
     // sin meterlas en `problems` y sin contarlas: con

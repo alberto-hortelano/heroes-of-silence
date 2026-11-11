@@ -436,7 +436,8 @@ inventado lo dice en su `_comment`.
 Patrón listen/respond: `heroes_listen` bloquea hasta que hay decisión, la petición trae el formato
 de respuesta embebido, el agente responde una vez con `heroes_respond`, y el veredicto de lo
 anterior llega pegado a la siguiente petición, también cuando acertó. Sus acciones se descartan una
-a una con su motivo; todo pasa por la niebla; del contrato se exportan esquemas, no alias de tipo.
+a una con su motivo (en la aventura, el zod juzga la forma y el valor —un `count`, un hueco— se
+juzga jugada a jugada, 11-11-2026); todo pasa por la niebla; del contrato se exportan esquemas, no alias de tipo.
 Defiende sus batallas y diseña el mapa (si el plan no vale, el procedimental y se le dice por qué).
 Reparte tropa (`distribute_troops`) y mejora el puesto (`upgrade_outpost`), y **los hechos le llegan
 traducidos** (10-11-2026: ni una clave ni un enumerado en español; `contract/hechos.ts`).

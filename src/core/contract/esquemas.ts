@@ -26,6 +26,18 @@ const hexSchema = z.object({ col: z.number().int(), row: z.number().int() });
 /** Una puerta de la muralla: el lado entre dos casillas de una fila, `b` al este de `a`. */
 const gateSchema = z.object({ a: hexSchema, b: hexSchema });
 
+/**
+ * Las jugadas de aventura. **El zod juzga la forma, no el valor** (#317,
+ * 11-11-2026; la regla, «Forma y valor» en `docs/areas/agente.md`): una
+ * respuesta sin forma —un `type` que no existe, un campo que falta o con otro
+ * tipo JSON, una casilla con decimales, más letras o líneas de las que caben— se
+ * lleva el turno entero; un valor que no vale —un `count` de 0 o de 1,5, un id,
+ * un hueco o una obra mal escritos— descarta solo esa jugada con su motivo
+ * (`accionDelAgente` o el `*Blocker` del núcleo), y las siguientes siguen. Por eso
+ * `count`, `slot` y `upgrade` son número y texto sueltos, no `.int().positive()`
+ * ni `z.enum`. El tipo de lo que sale de aquí es `AccionDelAgente`
+ * (`vocabulario.ts`, `z.infer`).
+ */
 export const adventureActionSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('move_hero'), hero: z.string(), to: pointSchema }),
   z.object({ type: z.literal('hire_hero'), town: z.string() }),
@@ -34,34 +46,27 @@ export const adventureActionSchema = z.discriminatedUnion('type', [
     type: z.literal('recruit'),
     town: z.string(),
     creature: z.string(),
-    count: z.number().int().positive(),
+    count: z.number(),
   }),
   z.object({
     type: z.literal('dismiss'),
     hero: z.string(),
     creature: z.string(),
-    count: z.number().int().positive(),
+    count: z.number(),
   }),
   // Dejar y recoger tropa en la guarnición del sitio tuyo donde está el héroe
-  // (04-11-2026). Texto libre en `creature` y `veteran`, como en `dismiss` y `equip`:
-  // lo juzga el núcleo (`intercambioBlocker`) y el motivo va al veredicto.
-  // Las dos son la misma forma: un miembro con las dos palabras.
+  // (04-11-2026): la misma forma, un miembro con las dos palabras.
   z.object({
     type: z.enum(['leave_troops', 'take_troops']),
     hero: z.string(),
     creature: z.string(),
-    count: z.number().int().positive(),
+    count: z.number(),
     veteran: z.string().optional(),
   }),
   // Repartir de una vez la tropa entre el héroe y la guarnición (10-11-2026):
   // `withHero` es todo lo que va con él. Cada línea, `creature` y `count`, o
-  // `veteran`: todo opcional aquí, y `count` un número cualquiera. Una línea que no
-  // dice a quién, o con un `count` que no es un entero de 1 en adelante (el 0 de
-  // «ninguno de estos» es un error natural), descarta ESTA jugada con su motivo
-  // (`accionDelAgente`), no el turno (QA, H2). Lo que sí es una respuesta mal
-  // formada, como en toda jugada, y se lleva el turno: que falte `withHero` o no
-  // sea una lista, que una línea no sea un objeto, un `count` que no sea un número
-  // y más de 32 líneas. El reparto lo juzga el núcleo (`repartirTropaBlocker`).
+  // `veteran`: todo opcional aquí; una línea que no dice a quién la juzga
+  // `accionDelAgente` (QA, H2), y el reparto, `repartirTropaBlocker`.
   z.object({
     type: z.literal('distribute_troops'),
     hero: z.string(),
@@ -75,16 +80,8 @@ export const adventureActionSchema = z.discriminatedUnion('type', [
       )
       .max(32),
   }),
-  // Hacer la obra del puesto donde está el héroe (10-11-2026). `upgrade` es texto y
-  // no un `z.enum`, como `slot` y `hit`: una obra mal escrita descarta esta jugada
-  // con su motivo (`obraDelUpgrade`), no el turno entero. Sin `upgrade`, o con uno
-  // de más de 32 letras, es la respuesta la que está mal formada (y eso sí se
-  // lleva el turno, como en toda jugada).
+  // Hacer la obra del puesto donde está el héroe (10-11-2026).
   z.object({ type: z.literal('upgrade_outpost'), hero: z.string(), upgrade: z.string().max(32) }),
-  // `item`, `veteran` y `creature` van como texto libre: que existan, que sean
-  // suyos y que quepan lo dice el núcleo (`buyBlocker`, `equipBlocker`), y el
-  // motivo viaja en el veredicto como el de cualquier acción descartada. El hueco
-  // sí se acota aquí, porque es una lista cerrada que no depende de la partida.
   z.object({ type: z.literal('buy_item'), town: z.string(), item: z.string() }),
   z.object({
     type: z.literal('equip'),
@@ -92,15 +89,13 @@ export const adventureActionSchema = z.discriminatedUnion('type', [
     item: z.string(),
     veteran: z.string().optional(),
     creature: z.string().optional(),
-    // En qué hueco, como en `unequip` (texto: lo traduce `accionDelAgente`); sin él,
-    // el de la pieza. Un arma va también en el de la segunda (25-10-2026).
+    // En qué hueco, como en `unequip`; sin él, el de la pieza. Un arma va también
+    // en el de la segunda (25-10-2026).
     slot: z.string().max(32).optional(),
   }),
   z.object({
     type: z.literal('unequip'),
     hero: z.string(),
-    // Texto, como `item` y `creature`: lo valida el núcleo (`unequipBlocker`) y un
-    // hueco mal escrito descarta esta acción con su motivo, no el turno entero.
     slot: z.string(),
     veteran: z.string().optional(),
   }),

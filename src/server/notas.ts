@@ -685,13 +685,6 @@ export function describeAccion(accion: BattleAction | AccionDelAgente): string {
       return `unequip ${accion.slot} de ${accion.veteran ?? accion.hero}`;
     case 'end_turn':
       return 'end_turn';
-    // El agente aún no entra en los lugares (F4): su contrato no la lleva, pero la
-    // unión es la del núcleo y se dice por si un día la ve.
-    case 'elegir_en_lugar':
-      return `elección ${accion.opcion} del nodo ${accion.nodo} de ${accion.punto} en ${accion.lugar}, con ${accion.hero}`;
-    // Tampoco forma su tropa (02-11-2026, backlog): solo la vista de la tropa.
-    case 'formar':
-      return `formar: ${'heroe' in accion.quien ? 'el héroe' : `puesto ${accion.quien.indice}`} de ${accion.hero} en (${accion.at.col},${accion.at.row})`;
     // La muralla de las ciudades y los pueblos (fase 2 del puesto fronterizo), con
     // el nombre que el agente escribe (`JUGADA_DE_MURALLA`).
     case 'poner_escalera':

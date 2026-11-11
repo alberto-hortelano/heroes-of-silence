@@ -36,6 +36,31 @@ Una marcha que no llega entra como parcial y dice por qué: le faltaron puntos
 (`march_cut`), vio un grupo que la emboscaría (`march_halted`) o la emboscaron
 antes del destino (`battle_started` con `faltan`; el agente lo lee como `remaining`).
 
+- **Forma y valor** (11-11-2026, #313 y #317, `docs/agents/2026-11-11-accion-del-agente-del-zod/`):
+  la regla de qué se lleva una respuesta de aventura entera y qué solo una jugada. **Forma** es que
+  la jugada sea la que dice ser: su `type`, sus campos y el tipo JSON de cada uno, las casillas
+  enteras (una con decimales no nombra ninguna; `pointSchema` es el mismo del plan de mapa) y los
+  topes de tamaño (`max(32)` letras o líneas, `max(200)` jugadas); la juzga el zod
+  (`adventureActionSchema`) y, sin ella, la respuesta entera se rechaza y el turno lo juega la IA.
+  **Valor** es lo que se lee pero no vale en la partida: las cantidades (el zod solo pide un número;
+  un entero seguro de 1 en adelante lo exige el núcleo, `enteroDesde` en `recruitBlocker`,
+  `dismissBlocker`, el intercambio de la guarnición y `lineaBlocker`), los ids, el hueco, la obra,
+  las entradas del clima y las líneas de voces; lo juzga `accionDelAgente` o el `*Blocker` del núcleo
+  y descarta solo esa jugada con su motivo, y las siguientes siguen. Antes cada jugada lo decidía a su
+  manera: un `count: 0` en `leave_troops` se llevaba el turno y en `distribute_troops` no (QA H2 de
+  #319), y `recruitBlocker` aceptaba 1,5 (solo miraba `count <= 0`). **La batalla queda fuera**: su
+  respuesta es una sola jugada y no hay «siguiente» que salvar, así que `surrender.gold` y los hexes
+  siguen en el zod; que un `battle_turn` sin forma deje la batalla entera a la IA, y no solo el
+  turno, es otro fallo (backlog). **El tipo sale del zod**: `AccionDelAgente` es
+  `z.infer<typeof adventureActionSchema>` (`vocabulario.ts`, con `import type`: el ciclo de tipos
+  con `esquemas.ts` queda dentro de `contract/`, que el guardia de ciclos admite), sin el `as` del
+  director, y `accionDelAgente` va **sin `default`**: una jugada nueva en el zod sin su caso no
+  compila. `equip` y `unequip` se construyen campo a campo (zod escribe `veteran?: string | undefined`
+  y el núcleo, con `exactOptionalPropertyTypes`, `veteran?: string`). Lo vigilan
+  `agent-contract.test.ts` («forma y valor»: toda jugada con `count` lo deja pasar como número y
+  rechaza el texto) y `agent-link.test.ts` (una respuesta con cuatro `count` malos y una jugada buena
+  aplica la buena).
+
 - **Las guarniciones** (04-11-2026): `leave_troops` y `take_troops` (`{ hero, creature, count,
   veteran? }`, `accionDelAgente` las traduce a `dejar_tropa` y `recoger_tropa`) con el héroe parado
   en un sitio suyo; `you.garrisons` dice qué guarda cada paso y pueblo suyo y lo suyo que se quedó en
@@ -53,7 +78,7 @@ antes del destino (`battle_started` con `faltan`; el agente lo lee como `remaini
   cada línea `{ creature, count }` o `{ veteran }`; `accionDelAgente` la traduce a `repartir_tropa`,
   la de la pantalla de la persona) dice todo lo que va con el héroe y se juzga solo el reparto final
   (`repartirTropaBlocker`): cambia uno por otro con los dos llenos. Una línea que no dice a quién, un
-  `count` que no es un entero de 1 en adelante (el zod lo deja pasar como número: QA H2) o
+  `count` que no es un entero de 1 en adelante (es valor: «Forma y valor», arriba) o
   un `veteran` con otro tipo al lado descarta esa jugada al traducir (`lineaBlocker`, `veteranoBlocker`, la misma
   comprobación de `leave_troops`), con el prefijo «no se puede repartir la tropa:» de los demás; lo
   estructural (sin `withHero`, más de 32 líneas) es respuesta mal formada, como en toda jugada. **`leave_troops` y `take_troops` conviven** con ella: son la jugada

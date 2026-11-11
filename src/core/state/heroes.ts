@@ -17,6 +17,7 @@ import { ECONOMIA } from '../town/economia.js';
 import { oroBlocker, type Town } from '../town/town.js';
 import type { Army, Hero, PlayerId } from '../types.js';
 import { unidadDelJuegoSiExiste } from '../unidad/catalogo.js';
+import { enteroDesde } from '../validar.js';
 import {
   baseOf,
   casillaDeVuelta,
@@ -51,7 +52,7 @@ import { revealAround } from './vision.js';
  * `applyAdventureAction` para toda acción de aventura, no esta función.
  */
 export function dismissBlocker(hero: Hero, creatureId: string, count: number): string | null {
-  if (!Number.isSafeInteger(count) || count < 1) {
+  if (!enteroDesde(count, 1)) {
     return `son individuos: se licencian de 1 en adelante, no ${count}`;
   }
   // La frase dice el NOMBRE de la criatura y no su id: «"peasant"» era una
