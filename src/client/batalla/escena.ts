@@ -16,7 +16,7 @@ import type {
 } from '@core/battle/a-distancia.js';
 import { esTipoDeEscala, esTipoDePuerta } from '@core/battle/asalto.js';
 import { hexEquals, hexKey, ULTIMA_FILA } from '@core/battle/board.js';
-import { type CasillaDeCarga, isAlive, SIN_CARGAS } from '@core/battle/consultas.js';
+import { type CasillaDeCarga, SIN_CARGAS } from '@core/battle/consultas.js';
 import { mismaPuerta } from '@core/battle/muralla.js';
 import type {
   BattleAction,
@@ -493,12 +493,17 @@ export class EscenaBatalla {
     // Lo que se ve: el defensor que despliega no sabe aún cuántos le atacan.
     const battle = s.batallaALaVista;
     const fuera = { izquierda: 0, derecha: 0 };
-    if (battle === null || battle.finished !== null) return fuera;
+    // Con la batalla acabada no hay a quién señalar, pero solo cuando el tablero lo
+    // ha contado: hasta entonces se ve a los que aún no han caído (#257).
+    if (battle === null || (battle.finished !== null && !this.animador.busy)) return fuera;
     for (const st of battle.stacks) {
-      if (!isAlive(st) || st.side === s.miBando) continue;
+      if (st.side === s.miBando) continue;
+      // Los que se ven en pie, no los del estado, que ya trae lo que aún se cuenta.
+      const cuantos = this.animador.cuantosSeVen(st);
+      if (cuantos === 0) continue;
       const x = cajaDeFigura(this.tablero, this.animador.figura(st).en).x;
-      if (x < desde) fuera.izquierda += st.count;
-      else if (x > hasta) fuera.derecha += st.count;
+      if (x < desde) fuera.izquierda += cuantos;
+      else if (x > hasta) fuera.derecha += cuantos;
     }
     return fuera;
   }
