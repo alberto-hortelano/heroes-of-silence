@@ -3,8 +3,8 @@
 import { hechizosDelGremio } from '../magia/catalogo.js';
 import type { Hechizo } from '../magia/formato.js';
 import { conMiles, describirCoste } from '../texto.js';
-import type { FactionId, PlayerId, Point } from '../types.js';
-import { unidadDelJuego, unidadesDeMorada } from '../unidad/catalogo.js';
+import { type FactionId, NOMBRE_DE_FACCION, type PlayerId, type Point } from '../types.js';
+import { unidadDelJuego, unidadDelJuegoSiExiste, unidadesDeMorada } from '../unidad/catalogo.js';
 import { enteroDesde } from '../validar.js';
 import { building, buildingIfExists, buildingsOfFaction, prebuiltBuildings } from './buildings.js';
 
@@ -217,7 +217,9 @@ export function recruitCost(creatureId: string, count: number): number {
  * Motivo por el que no se puede reclutar, o `null`. Un `count` que no es un entero
  * seguro de 1 en adelante, el primero (11-11-2026, #317): el zod del agente ya no
  * lo filtra («Forma y valor», `docs/areas/agente.md`), y con `count <= 0` a secas
- * un 1,5 se reclutaba.
+ * un 1,5 se reclutaba. Después, por este orden: la criatura no existe, el pueblo
+ * no la ofrece (no tiene su morada, que puede ser de otra facción), no hay
+ * bastantes y el oro.
  */
 export function recruitBlocker(
   town: Town,
@@ -226,6 +228,23 @@ export function recruitBlocker(
   oro: number,
 ): string | null {
   if (!enteroDesde(count, 1)) return `son individuos: se reclutan de 1 en adelante, no ${count}`;
+  // Lo que el pueblo no ofrece, antes que lo que no tiene: «solo hay 0
+  // disponibles» con un id inventado o con una criatura de otra facción le
+  // decía al agente que esperase al lunes (#340, 11-11-2026). La persona no
+  // llega aquí: la morada solo le ofrece lo de `dwellings`.
+  const u = unidadDelJuegoSiExiste(creatureId);
+  if (u === null) return `no hay ninguna criatura "${creatureId}" en el juego`;
+  if (!dwellings(town).some((d) => d.creature === creatureId)) {
+    if (u.edificio === null) return `"${creatureId}" no se recluta en ningún pueblo`;
+    const morada = building(u.edificio);
+    const ajena =
+      morada.faction !== undefined && morada.faction !== town.faction
+        ? `, que es de los ${NOMBRE_DE_FACCION[morada.faction]}`
+        : '';
+    // Con el id de la morada, que es lo que escribe quien la construye: su
+    // nombre solo («Pueblo») no dice cuál.
+    return `${town.name} no ofrece "${creatureId}": no tiene su morada, ${morada.name} ("${morada.id}")${ajena}`;
+  }
   const available = town.available[creatureId] ?? 0;
   if (available < count) return `solo hay ${available} disponibles`;
   return oroBlocker(recruitCost(creatureId, count), oro);

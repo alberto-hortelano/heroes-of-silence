@@ -76,10 +76,11 @@ import {
   revealEverything,
   visibleNow,
 } from '../src/core/state/vision.js';
+import { buildingIfExists } from '../src/core/town/buildings.js';
 import { ECONOMIA } from '../src/core/town/economia.js';
-import { mageGuildLevel, recruitBlocker, townSpells } from '../src/core/town/town.js';
-import { SPEED_TO_HEXES } from '../src/core/types.js';
-import { unidadDelJuego } from '../src/core/unidad/catalogo.js';
+import { dwellings, mageGuildLevel, recruitBlocker, townSpells } from '../src/core/town/town.js';
+import { NOMBRE_DE_FACCION, SPEED_TO_HEXES } from '../src/core/types.js';
+import { unidadDelJuego, unidadesDelJuego } from '../src/core/unidad/catalogo.js';
 import { batallaConDos, forzarTurno } from './batalla-de-prueba.js';
 import { JINETE, NO_MUERTO, PESADA, TIRADOR, TROPA, TROPA_BARATA } from './comun.js';
 import { conCaminos, planConCiudadDeRegion, planDeNodos } from './mapa-de-prueba.js';
@@ -156,6 +157,13 @@ describe('contrato con el agente', () => {
     expect(
       adventureActionSchema.safeParse({ type: 'unequip', hero: hero.id, slot: 'casco' }).success,
     ).toBe(true);
+    // Pero su tamaño sí es forma, en los dos (#340: `unequip` no tenía tope).
+    for (const type of ['equip', 'unequip'] as const) {
+      const conHueco = (slot: string) =>
+        adventureActionSchema.safeParse({ type, hero: hero.id, item: 'maza', slot }).success;
+      expect(conHueco('x'.repeat(32)), `${type} con un hueco de 32`).toBe(true);
+      expect(conHueco('x'.repeat(33)), `${type} con un hueco de 33`).toBe(false);
+    }
     // El puesto en la tropa es de la escena de la tropa, no del contrato (QA de la
     // tropa, H2): el agente sigue nombrando con `veteran` o `creature`, y un
     // `puesto` que escriba no llega al núcleo.
@@ -2306,5 +2314,54 @@ describe('forma y valor (#317, 11-11-2026)', () => {
     ).toBe(
       `no se puede repartir la tropa: el "count" de "${TROPA}" es 1e+21: va un entero de 1 en adelante (lo que no se queda con el héroe no se escribe)`,
     );
+  });
+
+  it('reclutar lo que el pueblo no ofrece dice por qué, y no «solo hay 0» (#340)', () => {
+    // «solo hay 0 disponibles» con un id inventado o con una criatura de otra
+    // facción le decía al agente que esperase al lunes. La persona no llega: la
+    // morada solo le ofrece lo de `dwellings`.
+    const state = newGame({ seed: 1 });
+    const town = townsOf(state, 0)[0]!;
+    const ofrece = dwellings(town).map((d) => d.creature);
+    const [deSuMorada] = ofrece;
+    expect(deSuMorada, `${town.name} no tiene ninguna morada`).toBeDefined();
+    const deOtra = unidadesDelJuego().find((u) => u.faction !== town.faction && u.edificio)!;
+    const sinConstruir = unidadesDelJuego().find(
+      (u) => u.faction === town.faction && u.edificio && !town.buildings.includes(u.edificio),
+    )!;
+    expect(deOtra, 'una criatura con morada de otra facción').toBeDefined();
+    expect(sinConstruir, `una morada de ${town.faction} sin construir`).toBeDefined();
+    // Con disponibles apuntados: que no sea el «disponible» lo que decide.
+    town.available[deOtra.id] = 5;
+    town.available[sinConstruir.id] = 5;
+
+    expect(recruitBlocker(town, 'dragon-de-oro', 1, 1_000_000)).toBe(
+      'no hay ninguna criatura "dragon-de-oro" en el juego',
+    );
+    const moradaAjena = buildingIfExists(deOtra.edificio!)!;
+    expect(recruitBlocker(town, deOtra.id, 1, 1_000_000)).toBe(
+      `${town.name} no ofrece "${deOtra.id}": no tiene su morada, ${moradaAjena.name} ("${moradaAjena.id}"), que es de los ${NOMBRE_DE_FACCION[deOtra.faction]}`,
+    );
+    const moradaPropia = buildingIfExists(sinConstruir.edificio!)!;
+    expect(recruitBlocker(town, sinConstruir.id, 1, 1_000_000)).toBe(
+      `${town.name} no ofrece "${sinConstruir.id}": no tiene su morada, ${moradaPropia.name} ("${moradaPropia.id}")`,
+    );
+    // La que ofrece y no tiene bastantes: el texto de siempre, el que lee la persona.
+    town.available[deSuMorada!] = 2;
+    expect(recruitBlocker(town, deSuMorada!, 3, 1_000_000)).toBe('solo hay 2 disponibles');
+    expect(recruitBlocker(town, deSuMorada!, 2, 1_000_000)).toBeNull();
+
+    // Por la puerta entera del agente: lo descarta con su motivo, sin tocar nada.
+    expect(
+      motivoDe(() =>
+        jugarDelAgente(state, {
+          type: 'recruit',
+          town: town.id,
+          creature: 'dragon-de-oro',
+          count: 1,
+        }),
+      ),
+    ).toBe('no se puede reclutar: no hay ninguna criatura "dragon-de-oro" en el juego');
+    expect(town.available[deOtra.id]).toBe(5);
   });
 });

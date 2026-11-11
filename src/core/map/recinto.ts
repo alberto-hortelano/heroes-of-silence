@@ -575,8 +575,8 @@ export function queEsElObjeto(o: GameMap['objects'][number]): string {
 }
 
 /**
- * Lo que impide que cada ciudad lleve su recinto y se entre en ella por sus
- * puertas, en frases para quien hizo el plan:
+ * Lo que impide que cada ciudad lleve su recinto, sin leer la red, en frases
+ * para quien hizo el plan:
  *
  * - una ciudad sobre el agua de un río (va en tierra, con su puente delante),
  *   una cuyo recinto no cabe (está en el borde), y dos a menos de
@@ -586,32 +586,24 @@ export function queEsElObjeto(o: GameMap['objects'][number]): string {
  *   `otros`: los asaltantes—;
  * - un pueblo, un monstruo o un cofre en el anillo de los accesos de sus
  *   puertas (`parteDeLaEntrada`): es su entrada, y el generador no siembra
- *   nada ahí (#305, 11-11-2026);
- * - un camino que cruza la muralla: a una ciudad se llega de un acceso a su
- *   puerta y de la puerta a ella (`PUERTAS_DE_LA_CIUDAD`), y el que entra por
- *   la puerta sigue a la ciudad;
- * - una región que llega a una ciudad por un acceso y no tiene camino que entre
- *   por una puerta: sin camino no hay puerta (decisión del usuario, 21-10-2026),
- *   y la región se quedaría sin la ciudad. Se rechaza en vez de añadirle el
- *   camino, que sería corregir el plan en silencio;
- * - una región que el recinto parte en dos: su muralla no se pisa.
+ *   nada ahí (#305, 11-11-2026).
  *
- * Vacío: todo cabe. La corren los dos productores de planes: `validateMapPlan`
- * (el agente se entera de por qué, y se juega el procedimental) y el final del
- * vestido del generador, que tira ese vestido en vez de entregar lo que la
- * puerta rechazaría. Pide la red del mapa ya válida (`problemasDeRed`).
+ * Aparte de `problemasDeRecintos`, que la corre primero, porque es **la causa**
+ * de lo que la red cantaría después: un pueblo en la entrada de una ciudad la
+ * saca de la red, y `problemasDeRed` decía «el pueblo parte su región» o
+ * `validateMapPlan`, que la base estaba dentro de una región (#340,
+ * 11-11-2026). Por eso `validateMapPlan` la corre **antes** de `problemasDeRed`,
+ * y para eso no puede pedir la red.
  */
-export function problemasDeRecintos(
+export function problemasDeLaEntrada(
   map: GameMap,
-  red: Pick<Estructura, 'regionDe'>,
   ciudades: readonly CiudadConNombre[],
   otros: readonly OcupaUnaCasilla[],
 ): string[] {
   const problemas: string[] = [];
   const W = map.width;
   const H = map.height;
-  const { regionDe } = red;
-  const nombre = (c: CiudadConNombre): string => `"${c.name}" (${c.id}, en ${casilla(c.at)})`;
+  const nombre = nombreDeLaCiudad;
   const conRecinto: { readonly c: CiudadConNombre; readonly r: RectDelRecinto }[] = [];
   const agua = (x: number, y: number): boolean =>
     x >= 0 && y >= 0 && x < W && y < H && map.terrain[y * W + x] === 'water';
@@ -666,7 +658,51 @@ export function problemasDeRecintos(
       }
     }
   }
-  if (problemas.length > 0) return problemas;
+  return problemas;
+}
+
+/** Cómo se nombra una ciudad en un problema del recinto: su nombre, su id y su casilla. */
+function nombreDeLaCiudad(c: CiudadConNombre): string {
+  return `"${c.name}" (${c.id}, en ${casilla(c.at)})`;
+}
+
+/**
+ * Lo que impide que cada ciudad lleve su recinto y se entre en ella por sus
+ * puertas, en frases para quien hizo el plan:
+ *
+ * - lo de `problemasDeLaEntrada`, primero y sin la red: la ciudad en el río o
+ *   en el borde, dos que se tocan, lo que cae en un recinto o en sus accesos;
+ * - un camino que cruza la muralla: a una ciudad se llega de un acceso a su
+ *   puerta y de la puerta a ella (`PUERTAS_DE_LA_CIUDAD`), y el que entra por
+ *   la puerta sigue a la ciudad;
+ * - una región que llega a una ciudad por un acceso y no tiene camino que entre
+ *   por una puerta: sin camino no hay puerta (decisión del usuario, 21-10-2026),
+ *   y la región se quedaría sin la ciudad. Se rechaza en vez de añadirle el
+ *   camino, que sería corregir el plan en silencio;
+ * - una región que el recinto parte en dos: su muralla no se pisa.
+ *
+ * Vacío: todo cabe. La corren los dos productores de planes: `validateMapPlan`
+ * (el agente se entera de por qué, y se juega el procedimental) y el final del
+ * vestido del generador, que tira ese vestido en vez de entregar lo que la
+ * puerta rechazaría. Pide la red del mapa ya válida (`problemasDeRed`).
+ */
+export function problemasDeRecintos(
+  map: GameMap,
+  red: Pick<Estructura, 'regionDe'>,
+  ciudades: readonly CiudadConNombre[],
+  otros: readonly OcupaUnaCasilla[],
+): string[] {
+  const deLaEntrada = problemasDeLaEntrada(map, ciudades, otros);
+  if (deLaEntrada.length > 0) return deLaEntrada;
+
+  const problemas: string[] = [];
+  const W = map.width;
+  const H = map.height;
+  const { regionDe } = red;
+  const nombre = nombreDeLaCiudad;
+  const conRecinto = ciudades
+    .filter((c) => cabeElRecinto(c.at, W, H))
+    .map((c) => ({ c, r: recintoDeLaCiudad(c.at, W, H) }));
 
   // Por dónde se entra: los caminos, las puertas y las regiones.
   const nombreDeRegion = (r: number): string =>

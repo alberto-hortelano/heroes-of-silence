@@ -242,7 +242,7 @@ Cada hecho tiene un sitio; la ruta, relativa a `src/core/` o `src/client/` (a `s
 | Caminos de un plan al mapa | `caminosDelPlan` (`map/generar/construir.ts`) |
 | Lo explorado: la niebla por regiones | `zonaDeNiebla`, `regionesQueDescubre` (`map/niebla.ts`); la única escritura de `fog`, `descubrir` (`state/vision.ts`) |
 | Por dónde se entra en un pueblo | `puertaDe`, `rodeosParaEntrar` (`map/puertas.ts`) |
-| El recinto de una ciudad, en el núcleo | `recintoDeLaCiudad`, `pasosDelRecinto`, `problemasDeRecintos`; su entrada, `parteDeLaEntrada` (`map/recinto.ts`) |
+| El recinto de una ciudad, en el núcleo | `recintoDeLaCiudad`, `pasosDelRecinto`, `problemasDeRecintos`; su entrada, `parteDeLaEntrada`, `problemasDeLaEntrada` (`map/recinto.ts`) |
 | Qué barreras admiten los niveles de dos regiones | `admiteLosNiveles` (`map/terrain.ts`) |
 | Franjas de barrera y nivel de cada casilla | `franjasDeBarrera`, `nivelesDelRelieve` (`map/niveles.ts`) |
 | Qué muro se queda: el cierre de un paso | `lineaDeLaPuerta`, `muroDeLaLinea`, `murallasDelMapa` (`map/murallas.ts`) |
