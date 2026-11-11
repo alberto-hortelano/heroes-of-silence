@@ -25,8 +25,9 @@ import { renderActions, renderSide, renderTopbar } from './paneles.js';
  * del mapa. Fuera de eso, se pinta cuando algo pasa —un gesto, el fin del turno
  * del rival, un cambio de tamaño, arte que llega— y se para. Tras pintar un
  * fotograma, o fallar al pintarlo, se pide otro si algo se mueve, y también si la
- * escena cambió mientras se pintaba —un «Continuar» que esperaba a la jugada
- * vuelve al mapa en `batalla.sincronizar`—: este fotograma pintó la de antes.
+ * escena cambió mientras se pintaba —la marcha que llega dentro del fotograma
+ * (`EscenaAventura`, `acabarLaMarcha`) y abre la batalla o la base; hasta #341,
+ * también un «Continuar» que esperaba a la jugada—: este fotograma pintó la de antes.
  */
 export function otroFotograma(
   pagina: Pick<PaginaDeLaPartida, 'session' | 'batalla' | 'aventura' | 'estado'>,

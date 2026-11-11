@@ -22,7 +22,6 @@ import {
 } from '@core/contract/aventura.js';
 import { serializeBattleResponse, serializeBattleTurn } from '@core/contract/batalla.js';
 import {
-  type AccionDeBatallaDelAgente,
   type AccionDelAgente,
   accionDeBatallaDelAgente,
   accionDelAgente,
@@ -566,37 +565,54 @@ export class Director {
         continue;
       }
 
-      // El `catch` devuelve `null` en vez de asignar a un `let` sin tipo: así
-      // `respuesta` queda tipada por lo que promete `ask` —el esquema zod de
-      // `battle_turn`— en lugar de ser un `any` que se va ensanchando.
-      const respuesta = await this.link
+      // Sin respuesta (sin agente, plazo agotado, canal caído) la batalla la
+      // termina la IA: el enlace ya se lo ha dicho al agente (`notaSinRespuesta`).
+      // Esperar el plazo turno a turno costaría hasta 300 s por cada uno de los
+      // suyos, y con el canal caído cada petición fallaría en el acto (#334).
+      const pedida = await this.link
         // Vista propia siempre: `s` ES el stack activo y `s.side` su bando, así
         // que aquí quien pregunta es quien manda.
-        .ask(
-          'battle_turn',
+        .pedirElTurnoDeBatalla(
           serializeBattleTurn(battle, s.side, 'propia', this.oroDe(dueños[s.side])),
         )
         .catch((err: unknown) => {
-          this.note(`El agente falló en la batalla (${mensajeDe(err)}); la termina la IA.`);
+          this.note(`El agente no respondió en la batalla (${mensajeDe(err)}); la termina la IA.`);
           return null;
         });
-      if (respuesta === null) break;
+      if (pedida === null) break;
 
       // El turno de antes, para comparar su ordinal con el de después: si es el
       // mismo, la acción ha dejado el turno abierto.
       const turnoAntes = battle.turno;
+
+      if ('problemas' in pedida) {
+        // Sin forma cuesta lo mismo que sin valor, esa jugada (#334, 11-11-2026):
+        // la respuesta es una sola jugada y lo siguiente es el próximo turno de
+        // esta misma batalla. Antes se llevaba la batalla entera, un `wait`
+        // olvidado incluido, y la nota decía «ese turno».
+        const motivo = `tu respuesta no encaja con el esquema: ${pedida.problemas.join('; ')}`;
+        this.note(`Turno de batalla sin forma: ${pedida.problemas.join('; ')}`);
+        await this.sustituir(
+          battle,
+          s,
+          bandos,
+          pedida.requestId,
+          pedida.problemas,
+          motivo,
+          turnoAntes,
+        );
+        continue;
+      }
+
       const desde = battle.log.length;
       try {
         // Dentro del `try`: un `hit` que no es un golpe de la rueda descarta esta
         // acción con su motivo (`golpeDelHit`), no la batalla.
-        const accion = accionDeBatallaDelAgente(
-          respuesta.data.action as AccionDeBatallaDelAgente,
-          formaDeLaBatalla(battle),
-        );
+        const accion = accionDeBatallaDelAgente(pedida.data.action, formaDeLaBatalla(battle));
         await this.conLaRueda(battle, accion, bandos);
         this.frame();
         this.link.report(
-          respuesta.requestId,
+          pedida.requestId,
           true,
           undefined,
           notaAccionAceptada(
@@ -610,35 +626,7 @@ export class Director {
       } catch (err) {
         const motivo = mensajeDe(err);
         this.note(`Acción de batalla rechazada: ${motivo}`);
-        // Para no bloquear el turno se juega la de la heurística — y se MIDE lo
-        // que cuesta antes de contárselo: un `cast` sustituto no consume el
-        // turno del stack, gasta el maná del héroe. Suponerlo mentiría en una
-        // de cada cuatro sustituciones.
-        // Y nunca una rendición: la sustituta la elige la IA, y rendirse cuesta
-        // un oro que solo puede gastar el agente (H-1 de la fase 1b).
-        const sustituta = chooseBattleAction(battle, bandos);
-        const heroe = battle.heroes[s.side];
-        const manaAntes = heroe?.mana ?? 0;
-        await this.conLaRueda(battle, sustituta, bandos);
-        this.frame();
-        const manaGastado = manaAntes - (heroe?.mana ?? 0);
-        // Si la sustituta remató, la promesa del `cast` —«se te volverá a pedir
-        // acción para ella»— sería falsa: el bucle sale por `battle.finished` y
-        // no hay más peticiones. También se mide, no se supone.
-        this.link.report(
-          respuesta.requestId,
-          false,
-          [motivo],
-          notaAccionSustituida(
-            s.id,
-            motivo,
-            sustituta,
-            manaGastado,
-            heroe?.name ?? null,
-            battle.finished !== null,
-            turnoAbierto(battle, turnoAntes),
-          ),
-        );
+        await this.sustituir(battle, s, bandos, pedida.requestId, [motivo], motivo, turnoAntes);
       }
     }
 
@@ -647,6 +635,50 @@ export class Director {
     } else {
       settleBattle(this.state, this.ctx);
     }
+  }
+
+  /**
+   * La jugada del agente que no se pudo jugar —sin forma o sin valor— la juega la
+   * IA, y se le dice al agente con **un** veredicto lo que ha costado.
+   *
+   * Para no bloquear el turno se juega la de la heurística — y se MIDE lo que
+   * cuesta antes de contárselo: un `cast` sustituto no consume el turno del stack,
+   * gasta el maná del héroe. Suponerlo mentiría en una de cada cuatro
+   * sustituciones. Y nunca una rendición: la sustituta la elige la IA, y rendirse
+   * cuesta un oro que solo puede gastar el agente (H-1 de la fase 1b).
+   */
+  private async sustituir(
+    battle: BattleState,
+    s: { readonly id: string; readonly side: Side },
+    bandos: ReadonlySet<Side>,
+    requestId: string,
+    problemas: readonly string[],
+    motivo: string,
+    turnoAntes: TurnoDeUnidad | null,
+  ): Promise<void> {
+    const heroe = battle.heroes[s.side];
+    const manaAntes = heroe?.mana ?? 0;
+    const sustituta = chooseBattleAction(battle, bandos);
+    await this.conLaRueda(battle, sustituta, bandos);
+    this.frame();
+    const manaGastado = manaAntes - (heroe?.mana ?? 0);
+    // Si la sustituta remató, la promesa del `cast` —«se te volverá a pedir
+    // acción para ella»— sería falsa: el bucle sale por `battle.finished` y
+    // no hay más peticiones. También se mide, no se supone.
+    this.link.report(
+      requestId,
+      false,
+      problemas,
+      notaAccionSustituida(
+        s.id,
+        motivo,
+        sustituta,
+        manaGastado,
+        heroe?.name ?? null,
+        battle.finished !== null,
+        turnoAbierto(battle, turnoAntes),
+      ),
+    );
   }
 
   /**

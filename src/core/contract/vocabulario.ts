@@ -36,8 +36,6 @@ import type {
   EffectKind,
   JugadaDeMuralla,
   PuertaDeMuralla,
-  TipoDeEscala,
-  TipoDePuerta,
 } from '../battle/types.js';
 import type { CuandoSalta } from '../magia/formato.js';
 import {
@@ -58,7 +56,7 @@ import {
   TODOS_LOS_GOLPES,
 } from '../types.js';
 import { enteroDesde } from '../validar.js';
-import type { adventureActionSchema } from './esquemas.js';
+import type { adventureActionSchema, battleActionSchema } from './esquemas.js';
 
 // ---------------------------------------------------------------- los puestos
 
@@ -360,8 +358,6 @@ export function ruedaAlAgente(forma: FormaDeLaRueda) {
   };
 }
 
-type Ataque = Extract<BattleAction, { type: 'attack' }>;
-type Poder = Extract<BattleAction, { type: 'power' }>;
 type DeLaMuralla = Extract<BattleAction, { type: JugadaDeMuralla }>;
 
 /**
@@ -399,34 +395,23 @@ export function puertaAlAgente(p: PuertaDeMuralla): PuertaDeMuralla {
 }
 
 /**
- * Una acción de batalla tal como la escribe el agente: la del núcleo, salvo el
- * golpe (`hit`, texto del contrato, sin la respuesta, que elige el otro), el id
- * del poder, que va en `power` (en el núcleo, `poder`), y las cuatro de la muralla
- * (`JUGADA_DE_MURALLA`). Texto y no un `z.enum` en el esquema: un `hit` mal escrito
- * descarta ESA jugada con su motivo, no la batalla.
+ * Una acción de batalla tal como la escribe el agente: **la salida del zod**
+ * (`battleActionSchema`), no una copia a mano (#338, 11-11-2026, como
+ * `AccionDelAgente` en #313: la copia y el esquema los ataba el director con un
+ * `as`). La del núcleo, salvo el golpe (`hit`, texto del contrato, sin la
+ * respuesta, que elige el otro), el id del poder, que va en `power` (en el núcleo,
+ * `poder`), y las cuatro de la muralla (`JUGADA_DE_MURALLA`). Las retiradas
+ * (`wait`, `defend`) no están: su `type` sale `never` (`retirada`, en `esquemas.ts`).
  */
-export type AccionDeBatallaDelAgente =
-  | Exclude<BattleAction, Ataque | Poder | DeLaMuralla>
-  | {
-      readonly type: 'attack';
-      readonly target: string;
-      readonly from?: Hex;
-      readonly hit?: string;
-    }
-  | {
-      readonly type: 'power';
-      readonly power: string;
-      readonly target?: string;
-      readonly at?: Hex;
-    }
-  | {
-      readonly type: (typeof JUGADA_DE_MURALLA)[TipoDeEscala];
-      readonly wall: Hex;
-    }
-  | {
-      readonly type: (typeof JUGADA_DE_MURALLA)[TipoDePuerta];
-      readonly gate: PuertaDeMuralla;
-    };
+type AccionDeBatallaDelAgente = z.infer<typeof battleActionSchema>;
+
+/** El `target` y el `at` de un hechizo o un poder, sin los que no vienen. */
+function objetivo(a: { readonly target?: string | undefined; readonly at?: Hex | undefined }) {
+  return {
+    ...(a.target === undefined ? {} : { target: a.target }),
+    ...(a.at === undefined ? {} : { at: a.at }),
+  };
+}
 
 /**
  * La acción del agente tal como la juega el núcleo en una batalla con la rueda
@@ -437,15 +422,23 @@ export function accionDeBatallaDelAgente(
   a: AccionDeBatallaDelAgente,
   forma: FormaDeLaRueda,
 ): BattleAction {
+  // Campo a campo donde hay opcionales: zod escribe `target?: string | undefined`
+  // y el núcleo, con `exactOptionalPropertyTypes`, `target?: string` (lo mismo que
+  // `equip` en la aventura). Un `return a` ahí no compila.
   switch (a.type) {
-    case 'attack': {
-      const { hit, ...resto } = a;
-      return hit === undefined ? resto : { ...resto, golpe: golpeDelHit(hit, forma) };
-    }
-    case 'power': {
-      const { power, type: _t, ...resto } = a;
-      return { type: 'power', poder: power, ...resto };
-    }
+    case 'attack':
+      return {
+        type: 'attack',
+        target: a.target,
+        ...(a.from === undefined ? {} : { from: a.from }),
+        ...(a.hit === undefined ? {} : { golpe: golpeDelHit(a.hit, forma) }),
+      };
+    case 'cast':
+      return { type: 'cast', spell: a.spell, ...objetivo(a) };
+    case 'power':
+      return { type: 'power', poder: a.power, ...objetivo(a) };
+    case 'surrender':
+      return a.gold === undefined ? { type: 'surrender' } : { type: 'surrender', gold: a.gold };
     case 'place_ladder':
     case 'climb':
       return { type: JUGADA_DEL_AGENTE[a.type], muro: a.wall };
@@ -455,8 +448,6 @@ export function accionDeBatallaDelAgente(
     case 'move':
     case 'aim':
     case 'throw':
-    case 'cast':
-    case 'surrender':
     case 'end_turn':
       return a;
   }

@@ -182,14 +182,6 @@ export class EscenaBatalla {
    * verdad y se quita solo, sin esperar al siguiente gesto.
    */
   private antesDelAviso: string | null = null;
-  /**
-   * Un gesto que espera a que la cola se vacíe: «Continuar» aparece en cuanto
-   * la batalla termina, con la última muerte aún contándose, y tiene que bastar
-   * con pulsarlo una vez. Va atado a la batalla en la que se pulsó: si es otra,
-   * o ya no hay, se olvida.
-   */
-  private pendiente: { readonly batalla: unknown; readonly accion: () => void } | null = null;
-
   constructor(private readonly sesion: () => ControlDeBatalla) {}
 
   /**
@@ -199,7 +191,6 @@ export class EscenaBatalla {
    */
   sincronizar(ahora: number): void {
     const b = this.batallaQueSeCuenta();
-    if (this.pendiente !== null && this.pendiente.batalla !== b) this.pendiente = null;
     if (b === null) return;
     // El animador lleva la batalla entera, también lo que la persona aún no ve:
     // al cerrar el despliegue, el rival que aparece ya está en su casilla. Lo que
@@ -211,13 +202,6 @@ export class EscenaBatalla {
       // Si entre tanto la sesión ha escrito otra cosa, manda la sesión.
       if (s.status === AVISO_DE_ESPERA) s.status = this.antesDelAviso;
       this.antesDelAviso = null;
-    }
-    // Lo último: la acción puede cerrar la batalla, y lo que escriba en la barra
-    // no lo tiene que pisar la vuelta del aviso.
-    if (this.pendiente !== null && !this.animador.busy) {
-      const { accion } = this.pendiente;
-      this.pendiente = null;
-      accion();
     }
   }
 
@@ -236,24 +220,9 @@ export class EscenaBatalla {
   }
 
   /**
-   * Hace `accion` en cuanto la jugada termine de contarse: ya si no hay nada en
-   * la cola; si no, en el `sincronizar` que la vacíe, una sola vez y sin aviso
-   * de espera. Si se pide dos veces, gana la última.
-   */
-  alAcabar(ahora: number, accion: () => void): void {
-    this.sincronizar(ahora);
-    if (!this.animador.busy) {
-      accion();
-      return;
-    }
-    this.pendiente = { batalla: this.batallaQueSeCuenta(), accion };
-  }
-
-  /**
    * La batalla entera (`ControlDeBatalla.batallaEntera`): la única lectura de la
-   * escena que no pasa por lo que se ve, para el animador y para atar a ella un
-   * gesto que espera. Todo lo que se pinta, se señala o se pulsa lee
-   * `batallaALaVista`.
+   * escena que no pasa por lo que se ve, para el animador. Todo lo que se pinta,
+   * se señala o se pulsa lee `batallaALaVista`.
    */
   private batallaQueSeCuenta(): BattleState | null {
     return this.sesion().batallaEntera;

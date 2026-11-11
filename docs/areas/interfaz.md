@@ -68,6 +68,14 @@ resto)»: tocar la barra cortada la despliega entera (`#status[data-desplegada]`
 siguiente la pliega. Lo miran `test/barra.test.ts` y, en el navegador, el guion de la vuelta 2
 (`docs/agents/2026-11-11-prevision-de-la-batalla/`).
 
+**El px del redondeo** (H1 del QA de #336, 11-11-2026): con la letra de los elfos, dos líneas de
+19,5 px miden 40 en una barra de 39, y cuatro, 79 en 78 (medido a 380, 1024 y 1440 en las cinco
+facciones; las otras cuatro dan justo). Comparando `scrollHeight > clientHeight`, todo texto de dos
+líneas «no cabía» y se cortaba a una (a 380 con ratón, «No hay camino hasta … (el resto, con el
+ratón quieto)», sin el porqué) y en la batalla se perdía la cuarta. Desborda lo que pasa de un px
+(`desbordaLaBarra`, `REDONDEO_DE_LA_LETRA`): una línea que de verdad no cabe pasa 19. La misma
+cuenta la lee la pasada `arena` de `pnpm capturas`.
+
 ## El cliente
 
 - **El clima** (22-10-2026, `docs/agents/2026-10-22-clima/`): niebla (bancos claros y fríos que

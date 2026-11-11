@@ -8,16 +8,27 @@
  * Lo de verdad, a 1024, 1100 y 1440 px, lo mira la pasada `arena` de `pnpm capturas`.
  */
 import { describe, expect, it } from 'vitest';
-import { ponerEnLaBarra, SIGUE_AL_TOCARLA, SIGUE_CON_EL_RATON } from '../src/client/comun/barra.js';
+import {
+  desbordaLaBarra,
+  ponerEnLaBarra,
+  SIGUE_AL_TOCARLA,
+  SIGUE_CON_EL_RATON,
+} from '../src/client/comun/barra.js';
 
 const POR_LINEA = 40;
 const LINEA = 20;
 
 /**
  * Una barra de dos líneas de `POR_LINEA` caracteres que cuenta cuántas veces la miden;
- * `tocar` hace lo que el toque de verdad: llama a quien escucha su `click`.
+ * `tocar` hace lo que el toque de verdad: llama a quien escucha su `click`. `redondeo`:
+ * los px que el texto de dos líneas o más mide de más, como la letra de los elfos en
+ * Chromium (40 en 39).
  */
-function barraDeMentira(): { el: HTMLElement; medidas: () => number; tocar: () => void } {
+function barraDeMentira(redondeo = 0): {
+  el: HTMLElement;
+  medidas: () => number;
+  tocar: () => void;
+} {
   let medidas = 0;
   const oyentes: (() => void)[] = [];
   const el = {
@@ -26,7 +37,8 @@ function barraDeMentira(): { el: HTMLElement; medidas: () => number; tocar: () =
     clientHeight: 2 * LINEA,
     get scrollHeight(): number {
       medidas++;
-      return Math.ceil((this.textContent ?? '').length / POR_LINEA) * LINEA;
+      const lineas = Math.ceil((this.textContent ?? '').length / POR_LINEA);
+      return lineas * LINEA + (lineas >= 2 ? redondeo : 0);
     },
     addEventListener: (tipo: string, f: () => void) => {
       if (tipo === 'click') oyentes.push(f);
@@ -84,6 +96,35 @@ describe('la barra de abajo corta por frases y dice dónde se lee entero', () =>
     // Lo que se ve es el principio del texto, cortado tras un punto.
     const visto = sinElAviso(el.textContent ?? '', SIGUE_CON_EL_RATON);
     expect(texto.startsWith(visto) && visto.endsWith('.')).toBe(true);
+  });
+
+  // H1 del QA de #336 (11-11-2026): con la letra de los elfos, dos líneas medían 40 px en
+  // una barra de 39, todo texto de dos líneas «no cabía» y se cortaba a una; a 380 con
+  // ratón, «No hay camino hasta … (el resto, con el ratón quieto)», sin el porqué.
+  it('el px de más del redondeo de la letra no corta: dos líneas justas van enteras', () => {
+    const { el } = barraDeMentira(1);
+    const lienzo = lienzoDeMentira();
+    const texto =
+      'No hay camino hasta (13,7) sin cruzar una barrera: solo cruza quien se infiltra.';
+    expect(texto.length).toBe(2 * POR_LINEA);
+    ponerEnLaBarra(el, texto, lienzo, true);
+    expect(el.scrollHeight).toBe(2 * LINEA + 1);
+    expect(el.textContent).toBe(texto);
+    expect(lienzo.hasAttribute('title')).toBe(false);
+    expect(el.dataset.cortada).toBeUndefined();
+    // Una frase más es una línea más: esa sí no cabe, y se corta.
+    ponerEnLaBarra(el, `${texto} Y.`, lienzo, true);
+    expect(el.dataset.cortada).toBe('');
+    expect(texto.startsWith(sinElAviso(el.textContent ?? '', SIGUE_CON_EL_RATON))).toBe(true);
+    expect(lienzo.title).toBe(`${texto} Y.`);
+  });
+
+  it('desborda lo que pasa de una línea, no el px del redondeo', () => {
+    expect(desbordaLaBarra(39, 39)).toBe(false);
+    expect(desbordaLaBarra(40, 39)).toBe(false);
+    expect(desbordaLaBarra(79, 78)).toBe(false);
+    expect(desbordaLaBarra(59, 39)).toBe(true);
+    expect(desbordaLaBarra(98, 78)).toBe(true);
   });
 
   // H1 del QA (11-11-2026): un hechizo de área junta a sus alcanzados con «;» en una sola

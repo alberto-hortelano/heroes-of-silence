@@ -11,13 +11,13 @@
  *   panel salen apagados mientras se cuenta (#165, `mientrasSeCuenta`), así que lo de
  *   la jugada solo lo ve el clic que cae antes del fotograma que los apaga.
  * - `mirar`: mirar al enemigo no toca la batalla, se puede mientras se cuenta.
- * - `al-acabar`: «Continuar» sale con la última muerte aún contándose; no se
- *   rechaza, espera a que acabe y vuelve al mapa sin pedir un segundo clic.
- * - `gesto`: todo lo demás, con la jugada ya contada.
+ * - `gesto`: todo lo demás, con la jugada ya contada. También «Continuar»: desde #341
+ *   (11-11-2026) solo sale con el tablero quieto (`finalALaVista`), así que su clic
+ *   nunca encuentra la jugada en curso. Hasta entonces salía con la última muerte aún
+ *   contándose, y tenía su propio reparto (`al-acabar`) que esperaba a la cola en vez
+ *   de rechazarlo con el aviso de espera, que pedía un segundo clic (#158 d).
  */
-import type { Scene } from '../sesion/partida/comun.js';
-
-type RepartoDelClic = 'mirar' | 'al-acabar' | 'nada' | 'gesto';
+type RepartoDelClic = 'mirar' | 'nada' | 'gesto';
 
 /**
  * Los únicos botones de la partida que cuentan el segundo clic de un doble clic: los
@@ -48,21 +48,19 @@ const CUENTAN_CADA_CLIC: ReadonlySet<string> = new Set([
 ]);
 
 /**
- * El reparto de un clic en `action` (cabecera del fichero), en la escena `escena`;
- * `clics`, los seguidos (`MouseEvent.detail`). El segundo clic de un doble clic se
- * mira antes que nada: también antes de «Ver al enemigo», de «Continuar» y de la
- * jugada en curso, que ya pondría el aviso de espera.
+ * El reparto de un clic en `action` (cabecera del fichero); `clics`, los seguidos
+ * (`MouseEvent.detail`). El segundo clic de un doble clic se mira antes que nada:
+ * también antes de «Ver al enemigo» y de la jugada en curso, que ya pondría el aviso
+ * de espera.
  */
 export function repartirClic(
   action: string | null,
-  escena: Scene,
   jugadaEnCurso: () => boolean,
   clics = 1,
 ): RepartoDelClic {
   if (action === null) return 'nada';
   if (clics > 1 && !CUENTAN_CADA_CLIC.has(action)) return 'nada';
   if (action === 'ver-enemigo') return 'mirar';
-  if (action === 'finish-battle' && escena === 'battle') return 'al-acabar';
   if (jugadaEnCurso()) return 'nada';
   return 'gesto';
 }

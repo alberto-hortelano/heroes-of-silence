@@ -13,8 +13,13 @@
  */
 import { describe, expect, it } from 'vitest';
 import { marcadoDe } from '../src/client/comun/html.js';
-import { adaptarBatalla } from '../src/client/espectador/adaptar.js';
-import { batalla, panelDelEspectador, vocesDeLasBases } from '../src/client/espectador/paneles.js';
+import { adaptarBatalla, adaptarEscena, sitiosDelCable } from '../src/client/espectador/adaptar.js';
+import {
+  batalla,
+  ocupados,
+  panelDelEspectador,
+  vocesDeLasBases,
+} from '../src/client/espectador/paneles.js';
 import { Reproductor } from '../src/client/espectador/reproductor.js';
 import {
   batallaTerminada,
@@ -43,7 +48,7 @@ import type { Hero } from '../src/core/types.js';
 import { construirVista } from '../src/server/vista-espectador.js';
 import type { SpectatorSnapshotMsg, SpectatorView } from '../src/shared/cable-del-espectador.js';
 import { aCiegas } from './batalla-de-prueba.js';
-import { costesDelAlcance } from './mapa-de-prueba.js';
+import { costesDelAlcance, planConCiudadDeRegion } from './mapa-de-prueba.js';
 import { forzarBatalla, monstruoVivo } from './partida-de-prueba.js';
 
 /** Una partida con una batalla contra un MONSTRUO: el defensor no es de nadie. */
@@ -218,6 +223,112 @@ describe('las voces de la base en el espectador', () => {
     // Lo escribe el agente: sale escapado, como todo lo ajeno.
     expect(marcado).toContain('&lt;b&gt;Hoy&lt;/b&gt; llueve.');
     expect(marcado).not.toContain('<b>Hoy</b>');
+  });
+});
+
+/**
+ * Torreblanca (`town-2`), neutral y dentro de Centro, con Centro del 0 por sus tres
+ * pasos: la ciudad es del 0 y su guarnición neutral la ocupa. La misma escena con la
+ * que `espectador.test.ts` prueba el cable (tarea 2), de un estado de verdad.
+ */
+function conTorreblancaOcupada(): { state: GameState; vista: SpectatorView } {
+  const state = newGame({ seed: 1, plan: planConCiudadDeRegion() });
+  for (const o of state.map.objects) {
+    const enCentro = [
+      { x: 11, y: 2 },
+      { x: 11, y: 6 },
+      { x: 17, y: 4 },
+    ].some((p) => p.x === o.at.x && p.y === o.at.y);
+    if (o.kind === 'node' && enCentro) o.owner = 0;
+  }
+  return { state, vista: JSON.parse(JSON.stringify(construirVista(state, []))) };
+}
+
+describe('la ocupación en el panel del espectador (#303)', () => {
+  it('sin nada ocupado, la sección no sale', () => {
+    const vista = construirVista(newGame({ seed: 5 }), []);
+    expect(vista.sitios.every((s) => s.ocupante === null)).toBe(true);
+    expect(marcadoDe(ocupados(vista))).toBe('');
+    expect(marcadoDe(panelDelEspectador(vista, null))).not.toContain('Ocupados');
+  });
+
+  it('una ciudad ocupada por una guarnición neutral sale con su nombre, su dueño y su ocupante', () => {
+    const { vista } = conTorreblancaOcupada();
+    const marcado = marcadoDe(panelDelEspectador(vista, null));
+    expect(marcado).toContain('<h3>Ocupados</h3>');
+    expect(marcado).toContain('Torreblanca, ciudad');
+    expect(marcado).toContain('del jugador 0');
+    expect(marcado).toContain('Ocupa una guarnición neutral');
+    // Tras «Jugadores» y antes de la crónica: es cómo está ahora, no un hecho que pasó.
+    expect(marcado.indexOf('Ocupados')).toBeGreaterThan(marcado.indexOf('Jugadores'));
+    expect(marcado.indexOf('Ocupados')).toBeLessThan(marcado.indexOf('Crónica'));
+  });
+
+  it('dice lo mismo que la marca del mapa: los dos salen de los mismos `sitios` del cable', () => {
+    const { vista } = conTorreblancaOcupada();
+    const { ocupados: marcas } = sitiosDelCable(vista, adaptarEscena(vista).map.objects);
+    const filas = marcadoDe(ocupados(vista)).split('<div class="stack">').slice(1);
+    expect(marcas.length).toBeGreaterThan(0);
+    expect(filas).toHaveLength(marcas.length);
+    // Cada marca, con su sitio en una fila del panel.
+    for (const m of marcas) {
+      const sitio = vista.sitios.find((s) => s.at.x === m.at.x && s.at.y === m.at.y)!;
+      expect(sitio.ocupante).not.toBeNull();
+      const nombre = vista.towns.find((t) => t.id === sitio.id)!.name;
+      expect(filas.some((f) => f.includes(nombre))).toBe(true);
+    }
+  });
+
+  it('un héroe ajeno en la ciudad la ocupa: sale con su jugador y su nombre, escapado', () => {
+    const { state } = conTorreblancaOcupada();
+    const rival = state.heroes.find((h) => h.owner === 1)!;
+    rival.at = { ...state.towns.find((t) => t.id === 'town-2')!.at };
+    const vista = construirVista(state, []);
+    expect(vista.sitios.find((s) => s.id === 'town-2')!.ocupante).toEqual({
+      kind: 'heroe',
+      heroId: rival.id,
+      dueño: 1,
+    });
+    // El nombre, hostil en la vista (como en «escapa lo ajeno», abajo): lo puede escribir el agente.
+    const hostil: SpectatorView = {
+      ...vista,
+      heroes: vista.heroes.map((h) => (h.id === rival.id ? { ...h, name: '<i>Grishnak</i>' } : h)),
+    };
+    const marcado = marcadoDe(ocupados(hostil));
+    expect(marcado).toContain('Ocupa un héroe del jugador 1 (&lt;i&gt;Grishnak&lt;/i&gt;)');
+    expect(marcado).not.toContain('<i>');
+  });
+
+  it('un pueblo ocupado por la guarnición de un jugador sale por su nombre', () => {
+    const { vista } = conTorreblancaOcupada();
+    const pueblo = vista.map.objects.find((o) => o.kind === 'village')!;
+    const conPueblo: SpectatorView = {
+      ...vista,
+      sitios: vista.sitios.map((s) =>
+        s.id === pueblo.id ? { ...s, owner: 0, ocupante: { kind: 'guarnicion', dueño: 1 } } : s,
+      ),
+    };
+    const marcado = marcadoDe(ocupados(conPueblo));
+    expect(pueblo.kind === 'village' && marcado.includes(`${pueblo.name}, pueblo`)).toBe(true);
+    expect(marcado).toContain('Ocupa una guarnición del jugador 1');
+  });
+
+  it('un cable que no cuadra consigo mismo se dice, no se pinta a medias', () => {
+    const { vista } = conTorreblancaOcupada();
+    const sinCiudad: SpectatorView = {
+      ...vista,
+      towns: vista.towns.filter((t) => t.id !== 'town-2'),
+    };
+    expect(() => ocupados(sinCiudad)).toThrow(
+      /town-2 llega ocupado y no es ni una ciudad ni un pueblo/,
+    );
+    const conFantasma: SpectatorView = {
+      ...vista,
+      sitios: vista.sitios.map((s) =>
+        s.id === 'town-2' ? { ...s, ocupante: { kind: 'heroe', heroId: 'nadie', dueño: 1 } } : s,
+      ),
+    };
+    expect(() => ocupados(conFantasma)).toThrow(/el héroe nadie ocupa un sitio y no viaja/);
   });
 });
 

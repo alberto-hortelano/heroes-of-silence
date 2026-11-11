@@ -274,7 +274,9 @@ export const COMO_SE_LEE_EL_MAPA = `  Trae width, height, terrain[], roads[], ob
   - Un héroe enemigo, una ciudad ajena con guarnición o un paso o un pueblo
     con guarnición ajena se alcanzan pero no se cruzan: pedirlos de destino es
     pedir la batalla, y un "move_hero" a otro
-    sitio los rodea por otro paso si lo hay. Si no lo hay, no hay camino.
+    sitio los rodea por otro paso si lo hay. Si no lo hay, no hay camino. El
+    rechazo dice qué lo cierra si lo ves; si no lo ves, solo "lo cierra algo
+    que no ves", sin qué ni dónde.
   - "raiders" son los grupos de ASALTANTES que ves AHORA, con su tropa
     ("troops") y su fuerza ("strength"). No son de nadie: viven en una región
     sin dueño y la patrullan, moviéndose cada día sin salir de ella ni pegarse a

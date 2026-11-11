@@ -797,7 +797,12 @@ volcado no se movió**: el sello `seen` ya salía de `visibleNowAt` y ninguna IA
   termina, con la última muerte aún contándose, y la puerta de los gestos lo
   rechazaba con el aviso de espera: había que pulsar otra vez. Ahora se atiende
   antes de esa puerta (`repartirClic`) y espera a que se vacíe la cola
-  (`EscenaBatalla.alAcabar`).
+  (`EscenaBatalla.alAcabar`). **Corregido el 11-11-2026 (#341):** #158 d no eligió
+  que el botón saliera pronto, lo dio por hecho cuando el lateral también cantaba
+  «Victoria» en el acto. Desde #257 el lateral se congela y «Continuar» era lo
+  único que adelantaba el final, así que ahora sale con el tablero quieto
+  (`finalALaVista`). Su clic ya no encuentra jugada en curso, y la espera
+  (`alAcabar`, el reparto `al-acabar`) se borró con sus tests.
 - **El puntero tapaba el desenlace (#158 c).** Con la partida terminada, pasar
   el puntero por el mapa describía la casilla en la barra encima de «Derrota…».
 - **`map_generate` prometía un reintento que no existe (#122)**: «para que lo

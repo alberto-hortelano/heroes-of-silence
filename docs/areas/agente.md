@@ -35,6 +35,8 @@ los que unen un emoji, ni dependen de la tabla Unicode del Node para lo sin asig
 Una marcha que no llega entra como parcial y dice por qué: le faltaron puntos
 (`march_cut`), vio un grupo que la emboscaría (`march_halted`) o la emboscaron
 antes del destino (`battle_started` con `faltan`; el agente lo lee como `remaining`).
+Un `move_hero` sin camino se descarta con `porQueNoLlega`, que pasa por su niebla (11-11-2026, #336):
+nombra lo que cierra si lo ve; si no, «lo cierra algo que no ves» (detalle en `docs/areas/partida.md`).
 
 - **Forma y valor** (11-11-2026, #313 y #317, `docs/agents/2026-11-11-accion-del-agente-del-zod/`):
   la regla de qué se lleva una respuesta de aventura entera y qué solo una jugada. **Forma** es que
@@ -48,11 +50,8 @@ antes del destino (`battle_started` con `faltan`; el agente lo lee como `remaini
   las entradas del clima y las líneas de voces; lo juzga `accionDelAgente` o el `*Blocker` del núcleo
   y descarta solo esa jugada con su motivo, y las siguientes siguen. Antes cada jugada lo decidía a su
   manera: un `count: 0` en `leave_troops` se llevaba el turno y en `distribute_troops` no (QA H2 de
-  #319), y `recruitBlocker` aceptaba 1,5 (solo miraba `count <= 0`). **La batalla queda fuera**: su
-  respuesta es una sola jugada y no hay «siguiente» que salvar, así que `surrender.gold` y los hexes
-  siguen en el zod; que un `battle_turn` sin forma deje la batalla entera a la IA, y no solo el
-  turno, es otro fallo (backlog). **El tipo sale del zod**: `AccionDelAgente` es
-  `z.infer<typeof adventureActionSchema>` (`vocabulario.ts`, con `import type`: el ciclo de tipos
+  #319), y `recruitBlocker` aceptaba 1,5 (solo miraba `count <= 0`). **El tipo sale del zod**:
+  `AccionDelAgente` es `z.infer<typeof adventureActionSchema>` (`vocabulario.ts`, con `import type`: el ciclo de tipos
   con `esquemas.ts` queda dentro de `contract/`, que el guardia de ciclos admite), sin el `as` del
   director, y `accionDelAgente` va **sin `default`**: una jugada nueva en el zod sin su caso no
   compila. `equip` y `unequip` se construyen campo a campo (zod escribe `veteran?: string | undefined`
@@ -60,6 +59,30 @@ antes del destino (`battle_started` con `faltan`; el agente lo lee como `remaini
   `agent-contract.test.ts` («forma y valor»: toda jugada con `count` lo deja pasar como número y
   rechaza el texto) y `agent-link.test.ts` (una respuesta con cuatro `count` malos y una jugada buena
   aplica la buena).
+- **Reclutar lo que el pueblo no ofrece** (11-11-2026, #340): el valor de `recruit.creature` lo
+  juzga `recruitBlocker`, que distingue la criatura que no existe («no hay ninguna criatura…»), la
+  que el pueblo no ofrece porque no tiene su morada (con el nombre y el id de la morada, y su
+  facción si es ajena: no vale reintentar) y la que ofrece sin bastantes («solo hay N disponibles»,
+  la única que ve la persona, a quien la morada solo le ofrece lo de `dwellings`). Antes las tres
+  decían «solo hay 0 disponibles». `unequip.slot` lleva el mismo `max(32)` que `equip.slot`.
+
+  **En la batalla** (11-11-2026, #334 y #338, `docs/agents/2026-11-11-contrato-de-batalla/`) forma
+  y valor cuestan lo mismo, **esa jugada**: la respuesta es una sola jugada y lo siguiente es el
+  próximo `battle_turn` de la misma batalla. La forma la juzga `battleActionSchema` (el `type`, los
+  campos, las casillas enteras, `surrender.gold` entero y no negativo, y `wait`/`defend`, retiradas
+  el 26-10, con su frase); el valor, `accionDeBatallaDelAgente` (el `hit`, que depende de la rueda)
+  y los `*Blocker`. Las dos acaban en `sustituir` (el director): la IA juega esa unidad sin
+  rendirse y un solo veredicto (`notaAccionSustituida`) dice lo que costó. Por eso el enlace no
+  juzga el `battle_turn` (`pedirElTurnoDeBatalla`, no `ask`; `KindQueJuzgaElEnlace`): antes lo
+  informaba, lanzaba, y el director dejaba **la batalla entera** a la IA, un `wait` olvidado
+  incluido, con una nota que decía «ese turno». **Sin respuesta** (plazo agotado, canal caído) la
+  batalla la termina la IA y la nota lo dice (`EN_SU_LUGAR.battle_turn`): esperar el plazo turno a
+  turno costaría hasta 300 s por cada uno de unos 18 turnos, y con el canal caído cada petición
+  fallaría en el acto. `AccionDeBatallaDelAgente` es `z.infer<typeof battleActionSchema>`, sin el
+  `as` del director: `retirada()` es un `refine` que estrecha a `never`, así que el zod rechaza
+  `wait` con su frase y el tipo no la lleva. Lo vigilan `agent-link.test.ts` (un `wait` y un
+  `target` numérico cuestan su jugada y la batalla sigue; el turno callado la deja a la IA) y
+  `notas.test.ts`.
 
 - **Las guarniciones** (04-11-2026): `leave_troops` y `take_troops` (`{ hero, creature, count,
   veteran? }`, `accionDelAgente` las traduce a `dejar_tropa` y `recoger_tropa`) con el héroe parado
@@ -238,6 +261,16 @@ antes del destino (`battle_started` con `faltan`; el agente lo lee como `remaini
   su `name`; su estado no viaja) y su prosa le dice que no hay jugada para entrar. La acción del núcleo
   (`elegir_en_lugar`) no está en su contrato. El espectador los pinta con su marcador y tampoco ve su
   estado.
+
+- **La ocupación en el panel del espectador** (11-11-2026, #303,
+  `docs/agents/2026-11-11-duenos-en-la-vista/`): la sección «Ocupados» (`ocupados`,
+  `espectador/paneles.ts`) dice cada ciudad y pueblo ocupado ahora, de quién es y quién lo ocupa
+  (un héroe con su jugador y su nombre, una guarnición de un jugador o neutral); sin ninguno, no
+  sale. Lee `SpectatorView.sitios`, los mismos de los que sale la marca del mapa (`sitiosDelCable`):
+  el cable no cambia. Lanza si el cable no cuadra (un sitio ocupado sin su ciudad o su pueblo, un
+  héroe que no viaja). **El dueño sabido sigue copiado en `owner`** (`conLosDueñosSabidos`):
+  sacarlo a `VistaMapa.dueños` se descartó, porque cada lector de una ciudad tendría que acordarse
+  de ir a buscarlo y el que leyera `owner` recibiría el `null` guardado sin avisar.
 
 - La partida termina con un `game_over` explícito. `state.finished` es
   `{ winner: PlayerId | null } | null`; el tope de días es `GameState.maxDays`.

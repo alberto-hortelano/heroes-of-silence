@@ -12,7 +12,7 @@ import { createRng, type Rng } from '../../rng.js';
 import type { Point } from '../../types.js';
 import { aPunto, chebyshev, espejoDe, parejaDe } from '../geometria.js';
 import { BARRERAS_DEL_PUEBLO } from '../map.js';
-import { SEPARACION_DE_CIUDADES } from '../recinto.js';
+import { HASTA_LOS_ACCESOS, parteDeLaEntrada, SEPARACION_DE_CIUDADES } from '../recinto.js';
 import { vecindad } from '../regiones.js';
 import type { Barrera } from '../terrain.js';
 import type { Estructura } from '../tipos.js';
@@ -99,12 +99,17 @@ export function ciudadesDeRegion(
       if (regionDe[i] !== r) continue;
       if (mejor !== -1 && (hondura[i] as number) <= (hondura[mejor] as number)) continue;
       const p = aPunto(i, W);
-      if (p.x < 2 || p.y < 2 || p.x > W - 3 || p.y > H - 3) continue;
+      // La entrada entera (recinto y accesos) dentro del mapa, y cada casilla
+      // con su parte según la puerta del recinto (#335; antes, un 5 × 5 y su
+      // 3 × 3 escritos aquí con números sueltos).
+      const A = HASTA_LOS_ACCESOS;
+      if (p.x < A || p.y < A || p.x + A >= W || p.y + A >= H) continue;
       let cabe = true;
-      for (let dy = -2; dy <= 2 && cabe; dy++)
-        for (let dx = -2; dx <= 2 && cabe; dx++) {
-          const j = (p.y + dy) * W + p.x + dx;
-          cabe = regionDe[j] === r && e.libre(j, Math.max(Math.abs(dx), Math.abs(dy)) <= 1);
+      for (let dy = -A; dy <= A && cabe; dy++)
+        for (let dx = -A; dx <= A && cabe; dx++) {
+          const q = { x: p.x + dx, y: p.y + dy };
+          const j = q.y * W + q.x;
+          cabe = regionDe[j] === r && e.libre(j, parteDeLaEntrada(p, q) === 'recinto');
         }
       if (cabe && lejosDeTodas(p)) mejor = i;
     }

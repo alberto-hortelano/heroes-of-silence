@@ -101,7 +101,12 @@ import { DefensaEnPantalla, type VistaDeLaDefensa } from './partida/defensa.js';
 import { EquipoEnPantalla } from './partida/equipo.js';
 import { GuarnicionEnPantalla, type VistaDeLaGuarnicion } from './partida/guarnicion.js';
 import { EnElLugar, type TrasElegir } from './partida/lugar.js';
-import { MarchaEnElMapa, type MarchaEnPantalla, type RoutePreview } from './partida/marcha.js';
+import {
+  MarchaEnElMapa,
+  type MarchaEnPantalla,
+  type RoutePreview,
+  type RutaSeñalada,
+} from './partida/marcha.js';
 import { MoradaEnPantalla } from './partida/morada.js';
 import { SobrantesEnPantalla, type VistaDeLoQueSobra } from './partida/sobrantes.js';
 import { TropaEnPantalla } from './partida/tropa.js';
@@ -596,6 +601,14 @@ export class Session extends SesionDeBatalla {
    */
   previewPath(to: Point): RoutePreview[] {
     return this.marcha.ruta(to);
+  }
+
+  /**
+   * La ruta hasta `to` y, sin camino, por qué (`MarchaEnElMapa.rutaSeñalada`): lo que
+   * enseña la barra al señalar. Quien no enseña el motivo pide `previewPath`.
+   */
+  rutaSeñalada(to: Point): RutaSeñalada {
+    return this.marcha.rutaSeñalada(to);
   }
 
   /**

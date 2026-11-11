@@ -161,7 +161,24 @@ export function barraDeLaBatalla(
   battle: BattleState | null,
   contandoAun: boolean,
 ): string {
-  return contandoAun && battle?.finished != null && status !== AVISO_DE_ESPERA ? '' : status;
+  const seCalla = battle?.finished != null && finalALaVista(battle, contandoAun) === null;
+  return seCalla && status !== AVISO_DE_ESPERA ? '' : status;
+}
+
+/**
+ * El final de la batalla que ya se puede enseñar: el del estado, pero solo con el
+ * tablero quieto (`contandoAun` falso). Contando, el estado ya trae el final del golpe
+ * que aún se está viendo caer, y enseñarlo —«La batalla ha terminado.» en la barra,
+ * «Continuar» en la de acciones de la partida— avisa de que ese golpe es el último
+ * (#341, 11-11-2026: «Continuar» era lo único que lo adelantaba desde #257). El panel
+ * lo cumple por su cuenta, porque contando enseña lo último pintado quieto
+ * (`panelDeBatalla`), y así «Victoria» y «Continuar» salen en el mismo fotograma.
+ */
+export function finalALaVista(
+  battle: BattleState | null,
+  contandoAun: boolean,
+): BattleFinish | null {
+  return contandoAun ? null : (battle?.finished ?? null);
 }
 
 /** El panel de la batalla sin terminar y con el tablero quieto (`panelDeBatalla`). */

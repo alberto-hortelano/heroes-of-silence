@@ -39,6 +39,7 @@ import {
   pasosDelRecinto,
   problemasDeRecintos,
   puertasPosibles,
+  recintoDeLaCiudad,
   SEPARACION_DE_CIUDADES,
 } from '../recinto.js';
 import type { TramoDeCamino } from '../red-de-caminos.js';
@@ -357,8 +358,11 @@ export function vestirRed(
     if (!cabeElRecinto(c, W, H)) return fallo('objetos', `${donde} no cabe en el mapa`);
     const otra = centros.slice(k + 1).find((d) => chebyshev(c, d) < SEPARACION_DE_CIUDADES);
     if (otra !== undefined) return fallo('objetos', `${donde} toca el de (${otra.x},${otra.y})`);
-    for (let dy = -1; dy <= 1; dy++)
-      for (let dx = -1; dx <= 1; dx++) enUnRecinto[(c.y + dy) * W + c.x + dx] = 1;
+    // El 3 × 3 sale de la puerta del recinto (#335; antes, un `-1..1` escrito
+    // aquí): ya se sabe que cabe, así que `recintoDeLaCiudad` no lanza.
+    const r = recintoDeLaCiudad(c, W, H);
+    for (let y = r.j0; y <= r.j1; y++)
+      for (let x = r.i0; x <= r.i1; x++) enUnRecinto[y * W + x] = 1;
   }
   const deCiudad = new Set(ciudades);
   const nodoDentro = nodos.find((n) => enUnRecinto[n] === 1 && !deCiudad.has(n));
@@ -389,7 +393,7 @@ export function vestirRed(
       const x = ex + dx;
       const y = ey + dy;
       if (x < 0 || y < 0 || x >= W || y >= H) continue;
-      if (Math.max(Math.abs(x - c.x), Math.abs(y - c.y)) <= 1) continue;
+      if (parteDeLaEntrada(c, { x, y }) === 'recinto') continue;
       const r = regionGruesa[y * W + x] as number;
       if (r >= 0) deEnfrente.add(r);
     }

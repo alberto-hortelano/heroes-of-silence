@@ -151,7 +151,29 @@ describe('ciudades y pueblos: en el muro o dentro de su región (tarea 2, 05-11-
       villages: [...plan.villages, { name: 'El Paso', at: { x: 2, y: 1 } }],
     });
     expect(validateMapPlan(parte)).toEqual([
-      'el pueblo "village-4" parte su región: deja a un lado una zona sin región declarada que incluye (0,0); ponlo donde no corte el paso',
+      'el pueblo "El Paso" de (2,1) parte su región: deja a un lado una zona sin región declarada que incluye (0,0); ponlo donde no corte el paso',
+    ]);
+  });
+
+  it('el pueblo de la red se nombra como lo escribió el agente: su nombre y su casilla (#340)', () => {
+    // Su id («village-N») lo pone `buildMap`, y quien escribió el plan no lo
+    // vio nunca. Un pueblo en medio de un macizo de montaña del Llano: no toca
+    // ninguna región, y es la red quien lo dice.
+    const plan = planDeNodos();
+    const macizo = [0, 1, 2].map((y) => ({
+      terrain: 'mountain' as const,
+      from: { x: 19, y },
+      to: { x: 21, y },
+    }));
+    expect(
+      validateMapPlan(
+        con({
+          walls: [...plan.walls, ...macizo],
+          villages: [...plan.villages, { name: 'La Cima', at: { x: 20, y: 1 } }],
+        }),
+      ),
+    ).toEqual([
+      'el pueblo "La Cima" de (20,1) no toca ninguna región: ponlo dentro de una región, o en el muro entre dos',
     ]);
   });
 

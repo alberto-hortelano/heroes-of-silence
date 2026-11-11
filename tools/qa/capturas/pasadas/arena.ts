@@ -9,6 +9,7 @@ import type { Browser, Page } from 'playwright';
 import { duracionDeLaJugada } from '../../../../src/client/batalla/anim.js';
 import { cargaContra, rotuloDeAngulo } from '../../../../src/client/batalla/escena.js';
 import { textoDePrevision } from '../../../../src/client/batalla/prevision.js';
+import { desbordaLaBarra } from '../../../../src/client/comun/barra.js';
 import { nombreEnElCampo } from '../../../../src/client/render/batalla/distintivo.js';
 import { centroHex, tableroPara } from '../../../../src/client/render/proyeccion.js';
 import { SesionDeArena } from '../../../../src/client/sesion/sesion-de-arena.js';
@@ -607,7 +608,7 @@ async function laCargaALosTresAnchos(
       const el = document.getElementById('status') as HTMLElement;
       return { scroll: el.scrollHeight, visible: el.clientHeight };
     });
-    if (barra.scroll > barra.visible) {
+    if (desbordaLaBarra(barra.scroll, barra.visible)) {
       throw new Error(
         `${que}: la barra desborda (${barra.scroll} px de texto en ${barra.visible} px): «${esperado}»`,
       );

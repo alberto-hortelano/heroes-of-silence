@@ -14,6 +14,7 @@
  * repartió por lo que hace.
  */
 import { infiltracionBlocker, precioDeLaBarrera } from '../hero/infiltracion.js';
+import type { CasillasLeidas } from '../map/casillas.js';
 import { pointKey } from '../map/geometria.js';
 import {
   barreraEn,
@@ -31,6 +32,7 @@ import type { GameMap } from '../map/tipos.js';
 import { enumerar } from '../texto.js';
 import type { Hero, PlayerId, Point } from '../types.js';
 import {
+  asaltantesALaVista,
   casillasPeligrosas,
   dejarAsaltante,
   dispersados,
@@ -56,10 +58,12 @@ import {
 import type { GameContext, GameState } from './tipos.js';
 import { checkDefeat } from './turnos.js';
 import {
+  heroesALaVista,
   revealAround,
   revealAroundNode,
   revealAroundTown,
   vioCaerlo,
+  visibleNow,
   visibleNowAt,
 } from './vision.js';
 
@@ -247,13 +251,29 @@ export function puedeAndarHoy(state: GameState, hero: Hero): boolean {
  *  2. Lo hostil que el héroe **alcanza**: lo que tiene delante.
  *  3. De eso, lo que basta quitar para pasar. Si nada basta solo —dos héroes
  *     guardando los dos pasos de una región—, son todos los de delante.
+ *
+ * **Pasa por la niebla de quien mueve** (`hero.owner`, que es siempre quien lo
+ * lee: la persona al señalar y al pulsar, el agente en el rechazo de su
+ * `move_hero`; #336, 11-11-2026). Nombraba con `state.heroes` y `state.raiders`
+ * enteros: «lo cierran el héroe rival Aldo de Valdeluz en (11,2)…» con Aldo en el
+ * negro, y señalar sin pulsar lo habría hecho radar. El motivo verdadero no
+ * cambia —se calcula con todo lo hostil, como el Dijkstra—; cambia cómo se dice:
+ * lo que no se mira ahora es «algo que no ves», sin qué, sin dónde y sin cuántos
+ * (el número también delata). Callarlo como «no hay camino» a secas mentiría:
+ * el camino existe.
  */
 export function porQueNoLlega(state: GameState, hero: Hero, to: Point): string {
-  // La muralla de una ciudad no se pisa: se dice, con sus puertas.
-  const muro = muroBlocker(state.map, to, (at) => {
-    const ciudad = state.towns.find((t) => pointKey(t.at) === pointKey(at));
-    return ciudad === undefined ? `la ciudad de (${at.x},${at.y})` : ciudad.name;
-  });
+  // La muralla de una ciudad no se pisa: se dice, con sus puertas, si se ha
+  // explorado. Bajo el negro, nombrarla diría qué ciudad hay ahí y por dónde se
+  // entra; el Dijkstra sin hostiles tampoco la pisa, así que sale «no hay camino».
+  // Basta mirar la casilla: la ciudad se explora con su recinto entero
+  // (`zonaDeNiebla`).
+  const muro = playerById(state, hero.owner).fog.has(to)
+    ? muroBlocker(state.map, to, (at) => {
+        const ciudad = state.towns.find((t) => pointKey(t.at) === pointKey(at));
+        return ciudad === undefined ? `la ciudad de (${at.x},${at.y})` : ciudad.name;
+      })
+    : null;
   if (muro !== null) return muro;
   const frase = `no hay camino hasta (${to.x},${to.y})`;
   const barrera = precioDeLaBarrera(hero);
@@ -279,24 +299,51 @@ export function porQueNoLlega(state: GameState, hero: Hero, to: Point): string {
         barrera,
       ) !== null,
   );
-  const cierran = (bastan.length > 0 ? bastan : delante).map((at) => queLoCierra(state, hero, at));
+  const cierran = bastan.length > 0 ? bastan : delante;
   if (cierran.length === 0) return frase;
-  return `${frase}: ${cierran.length === 1 ? 'lo cierra' : 'lo cierran'} ${enumerar(cierran)}`;
+  const mirando = visibleNow(state, hero.owner);
+  const dichos = cierran.map((at) => queLoCierra(state, hero, at, mirando));
+  const vistos = dichos.filter((d): d is string => d !== null);
+  if (vistos.length === 0) return `${frase}: lo cierra algo que no ves`;
+  // Lo oculto, una vez y sin número, detrás de lo que se ve, como el último de la
+  // lista: «A, B y algo más que no ves», no «A y B y algo más…» (H3 del QA de #336).
+  const conLoOculto = vistos.length < dichos.length;
+  const lista = conLoOculto ? [...vistos, 'algo más que no ves'] : vistos;
+  return `${frase}: ${lista.length === 1 ? 'lo cierra' : 'lo cierran'} ${enumerar(lista)}`;
 }
 
-/** Qué hostil hay en esa casilla, con nombre: el héroe va antes, como en `enemyAt`. */
-function queLoCierra(state: GameState, hero: Hero, at: Point): string {
+/**
+ * Qué hostil hay en esa casilla, con nombre: el héroe va antes, como en `enemyAt`.
+ * `null` si quien mueve no lo está mirando (`mirando`, su `visibleNow`): el héroe
+ * y el grupo, por la regla de qué se ve (`heroesALaVista`, `asaltantesALaVista`);
+ * la guarnición, también solo si se mira ahora, porque «con guarnición» es el
+ * estado de hoy y no un recuerdo.
+ */
+function queLoCierra(
+  state: GameState,
+  hero: Hero,
+  at: Point,
+  mirando: CasillasLeidas,
+): string | null {
   const donde = `en (${at.x},${at.y})`;
-  const rival = state.heroes.find((h) => h.owner !== hero.owner && pointKey(h.at) === pointKey(at));
-  if (rival !== undefined) return `el héroe rival ${rival.name} ${donde}`;
+  const aqui = (p: Point): boolean => pointKey(p) === pointKey(at);
+  if (state.heroes.some((h) => h.owner !== hero.owner && aqui(h.at))) {
+    const rival = heroesALaVista(state, hero.owner, mirando).find(
+      (h) => h.owner !== hero.owner && aqui(h.at),
+    );
+    return rival === undefined ? null : `el héroe rival ${rival.name} ${donde}`;
+  }
   const sitio = sitioEn(state, at);
   if (sitio !== null && guarnicionHostil(state, sitio, hero.owner) !== null) {
+    if (!mirando.has(at)) return null;
     return sitio.kind === 'ciudad'
       ? `la ciudad ${sitio.town.name}, con guarnición, ${donde}`
       : `${nombreDelSitio(sitio)}, con guarnición`;
   }
-  if (state.raiders.some((r) => pointKey(r.at) === pointKey(at))) {
-    return `un grupo de asaltantes ${donde}`;
+  if (state.raiders.some((r) => aqui(r.at))) {
+    return asaltantesALaVista(state, mirando).some((r) => aqui(r.at))
+      ? `un grupo de asaltantes ${donde}`
+      : null;
   }
   throw new Error(
     `(${at.x},${at.y}) se tiene por hostil y no hay en ella ni héroe, ni ciudad, ni guarnición, ni asaltantes`,

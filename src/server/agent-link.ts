@@ -10,8 +10,9 @@ import { randomUUID } from 'node:crypto';
 import { type RequestKind, responseSchemas } from '@core/contract/esquemas.js';
 import { formatoDeLaRespuesta } from '@core/contract/formato.js';
 import type { WebSocket } from 'ws';
+import type { z } from 'zod';
 import { mensajeDe } from '../shared/errores.js';
-import { notaRespuestaInvalida, notaSinRespuesta } from './notas.js';
+import { type KindQueJuzgaElEnlace, notaRespuestaInvalida, notaSinRespuesta } from './notas.js';
 import type {
   AgentGameOverMsg,
   AgentRequestMsg,
@@ -40,6 +41,19 @@ type QueryHandler = (what: string, args: Record<string, unknown>) => unknown;
 export interface AgentAnswer<T> {
   readonly requestId: string;
   readonly data: T;
+}
+
+/**
+ * Lo que vuelve de un turno de batalla (`pedirElTurnoDeBatalla`): la jugada con su
+ * forma, o los problemas del zod si no la tiene. Sin respuesta, lanza.
+ */
+type TurnoPedido =
+  | AgentAnswer<z.infer<typeof responseSchemas.battle_turn>>
+  | { readonly requestId: string; readonly problemas: readonly string[] };
+
+/** Los problemas del zod como los lee el agente: `ruta: mensaje`. */
+function problemasDe(error: z.ZodError): string[] {
+  return error.issues.map((i) => `${i.path.join('.')}: ${i.message}`);
 }
 
 export class AgentLink {
@@ -237,12 +251,54 @@ export class AgentLink {
 
   /**
    * Pide una decisión al agente y valida la respuesta contra su esquema.
-   * Lanza si no hay agente, si se agota el tiempo o si la respuesta no encaja.
+   * Lanza si no hay agente, si se agota el tiempo o si la respuesta no encaja; en
+   * los tres casos le ha dicho al agente lo que pasa con su nota.
+   *
+   * Todas menos `battle_turn` (`KindQueJuzgaElEnlace`): ese lo pide
+   * `pedirElTurnoDeBatalla`, porque su falta de forma no se lleva la batalla.
    */
-  async ask<K extends RequestKind>(
+  async ask<K extends KindQueJuzgaElEnlace>(
     kind: K,
     payload: unknown,
-  ): Promise<AgentAnswer<import('zod').infer<(typeof responseSchemas)[K]>>> {
+  ): Promise<AgentAnswer<z.infer<(typeof responseSchemas)[K]>>> {
+    const { requestId, raw } = await this.esperar(kind, payload);
+    const parsed = responseSchemas[kind].safeParse(raw);
+    if (!parsed.success) {
+      const problemas = problemasDe(parsed.error);
+      this.report(requestId, false, problemas, notaRespuestaInvalida(kind));
+      throw new Error(`respuesta inválida a "${kind}":\n- ${problemas.join('\n- ')}`);
+    }
+
+    return { requestId, data: parsed.data as z.infer<(typeof responseSchemas)[K]> };
+  }
+
+  /**
+   * Pide el turno de una unidad del agente en su batalla. Lanza solo si no hay
+   * respuesta (sin agente, plazo agotado, canal caído), y eso ya se lo ha dicho al
+   * agente (`notaSinRespuesta`): la batalla la termina la IA.
+   *
+   * Una respuesta **sin forma no lanza ni se informa aquí** (#334, 11-11-2026):
+   * vuelve con sus problemas y el director juega esa jugada con la IA, mide lo que
+   * cuesta y manda un solo veredicto (`notaAccionSustituida`), como con una sin
+   * valor. Antes `ask` la informaba («ese turno lo juega la IA») y lanzaba, y el
+   * director, que no podía distinguirla del plazo agotado, dejaba la batalla entera.
+   */
+  async pedirElTurnoDeBatalla(payload: unknown): Promise<TurnoPedido> {
+    const { requestId, raw } = await this.esperar('battle_turn', payload);
+    const parsed = responseSchemas.battle_turn.safeParse(raw);
+    return parsed.success
+      ? { requestId, data: parsed.data }
+      : { requestId, problemas: problemasDe(parsed.error) };
+  }
+
+  /**
+   * Manda la petición y espera lo que llegue, sin juzgarlo. Lanza si no hay agente
+   * o si no llega a tiempo, y en ese caso se lo dice al agente.
+   */
+  private async esperar(
+    kind: RequestKind,
+    payload: unknown,
+  ): Promise<{ readonly requestId: string; readonly raw: unknown }> {
     if (this.socket === null) throw new Error('no hay ningún agente conectado');
 
     this.counter += 1;
@@ -268,15 +324,7 @@ export class AgentLink {
       this.pending.set(requestId, { requestId, kind, resolve, reject, timer });
       this.send(request);
     });
-
-    const parsed = responseSchemas[kind].safeParse(raw);
-    if (!parsed.success) {
-      const problemas = parsed.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`);
-      this.report(requestId, false, problemas, notaRespuestaInvalida(kind));
-      throw new Error(`respuesta inválida a "${kind}":\n- ${problemas.join('\n- ')}`);
-    }
-
-    return { requestId, data: parsed.data as import('zod').infer<(typeof responseSchemas)[K]> };
+    return { requestId, raw };
   }
 
   /** Informa al agente de cómo fue su última respuesta. */

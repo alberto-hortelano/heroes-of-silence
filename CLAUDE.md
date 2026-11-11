@@ -218,7 +218,7 @@ Cada hecho tiene un sitio; la ruta, relativa a `src/core/` o `src/client/` (a `s
 | Quién hay en una base y qué dice | `vecinosDeLaBase`, `vozDe`; las voces del narrador, solo `ponerVoces` (`gente/voces.ts`) |
 | Lo que sobra tras la batalla | `tropaQueVuelve`, `sobrantesTrasLaBatalla`, `dejarBlocker` (`state/sobrantes.ts`); lo aplica `settleBattle` |
 | La renta del día (solo oro) | `rentaDelDia` (`state/renta.ts`); lo que no alcanza, `oroBlocker` (`town/town.ts`) |
-| Camino de un héroe | `alcanceDelHeroe`, `caminoHasta` (`state/marcha.ts`); nadie más llama a `findPath` ni a `reachableFrom` |
+| Camino de un héroe | `alcanceDelHeroe`, `caminoHasta` (`state/marcha.ts`); nadie más llama a `findPath` ni a `reachableFrom`; por qué no llega, `porQueNoLlega`, por la niebla de su dueño |
 | Lo que se anda hoy | `pasosDeHoy` (`state/marcha.ts`) |
 | La infiltración | `infiltracionBlocker`, `seInfiltra`, `precioDeLaBarrera` (`hero/infiltracion.ts`) |
 | Territorio | `territorio`, `dueñoComun` (`map/territorio.ts`) |
@@ -242,7 +242,7 @@ Cada hecho tiene un sitio; la ruta, relativa a `src/core/` o `src/client/` (a `s
 | Caminos de un plan al mapa | `caminosDelPlan` (`map/generar/construir.ts`) |
 | Lo explorado: la niebla por regiones | `zonaDeNiebla`, `regionesQueDescubre` (`map/niebla.ts`); la única escritura de `fog`, `descubrir` (`state/vision.ts`) |
 | Por dónde se entra en un pueblo | `puertaDe`, `rodeosParaEntrar` (`map/puertas.ts`) |
-| El recinto de una ciudad, en el núcleo | `recintoDeLaCiudad`, `pasosDelRecinto`, `problemasDeRecintos`; su entrada, `parteDeLaEntrada` (`map/recinto.ts`) |
+| El recinto de una ciudad, en el núcleo | `recintoDeLaCiudad`, `pasosDelRecinto`, `problemasDeRecintos`; su entrada, `parteDeLaEntrada`, `problemasDeLaEntrada` (`map/recinto.ts`) |
 | Qué barreras admiten los niveles de dos regiones | `admiteLosNiveles` (`map/terrain.ts`) |
 | Franjas de barrera y nivel de cada casilla | `franjasDeBarrera`, `nivelesDelRelieve` (`map/niveles.ts`) |
 | Qué muro se queda: el cierre de un paso | `lineaDeLaPuerta`, `muroDeLaLinea`, `murallasDelMapa` (`map/murallas.ts`) |
@@ -303,7 +303,7 @@ Cada hecho tiene un sitio; la ruta, relativa a `src/core/` o `src/client/` (a `s
 | Armadura | `trasLaArmadura`, `armaduraDe` (`battle/armas.ts`) |
 | La rueda en pantalla | `DialogoDeLaRueda` (`batalla/rueda/dialogo.ts`); `ajustarLaRueda`, `contrincante` (`batalla/rueda/rueda.ts`) |
 | La batalla contada en cola | `BattleAnimator` (`batalla/anim.ts`) |
-| El lateral mientras se cuenta | `panelDeBatalla` (lo último pintado quieto, apagado), `barraDeLaBatalla` (`batalla/panel.ts`) |
+| El lateral y el final mientras se cuenta | `panelDeBatalla` (lo último pintado quieto, apagado), `barraDeLaBatalla`; «Continuar», `finalALaVista` (`batalla/panel.ts`) |
 | Los modificadores en curso | `modificadoresEnCurso` (`views/notas.ts`) |
 
 ### El catálogo
@@ -439,8 +439,9 @@ inventado lo dice en su `_comment`.
 Patrón listen/respond: `heroes_listen` bloquea hasta que hay decisión, la petición trae el formato
 de respuesta embebido, el agente responde una vez con `heroes_respond`, y el veredicto de lo
 anterior llega pegado a la siguiente petición, también cuando acertó. Sus acciones se descartan una
-a una con su motivo (en la aventura, el zod juzga la forma y el valor —un `count`, un hueco— se
-juzga jugada a jugada, 11-11-2026); todo pasa por la niebla; del contrato se exportan esquemas, no alias de tipo.
+a una con su motivo (el zod juzga la forma y el valor —un `count`, un hueco— se juzga jugada a
+jugada, 11-11-2026; en la batalla, sin forma cuesta esa jugada y sin respuesta la termina la IA);
+todo pasa por la niebla; del contrato se exportan esquemas, no alias de tipo.
 Defiende sus batallas y diseña el mapa (si el plan no vale, el procedimental y se le dice por qué).
 Reparte tropa (`distribute_troops`) y mejora el puesto (`upgrade_outpost`), y **los hechos le llegan
 traducidos** (10-11-2026: ni una clave ni un enumerado en español; `contract/hechos.ts`).

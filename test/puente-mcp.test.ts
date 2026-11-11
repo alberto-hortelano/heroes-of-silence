@@ -220,17 +220,19 @@ async function servidorDePartidas(primera: AgentLink): Promise<{
 const RESPUESTA_MALA = '{"nada": true}';
 
 /**
- * Pide una decisión de batalla y se queda con el error que acabará dando. El
- * rechazo se recoge YA: esperarlo después de `heroes_respond` lo dejaba un rato
- * sin manejar y vitest lo cuenta como error.
+ * Pide una decisión y se queda con el error que acabará dando. El rechazo se
+ * recoge YA: esperarlo después de `heroes_respond` lo dejaba un rato sin manejar y
+ * vitest lo cuenta como error.
  *
- * Con `walls: null`, una batalla sin muralla: desde el 05-11-2026 (`4f101eb3`) el
- * formato de un `battle_turn` depende de ella y `formatoDeLaRespuesta` lanza sin
- * ella (la pone siempre `serializeBattleTurn`). Sin el campo, `ask` lanzaba antes de
- * mandar nada y la escucha del puente esperaba hasta el plazo del test.
+ * Un `adventure_turn`, y no un `battle_turn` como hasta el 11-11-2026: el enlace
+ * ya no juzga la forma de un turno de batalla (la juzga el director, #334), y a
+ * este test (#118) solo le importa que haya un veredicto en el buzón, no de qué
+ * `kind`. (El de batalla pedía además `walls` en la petición: sin el campo,
+ * `formatoDeLaRespuesta` lanzaba antes de mandar nada y la escucha del puente
+ * esperaba hasta el plazo del test.)
  */
 function pedir(link: AgentLink, payload: object): Promise<unknown> {
-  return link.ask('battle_turn', { walls: null, ...payload }).then(
+  return link.ask('adventure_turn', payload).then(
     () => 'aceptada',
     (err: unknown) => err,
   );
