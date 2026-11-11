@@ -480,9 +480,14 @@ progress.liderazgo::-moz-progress-bar { background: var(--barra); }
    frase y esa previsión mide cuatro líneas (78 px en 59 con tres, medido a 1024 y
    a 1100 en la pasada «escritorio»). El alto, fijo igual que el de B1; lo que no
    quepa lo corta `ponerEnLaBarra` (`comun/barra.ts`) por frases enteras y se lee
-   entero en el bocadillo del lienzo. */
+   entero en el bocadillo del lienzo o tocando la barra. */
 #app[data-escena='battle'] #statusbar { min-height: calc(6em + 0.9rem + 1px); }
 #app[data-escena='battle'] #status { -webkit-line-clamp: 4; line-clamp: 4; }
+/* La barra cortada se despliega al tocarla (H2 del QA de #264, 11-11-2026: en el móvil
+   no hay ratón con el que sacar el bocadillo del lienzo). Desplegada crece, y es a
+   propósito: la ha pedido quien toca, y el siguiente texto la pliega. */
+#status[data-cortada] { cursor: pointer; }
+#status[data-desplegada] { display: block; overflow-y: auto; max-height: 40vh; }
 /* La partida no arrancó (`sinArrancar`): el porqué se lee entero. */
 #status[data-sin-arrancar] { display: block; overflow: visible; }
 
