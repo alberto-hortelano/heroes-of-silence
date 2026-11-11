@@ -97,6 +97,12 @@ eje (sin puerta). En 1-100, 92 parejas de 400 (23 %; los 8 mapas sin ninguna no 
 así); generar, en el ruido (42×42 32-33 → 32-37 ms, 26×26 50-57 → 51-55). Un
 pueblo da su oro solo si es del jugador, está unido a su base y no está ocupado (`rentaDelDia`). Nada del territorio se guarda: se deriva.
 
+**Lo que solo cuelga de la base de otro** (11-11-2026, #321): `regionesTrasUnaBase`
+(`territorio.ts`), las regiones a las que un jugador no llega sin cruzar el nodo de la base de otro,
+solo de la red y de las bases que se le dan. La lee `lugarBlocker` (`docs/areas/mundos.md`, «Dónde
+puede ir un lugar»): en 7 de 120 mapas del procedimental la casa de un bando tiene la base como
+único nodo.
+
 **Cada nodo guarda la barrera que cruza** (`MapObject.barrera`, #145): la del
 muro que el plan le pone debajo y `buildMap` abre; un nodo sin muro debajo se
 rechaza. El procedimental escribe ahí la que más se ve alrededor, sin el agua

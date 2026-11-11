@@ -320,3 +320,67 @@ export function conectadoABase(
   if (k === undefined) throw new Error(`la región "${que.region}" no existe en este mapa`);
   return conexion.regiones.has(k);
 }
+
+/** Una región tras una base: el jugador que no llega a ella y la base que se lo cierra (el id de su objeto). */
+interface TrasUnaBase {
+  readonly jugador: PlayerId;
+  readonly base: string;
+}
+
+/**
+ * **Las regiones a las que un jugador solo llega cruzando la base de otro**, por
+ * su índice en la red, cada una con el primer jugador (por orden) que no llega y
+ * la base que se lo cierra. Solo de la red y de las bases que se le dan: ni
+ * dueños de nodos ni nada hostil, que cambian jugando. Una búsqueda en anchura
+ * por jugador desde las regiones de su base: de una región a cada nodo suyo,
+ * **salvo la base de otro**, y de un nodo a todas sus regiones. Una base dentro de
+ * una región no es un nodo y no corta nada.
+ *
+ * Por qué la base y no cualquier nodo (#321, 11-11-2026): tomar la base acaba la
+ * partida (fila «Victoria»), así que lo que solo cuelga de ella no lo pisa nunca
+ * el otro. El procedimental deja así la casa de un bando —un callejón tras su
+ * base, con ella como único nodo— en 7 de 120 mapas (tamaños 4, 5 y 7, semillas
+ * 1-40). Un «hay camino» sin cortar la base no lo veía: la red validada
+ * (`problemasDeRed`) llega a todo desde la región 0. Con más de un rival se
+ * apunta el primero por orden: hoy un mundo es de dos.
+ */
+export function regionesTrasUnaBase(
+  map: MapaDeRed,
+  bases: ReadonlyMap<PlayerId, { readonly id: string }>,
+): ReadonlyMap<number, TrasUnaBase> {
+  const red = estructura(map);
+  const tras = new Map<number, TrasUnaBase>();
+  const jugadores = [...bases.keys()].sort((a, b) => a - b);
+  for (const p of jugadores) {
+    const suya = bases.get(p) as { readonly id: string };
+    const ajenas = jugadores.filter((q) => q !== p).map((q) => (bases.get(q) as { id: string }).id);
+    const cortados = new Set(
+      ajenas.flatMap((id) => {
+        const n = red.nodoPorId.get(id);
+        return n === undefined ? [] : [n];
+      }),
+    );
+    const vistas = new Set<number>(regionesDelSitio(red, suya.id));
+    const cola = [...vistas];
+    const pisados = new Set<number>();
+    for (let q = 0; q < cola.length; q++) {
+      for (const n of red.regiones[cola[q] as number]?.nodos ?? []) {
+        if (cortados.has(n) || pisados.has(n)) continue;
+        pisados.add(n);
+        for (const r of red.nodos[n]?.regiones ?? []) {
+          if (vistas.has(r)) continue;
+          vistas.add(r);
+          cola.push(r);
+        }
+      }
+    }
+    // Sin la base en la red (un mapa sin regiones) no hay de dónde salir ni nada que apuntar.
+    if (vistas.size === 0) continue;
+    const cierra = ajenas[0];
+    if (cierra === undefined) continue;
+    red.regiones.forEach((_, r) => {
+      if (!vistas.has(r) && !tras.has(r)) tras.set(r, { jugador: p, base: cierra });
+    });
+  }
+  return tras;
+}

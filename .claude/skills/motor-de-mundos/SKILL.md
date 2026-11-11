@@ -120,7 +120,8 @@ historia.
 
 - **Entre `lugares.de` y `lugares.a` lugares** (de la lectura), **cada uno en una región
   distinta**. Repártelos por el mapa —al menos uno cerca de la base del jugador
-  (`casaDe: 0` o sus vecinas) para que se encuentre pronto—.
+  (`casaDe: 0` o sus vecinas) para que se encuentre pronto—. Una casa con `admitenUnLugar` vacío
+  solo se pisa cruzando su base, y el otro no la tomaría sin acabar la partida: usa una vecina.
 - **Una trama principal** que encadena al menos tres de ellos por marcas: lo que se hace
   o se sabe en uno abre, cierra o cambia algo en otro (quién está, qué ofrece, qué se le
   puede decir). Los demás pueden ser lugares de paso, más cortos, con su propia historia

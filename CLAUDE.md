@@ -354,7 +354,7 @@ Cada hecho tiene un sitio; la ruta, relativa a `src/core/` o `src/client/` (a `s
 | Qué | Dónde |
 |---|---|
 | Un mundo: si vale | `problemasDelMundo`, `leerMundo` (`mundo/validar.ts`) |
-| Dónde puede ir un lugar | `lugarBlocker` (`mundo/validar.ts`) |
+| Dónde puede ir un lugar | `lugarBlocker` (`mundo/validar.ts`); la región tras una base, `regionesTrasUnaBase` (`map/territorio.ts`) |
 | Si una opción de un lugar se puede elegir | `opcionBlocker`, `motivoDeLaOpcion` (`mundo/reglas.ts`) |
 | Lo que hace un lugar | `aplicarEfectos` (`state/lugares.ts`), privada |
 | La inicial de un lugar o de una cosa | `inicialDelNombre` (`mundo/formato.ts`) |
