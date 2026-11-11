@@ -334,6 +334,7 @@ Cada hecho tiene un sitio; la ruta, relativa a `src/core/` o `src/client/` (a `s
 | Con qué hoja se pinta un héroe | `figuraDelHeroe` (`hero/tipos-de-heroe.ts`), de `data/figuras-de-heroe.json` |
 | Las hojas que se pintan | `registrarLasHojas` (`render/figuras/personajes.ts`) |
 | Formatear un precio | `describirCoste`, `conMiles` (`core/texto.ts`) |
+| La línea de la crónica: su color, y su casilla o el botón que lleva a ella | `renderLog` (`views/cronica.ts`); la cámara, `mirarLaCasilla` |
 | Tema de la interfaz | `ponerTema`, `quitarTema` (`comun/temas.ts`), los únicos que escriben `data-tema` |
 | Piezas en imagen de los temas | `PIEZAS`, `cssDePiezas` (`tools/taller/temas/piezas.ts`) |
 

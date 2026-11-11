@@ -222,6 +222,9 @@
    tema medía 4 px de tinta en el imperio y 6 en templarios, frente a 8 en el neutro
    (QA, 13-10-2026, H4). Va con la letra de los símbolos, como en el neutro. */
 :root[data-tema] .stack .count button[data-action='unequip'] { font-family: var(--letra-simbolos); }
+/* La línea de la crónica que lleva a su casilla (#202) es un botón que se lee como
+   texto: ni el relieve ni las esquinas ni el alto de línea de los botones del tema. */
+:root[data-tema] .log .a-la-casilla { line-height: inherit; border-radius: 0; box-shadow: none; }
 
 /* «Fin de turno» (y lo que ocupa su sitio: «Continuar», «Partida nueva»),
    destacado como en la lámina: la letra del título, el adorno delante y el

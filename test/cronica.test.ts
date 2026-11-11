@@ -16,6 +16,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { marcadoDe } from '../src/client/comun/html.js';
+import { NADIE } from '../src/client/comun/quien-mira.js';
 import { renderLog } from '../src/client/views/cronica.js';
 import { playAiGame, resolvePendingBattle } from '../src/core/ai/turn.js';
 import { serializeAdventureTurn } from '../src/core/contract/aventura.js';
@@ -24,7 +25,7 @@ import type { MapPlan } from '../src/core/map/generar/plan.js';
 import type { MapObject } from '../src/core/map/tipos.js';
 import { createRng } from '../src/core/rng.js';
 import { heroById } from '../src/core/state/consultas.js';
-import type { GameEvent } from '../src/core/state/events.js';
+import type { GameEvent, GameEventDraft } from '../src/core/state/events.js';
 import { cronicaPara, sinSello, visibleTo } from '../src/core/state/events.js';
 import { applyAdventureAction } from '../src/core/state/game.js';
 import { newGame } from '../src/core/state/setup.js';
@@ -36,6 +37,7 @@ import {
   visibleNow,
   visibleNowAt,
 } from '../src/core/state/vision.js';
+import { building } from '../src/core/town/buildings.js';
 import type { Point } from '../src/core/types.js';
 import { unidadDelJuego } from '../src/core/unidad/catalogo.js';
 import { FACCION_A, FACCION_B, NO_MUERTO, PESADA, TROPA, TROPA_BARATA } from './comun.js';
@@ -573,7 +575,7 @@ describe('la crónica de la pantalla deja de mentir', () => {
       linea({ kind: 'troops_taken', hero: 'h', site: 't', creature: TROPA_BARATA, count: 1 }),
     ).toContain(`El jugador 1 recoge 1 × ${goblin} de la guarnición en\u00a0(0,\u00a00)`);
     expect(linea({ kind: 'defense_set', hero: 'h', site: 't', fighting: 4, staying: 1 })).toContain(
-      'El jugador 1 defiende con 4 individuos y deja fuera 1',
+      'El jugador 1 defiende con 4 individuos y deja fuera 1 individuo',
     );
   });
 
@@ -582,7 +584,7 @@ describe('la crónica de la pantalla deja de mentir', () => {
     const base = state.towns.find((t) => dueñoDeLaCiudad(state, t) === 0)!;
     const paso = state.map.objects.find((o) => o.kind === 'node')!;
     const conSitio = (cuerpo: Record<string, unknown>, quien = 0): string =>
-      marcadoDe(renderLog([evento(cuerpo)], quien, undefined, (id) => sitioSiExiste(state, id)));
+      marcadoDe(renderLog([evento(cuerpo)], quien, { sitioDe: (id) => sitioSiExiste(state, id) }));
     const goblin = unidadDelJuego(TROPA_BARATA).name;
     const escudo = unidadDelJuego(TROPA).name;
     expect(
@@ -664,8 +666,7 @@ describe('la crónica de la pantalla deja de mentir', () => {
           }),
         ],
         0,
-        undefined,
-        (id) => sitioSiExiste(state, id),
+        { sitioDe: (id) => sitioSiExiste(state, id) },
       ),
     );
     expect(frase).toMatch(
@@ -680,7 +681,7 @@ describe('la crónica de la pantalla deja de mentir', () => {
     const state = newGame({ seed: 3 });
     const paso = state.map.objects.find((o) => o.kind === 'node')!;
     const conSitio = (cuerpo: Record<string, unknown>): string =>
-      marcadoDe(renderLog([evento(cuerpo)], 0, undefined, (id) => sitioSiExiste(state, id)));
+      marcadoDe(renderLog([evento(cuerpo)], 0, { sitioDe: (id) => sitioSiExiste(state, id) }));
     const obra = (to: string, actor: number) => ({
       kind: 'outpost_upgraded',
       hero: 'h',
@@ -719,11 +720,11 @@ describe('la crónica de la pantalla deja de mentir', () => {
     const cuerpo = { kind: 'hero_promoted', hero: 'h', town: 't', creature: TROPA };
     const quien = unidadDelJuego(TROPA).name;
     expect(linea({ ...cuerpo, name: 'Ana', actor: 0 })).toBe(
-      `<div class="log" data-al-final="cronica"><div class="win">Un ${quien} tuyo se hace héroe en\u00a0(0,\u00a00): Ana</div></div>`,
+      `<div class="log" data-al-final="cronica"><div class="win">Haces héroe a tu ${quien} en\u00a0(0,\u00a00): Ana</div></div>`,
     );
     const suyo = linea({ ...cuerpo, name: '<b>X</b>', actor: 1 });
     expect(suyo).toContain(
-      `<div>Un ${quien} del jugador 1 se hace héroe en\u00a0(0,\u00a00): &lt;b&gt;X&lt;/b&gt;</div>`,
+      `<div>El jugador 1 hace héroe a su ${quien} en\u00a0(0,\u00a00): &lt;b&gt;X&lt;/b&gt;</div>`,
     );
     // Y le consta a su dueño aunque nadie lo mirara: es «lo tuyo, siempre».
     expect(visibleTo(evento({ ...cuerpo, name: 'Ana', actor: 0 }), 0)).toBe(true);
@@ -821,16 +822,16 @@ describe('la crónica de la pantalla deja de mentir', () => {
     const caidos = `3\u00a0× ${unidadDelJuego(NO_MUERTO).name}`;
     const monstruo = batalla({ kind: 'monster', objectId: 'm' }, { attacker: 0, defender: null });
     expect(pinta(monstruo, 0)).toContain(
-      `<div class="win">Batalla ganada contra un monstruo en\u00a0(7,\u00a08), en 2 rondas; pierde el enemigo ${caidos}</div>`,
+      `<div class="win">Batalla ganada contra un monstruo en\u00a0(7,\u00a08), en 2 rondas; pierde el enemigo: ${caidos}</div>`,
     );
     expect(pinta(monstruo, -1)).toContain(
-      `<div>Batalla en\u00a0(7,\u00a08): un héroe del jugador 0 contra un monstruo; gana el jugador 0 en 2 rondas; pierde el monstruo ${caidos}</div>`,
+      `<div>Batalla en\u00a0(7,\u00a08): un héroe del jugador 0 contra un monstruo; gana el jugador 0 en 2 rondas; pierde el monstruo: ${caidos}</div>`,
     );
     // La guarnición de una ciudad es una guarnición más desde la tarea 2: la
     // neutral, sin dueño, y la de un castillo, de su dueño.
     const ciudad = batalla({ kind: 'garrison', site: 't' }, { attacker: 1, defender: null });
     expect(pinta(ciudad, -1)).toContain(
-      `un héroe del jugador 1 contra una guarnición neutral; gana el jugador 1 en 2 rondas; pierde la guarnición ${caidos}`,
+      `un héroe del jugador 1 contra una guarnición neutral; gana el jugador 1 en 2 rondas; pierde la guarnición: ${caidos}`,
     );
     const castillo = batalla(
       { kind: 'garrison', site: 't' },
@@ -879,5 +880,437 @@ describe('la crónica de la pantalla deja de mentir', () => {
       ),
     );
     expect(todas).not.toMatch(/de tú|de el |a tú/);
+  });
+});
+
+/**
+ * #202: la crónica de quien no lleva bando (el espectador), la concordancia con el
+ * nombre de una unidad y la casilla que nadie localiza.
+ *
+ * Sobre una muestra con **un hecho de cada clase** (`UNO_DE_CADA`), y no sobre los
+ * dos del issue: el verde de la caída de un héroe en el espectador salió de dos
+ * ramas que preguntaban `!mio`, y la siguiente que lo pregunte tiene que ponerse
+ * roja aquí. El tipo obliga a dar una entrada a cada `kind` nuevo.
+ */
+describe('la crónica sin bando, sin «Un Sacerdotisa» y con la casilla a un clic (#202)', () => {
+  const EN: Point = { x: 12, y: 5 };
+  /** El mismo hecho hecho por el jugador 0, por el 1 y por nadie. */
+  const deLosTres = <E extends GameEventDraft>(e: E): E[] =>
+    [0, 1, null].map((actor) => ({ ...e, actor }) as E);
+  const batalla = (
+    foe: Extract<GameEventDraft, { kind: 'battle_ended' }>['foe'],
+    owners: { attacker: number | null; defender: number | null },
+  ): Extract<GameEventDraft, { kind: 'battle_ended' }> => ({
+    kind: 'battle_ended',
+    winner: 'attacker',
+    foe,
+    owners,
+    rounds: 2,
+    casts: [{ side: 'defender', spell: 'magic_arrow', target: TROPA, killed: 1 }],
+    // Bajas en los dos bandos: el doble número salía en el que no es de quien lee.
+    lost: {
+      attacker: [{ creature: TROPA, count: 2 }],
+      defender: [{ creature: NO_MUERTO, count: 3 }],
+    },
+    actor: owners.attacker,
+    at: EN,
+  });
+  const UNO_DE_CADA: {
+    readonly [K in GameEventDraft['kind']]: readonly Extract<GameEventDraft, { kind: K }>[];
+  } = {
+    day_start: [{ kind: 'day_start', day: 3, week: 1, actor: null, at: null }],
+    turn_start: deLosTres({ kind: 'turn_start', actor: 0, at: null }),
+    hero_moved: deLosTres({ kind: 'hero_moved', hero: 'h', to: EN, spent: 1, actor: 0, at: EN }),
+    march_cut: deLosTres({ kind: 'march_cut', hero: 'h', faltan: 2, actor: 0, at: EN }),
+    gold_gained: [
+      ...deLosTres({ kind: 'gold_gained', amount: 1500, actor: 0, at: EN }),
+      ...deLosTres({
+        kind: 'gold_gained',
+        amount: 200,
+        from: 'lugar',
+        lugar: 'l',
+        actor: 0,
+        at: EN,
+      }),
+    ],
+    gold_paid: deLosTres({ kind: 'gold_paid', amount: 100, lugar: 'l', actor: 0, at: EN }),
+    place_state: deLosTres({
+      kind: 'place_state',
+      lugar: 'l',
+      nombre: 'El osario',
+      estado: 'abierto',
+      from: 'cerrado',
+      dicho: 'abierto',
+      actor: 0,
+      at: EN,
+    }),
+    world_mark: deLosTres({ kind: 'world_mark', marca: 'm', lugar: 'l', actor: 0, at: EN }),
+    item_given: deLosTres({
+      kind: 'item_given',
+      hero: 'h',
+      item: 'lanza',
+      lugar: 'l',
+      actor: 0,
+      at: EN,
+    }),
+    troops_joined: deLosTres({
+      kind: 'troops_joined',
+      hero: 'h',
+      creature: TROPA,
+      count: 3,
+      lugar: 'l',
+      actor: 0,
+      at: EN,
+    }),
+    node_captured: [0, 1, null].flatMap((from) =>
+      deLosTres({ kind: 'node_captured', node: 'n', from, actor: 0, at: EN }),
+    ),
+    town_captured: [0, 1, null].flatMap((from) =>
+      deLosTres({ kind: 'town_captured', town: 't', from, actor: 0, at: EN }),
+    ),
+    town_owner_changed: [
+      { kind: 'town_owner_changed', town: 't', from: 0, to: 1, actor: null, at: EN },
+      { kind: 'town_owner_changed', town: 't', from: 1, to: 0, actor: null, at: EN },
+      { kind: 'town_owner_changed', town: 't', from: 0, to: null, actor: null, at: EN },
+    ],
+    site_occupied: [0, 1].flatMap((dueño) => [
+      ...deLosTres({
+        kind: 'site_occupied',
+        site: 's',
+        by: { kind: 'heroe', heroId: 'h', dueño },
+        actor: 0,
+        at: EN,
+      }),
+      ...deLosTres({
+        kind: 'site_occupied',
+        site: 's',
+        by: { kind: 'guarnicion', dueño },
+        actor: 0,
+        at: EN,
+      }),
+    ]),
+    site_freed: deLosTres({ kind: 'site_freed', site: 's', actor: 0, at: EN }),
+    built: deLosTres({ kind: 'built', town: 't', building: 'tavern', actor: 0, at: EN }),
+    recruited: deLosTres({
+      kind: 'recruited',
+      town: 't',
+      creature: TROPA,
+      count: 3,
+      actor: 0,
+      at: EN,
+    }),
+    dismissed: deLosTres({
+      kind: 'dismissed',
+      hero: 'h',
+      creature: TROPA,
+      count: 2,
+      actor: 0,
+      at: EN,
+    }),
+    left_behind: [
+      ...deLosTres({
+        kind: 'left_behind',
+        hero: 'h',
+        site: null,
+        creature: TROPA,
+        count: 1,
+        lost: [],
+        actor: 0,
+        at: EN,
+      }),
+      ...deLosTres({
+        kind: 'left_behind',
+        hero: null,
+        site: 's',
+        creature: TROPA,
+        count: 1,
+        lost: ['lanza'],
+        actor: 0,
+        at: EN,
+      }),
+    ],
+    hero_hired: deLosTres({ kind: 'hero_hired', hero: 'h', town: 't', actor: 0, at: EN }),
+    loot_found: [
+      ...deLosTres({
+        kind: 'loot_found',
+        hero: 'h',
+        item: 'lanza',
+        from: 'raider',
+        actor: 0,
+        at: EN,
+      }),
+      ...deLosTres({
+        kind: 'loot_found',
+        hero: 'h',
+        item: 'lanza',
+        from: 'lugar',
+        lugar: 'l',
+        actor: 0,
+        at: EN,
+      }),
+    ],
+    item_bought: deLosTres({
+      kind: 'item_bought',
+      hero: 'h',
+      town: 't',
+      item: 'lanza',
+      actor: 0,
+      at: EN,
+    }),
+    hero_promoted: deLosTres({
+      kind: 'hero_promoted',
+      hero: 'h',
+      town: 't',
+      creature: TROPA,
+      name: 'Ana',
+      actor: 0,
+      at: EN,
+    }),
+    spells_learned: deLosTres({
+      kind: 'spells_learned',
+      hero: 'h',
+      town: 't',
+      spells: ['magic_arrow'],
+      actor: 0,
+      at: EN,
+    }),
+    troops_left: deLosTres({
+      kind: 'troops_left',
+      hero: 'h',
+      site: 's',
+      creature: TROPA,
+      count: 2,
+      actor: 0,
+      at: EN,
+    }),
+    troops_taken: deLosTres({
+      kind: 'troops_taken',
+      hero: 'h',
+      site: 's',
+      creature: TROPA,
+      count: 2,
+      actor: 0,
+      at: EN,
+    }),
+    troops_exchanged: deLosTres({
+      kind: 'troops_exchanged',
+      hero: 'h',
+      site: 's',
+      left: [{ creature: TROPA, count: 2 }],
+      taken: [{ creature: NO_MUERTO, count: 1 }],
+      actor: 0,
+      at: EN,
+    }),
+    outpost_upgraded: deLosTres({
+      kind: 'outpost_upgraded',
+      hero: 'h',
+      site: 's',
+      to: 'empalizada',
+      cost: 1500,
+      actor: 0,
+      at: EN,
+    }),
+    defense_set: deLosTres({
+      kind: 'defense_set',
+      hero: 'h',
+      site: 's',
+      fighting: 4,
+      staying: 1,
+      actor: 0,
+      at: EN,
+    }),
+    battle_started: [
+      ...deLosTres({
+        kind: 'battle_started',
+        attacker: { kind: 'hero', heroId: 'h' },
+        foe: { kind: 'monster', objectId: 'm' },
+        actor: 0,
+        at: EN,
+      }),
+      ...deLosTres({
+        kind: 'battle_started',
+        attacker: { kind: 'raider', raiderId: 'r' },
+        foe: { kind: 'hero', heroId: 'h' },
+        actor: 0,
+        at: EN,
+      }),
+    ],
+    battle_ended: [
+      batalla({ kind: 'monster', objectId: 'm' }, { attacker: 0, defender: null }),
+      batalla({ kind: 'monster', objectId: 'm' }, { attacker: 1, defender: null }),
+      batalla({ kind: 'hero', heroId: 'h' }, { attacker: 0, defender: 1 }),
+      batalla({ kind: 'hero', heroId: 'h' }, { attacker: 1, defender: 0 }),
+      batalla({ kind: 'garrison', site: 's' }, { attacker: 1, defender: 0 }),
+      batalla({ kind: 'hero', heroId: 'h' }, { attacker: null, defender: 0 }),
+    ],
+    raider_spawned: deLosTres({
+      kind: 'raider_spawned',
+      raider: 'r',
+      troops: [{ creature: TROPA_BARATA, count: 4 }],
+      actor: null,
+      at: EN,
+    }),
+    raider_dispersed: deLosTres({ kind: 'raider_dispersed', raider: 'r', actor: 0, at: EN }),
+    march_halted: deLosTres({
+      kind: 'march_halted',
+      hero: 'h',
+      raider: 'r',
+      troops: [{ creature: TROPA_BARATA, count: 4 }],
+      actor: 0,
+      at: EN,
+    }),
+    hero_defeated: deLosTres({ kind: 'hero_defeated', hero: 'h', actor: 0, at: EN }),
+    hero_returned: [
+      ...deLosTres({
+        kind: 'hero_returned',
+        hero: 'h',
+        town: 't',
+        surrendered: false,
+        actor: 0,
+        at: EN,
+      }),
+      ...deLosTres({
+        kind: 'hero_returned',
+        hero: 'h',
+        town: 't',
+        surrendered: true,
+        gold: 12000,
+        actor: 0,
+        at: EN,
+      }),
+    ],
+    rank_up: deLosTres({ kind: 'rank_up', hero: 'h', rank: 6, actor: 0, at: EN }),
+    troop_rank_up: deLosTres({
+      kind: 'troop_rank_up',
+      creature: TROPA,
+      rank: 6,
+      veterano: 'v',
+      actor: 0,
+      at: EN,
+    }),
+    player_defeated: deLosTres({
+      kind: 'player_defeated',
+      reason: 'lost_base',
+      actor: 0,
+      at: null,
+    }),
+    game_over: deLosTres({ kind: 'game_over', actor: 0, at: null }),
+  };
+  const MUESTRA: readonly GameEventDraft[] = Object.values(UNO_DE_CADA).flat();
+  /**
+   * La línea de un hecho, sin la caja de la crónica alrededor; `''` si no se pinta.
+   * De uno en uno y no la muestra entera: `renderLog` pinta solo los 60 últimos.
+   */
+  const lineaDe = (
+    e: GameEventDraft,
+    viewer: number,
+    opciones?: Parameters<typeof renderLog>[2],
+  ): string => {
+    const todo = marcadoDe(renderLog([e], viewer, opciones));
+    const caja = '<div class="log" data-al-final="cronica">';
+    expect(todo.startsWith(caja) && todo.endsWith('</div>')).toBe(true);
+    return todo.slice(caja.length, -'</div>'.length);
+  };
+  const quien = (e: GameEventDraft, viewer: number) =>
+    `${e.kind} con actor ${e.actor}, leído por ${viewer}: ${JSON.stringify(e)}`;
+
+  it('quien no lleva bando no ve ninguna línea en el color de ganar o perder', () => {
+    let conColor = 0;
+    for (const e of MUESTRA) {
+      for (const lleva of [false, true]) {
+        const l = lineaDe(e, NADIE, { llevaALaCasilla: lleva });
+        expect(l, quien(e, NADIE)).not.toMatch(/class="[^"]*\b(win|lose)\b/);
+      }
+      // Que la muestra muerda: con bando, buena parte de ella sí lleva color.
+      if (/class="[^"]*\b(win|lose)\b/.test(lineaDe(e, 0))) conColor++;
+    }
+    expect(conColor).toBeGreaterThan(20);
+  });
+
+  it('con bando, la caída y la vuelta de un héroe siguen siendo derrota tuya o victoria tuya', () => {
+    for (const kind of ['hero_defeated', 'hero_returned'] as const) {
+      for (const e of UNO_DE_CADA[kind]) {
+        if (e.actor === null) continue;
+        expect(lineaDe(e, 0), quien(e, 0)).toMatch(
+          e.actor === 0 ? /^<div class="lose">/ : /^<div class="win">/,
+        );
+        expect(lineaDe(e, 1), quien(e, 1)).toMatch(
+          e.actor === 1 ? /^<div class="lose">/ : /^<div class="win">/,
+        );
+      }
+    }
+  });
+
+  it('ninguna línea pega dos números («pierde el jugador 1 2 × …» se leía «12»)', () => {
+    for (const e of MUESTRA) {
+      for (const viewer of [NADIE, 0]) {
+        for (const lleva of [false, true]) {
+          const l = lineaDe(e, viewer, { llevaALaCasilla: lleva });
+          expect(l, quien(e, viewer)).not.toMatch(/jugador \d+\s+\d/);
+          expect(l, quien(e, viewer)).not.toMatch(/enemigo\s+\d/);
+        }
+      }
+    }
+    // Y donde salía, se lee con sus dos puntos.
+    expect(
+      lineaDe(batalla({ kind: 'hero', heroId: 'h' }, { attacker: 0, defender: 1 }), NADIE),
+    ).toContain(`pierde el jugador 1: 3\u00a0× ${unidadDelJuego(NO_MUERTO).name}`);
+  });
+
+  it('la tropa que se hace héroe o sube de rango se lee igual con un nombre femenino', () => {
+    const sacerdotisa = 'elfo-sacerdotisa';
+    expect(unidadDelJuego(sacerdotisa).name).toBe('Sacerdotisa');
+    for (const kind of ['hero_promoted', 'troop_rank_up'] as const) {
+      for (const e of UNO_DE_CADA[kind]) {
+        for (const viewer of [0, 1, NADIE]) {
+          const con = (creature: string): string =>
+            lineaDe({ ...e, creature }, viewer).replace(unidadDelJuego(creature).name, '«unidad»');
+          // La frase no depende del género del nombre: solo cambia el nombre.
+          expect(con(sacerdotisa), quien(e, viewer)).toBe(con(TROPA));
+          expect(con(sacerdotisa), quien(e, viewer)).toContain('«unidad»');
+          expect(con(sacerdotisa), quien(e, viewer)).not.toMatch(/\bUn «unidad»|«unidad» tuyo/);
+        }
+      }
+    }
+  });
+
+  it('una guarnición tuya ocupa, no «una guarnición tuyo»', () => {
+    const ocupa = UNO_DE_CADA.site_occupied.find(
+      (e) => e.by.kind === 'guarnicion' && e.by.dueño === 0 && e.actor === 1,
+    );
+    if (ocupa === undefined) throw new Error('la muestra no tiene una guarnición del 0 ocupando');
+    expect(lineaDe(ocupa, 0)).toContain('Una guarnición tuya ocupa un sitio');
+    for (const e of MUESTRA) expect(lineaDe(e, 0), quien(e, 0)).not.toMatch(/guarnición tuyo/);
+  });
+
+  it('en la partida, la línea con casilla es un botón que lleva a ella y ya no dice la coordenada', () => {
+    let botones = 0;
+    for (const e of MUESTRA) {
+      for (const viewer of [0, 1, NADIE]) {
+        const l = lineaDe(e, viewer, { llevaALaCasilla: true });
+        if (l === '') continue;
+        const at = e.kind === 'raider_dispersed' ? null : e.at;
+        if (at === null) {
+          // La dispersión esconde dónde estaba el grupo: ni botón ni casilla.
+          expect(l, quien(e, viewer)).toMatch(/^<div[ >]/);
+          expect(l, quien(e, viewer)).not.toContain('data-x');
+          expect(l, quien(e, viewer)).not.toContain(String(EN.x));
+          continue;
+        }
+        botones++;
+        expect(l, quien(e, viewer)).toMatch(
+          new RegExp(
+            `^<button type="button" class="a-la-casilla( win| lose)?" data-action="mirar-la-casilla" data-x="${at.x}" data-y="${at.y}" title="Ver en el mapa">[^<]*</button>$`,
+          ),
+        );
+        expect(l, quien(e, viewer)).not.toMatch(/\(\d/);
+      }
+    }
+    expect(botones).toBeGreaterThan(100);
+    // Sin la opción (el espectador), el marcado de siempre, con la casilla dicha.
+    const hecho = UNO_DE_CADA.built[0] as GameEventDraft;
+    expect(lineaDe(hecho, NADIE)).toBe(
+      `<div>El jugador 0 construye en\u00a0(12,\u00a05): ${building('tavern').name}</div>`,
+    );
   });
 });
