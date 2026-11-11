@@ -51,10 +51,22 @@ arena escriben `#status` (fuera de la pelea, la arena escribe su aviso tal cual)
 cursor), dos líneas y **cuatro en la batalla** (`#app[data-escena='battle']`, `style.css`: la previsión
 de una carga contra quien lleva armadura no cabía en dos a 1024 px y lo primero que caía era la
 armadura; en la partida, con «Resolver sola» al lado, mide cuatro a 1024 y a 1100). Lo que no cabe se corta por **frases enteras** (punto y blanco: los decimales van con
-coma) con « … (entera, con el ratón quieto)» y el texto entero va al `title` del lienzo; si cabe, el
+coma) y el texto entero va al `title` del lienzo; si cabe, el
 lienzo se queda sin `title`. No hay previsión más larga a la que reservar alto (una granada con
 varios alcanzados, una «Cuenta» larga). El corte no se rehace si solo cambia el ancho (backlog).
 Lo comprueba la pasada `arena` de `pnpm capturas` a 1024, 1100 y 1440 px (`laCargaALosTresAnchos`).
+
+Vuelta 2 (QA de #264, 11-11-2026). **H1**: si no cabe ni la primera frase (un hechizo de área junta
+a sus alcanzados con «;» en una: la Tormenta de granizo sobre seis, 590-708 caracteres), se corta
+por sus «;», luego por sus «, » (no la coma de un decimal) y luego por palabras (no el blanco duro
+de `conMiles`), siempre con el aviso a la vista; un corte preferido que deja menos de la mitad de lo
+que cabría por palabras se salta (en el móvil, la ayuda de la tropa se quedaba en «Tu formación»).
+**H2**: el aviso dice dónde se lee el resto según haya ratón (`(hover: hover)`): « … (el resto, con
+el ratón quieto)» (el bocadillo del lienzo) o, en una pantalla táctil, « … (toca aquí para leer el
+resto)»: tocar la barra cortada la despliega entera (`#status[data-desplegada]`, crece hasta el
+40 % del alto y se desplaza; crece a propósito, lo ha pedido quien toca) y otro toque o el texto
+siguiente la pliega. Lo miran `test/barra.test.ts` y, en el navegador, el guion de la vuelta 2
+(`docs/agents/2026-11-11-prevision-de-la-batalla/`).
 
 ## El cliente
 

@@ -127,10 +127,40 @@ async function murallaUsable(page: Page, paso: string): Promise<void> {
 }
 
 /**
+ * Que «Yo» e «IA» de cada bando se pulsen con un clic de verdad y lo marquen elegido. El QA
+ * de #264 (11-11-2026) no pudo pulsar «Yo» del bando derecho a 1024 (`#montaje intercepts
+ * pointer events`) sobre una base sin #246; aquí se mira en cada tamaño y con la muralla
+ * desplegada y plegada. Deja cada bando como estaba. Devuelve lo que no se pulsa.
+ */
+async function quienMandaSePulsa(page: Page, paso: string): Promise<string[]> {
+  const fallos: string[] = [];
+  for (const lado of ['izquierda', 'derecha']) {
+    const boton = (ia: 'si' | 'no') =>
+      page.locator(`[data-arena="manda"][data-lado="${lado}"][data-ia="${ia}"]`);
+    const antes = (await boton('si').getAttribute('class'))?.includes('primary') ? 'si' : 'no';
+    const otro = antes === 'si' ? 'no' : 'si';
+    for (const ia of [otro, antes] as const) {
+      const que = `«${ia === 'si' ? 'IA' : 'Yo'}» del bando ${lado}`;
+      try {
+        await boton(ia).click({ timeout: 3000 });
+      } catch (err) {
+        fallos.push(
+          `${paso}: el clic en ${que} no llega: ${err instanceof Error ? err.message.split('\n')[0] : err}`,
+        );
+        break;
+      }
+      if (!(await boton(ia).getAttribute('class'))?.includes('primary'))
+        fallos.push(`${paso}: el clic en ${que} no lo deja elegido`);
+    }
+  }
+  return fallos;
+}
+
+/**
  * El montaje de la arena a 1024×768, 1280×800, 1440×900 y 1920×1080, con el navegador limpio
- * (la muralla desplegada) y con la muralla plegada: los dos bandos y la ficha se ven, el clic
- * de verdad en el nombre de cada unidad abre su ficha y se lee, y la muralla desplegada se
- * puede usar. Junta todo lo que falla en un tamaño antes de lanzar, y deja la captura de cada
+ * (la muralla desplegada) y con la muralla plegada: los dos bandos y la ficha se ven, «Yo» e
+ * «IA» de cada bando se pulsan, el clic de verdad en el nombre de cada unidad abre su ficha y
+ * se lee, y la muralla desplegada se puede usar. Junta todo lo que falla en un tamaño antes de lanzar, y deja la captura de cada
  * caso (`montaje-<ancho>x<alto>-<desplegada|plegada>`).
  */
 export async function montajeAVariosAnchos(
@@ -171,6 +201,7 @@ export async function montajeAVariosAnchos(
       await captura(page, `${paso.replace(', muralla ', '-')}`);
       fallos.push(...sinVer.map((f) => `${paso}: ${f}`));
       if (sinVer.length > 0) continue;
+      fallos.push(...(await quienMandaSePulsa(page, paso)));
       // El clic de verdad en el nombre de cada unidad abre su ficha, y se lee.
       for (const ids of Object.values(BANDOS)) {
         for (const id of ids) {
