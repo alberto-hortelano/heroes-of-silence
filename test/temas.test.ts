@@ -12,7 +12,7 @@
 import { FACTION_IDS } from '@core/types.js';
 import { describe, expect, it } from 'vitest';
 import { FICHAS_DEL_LIENZO, LIENZO_NEUTRO, temaDelLienzo } from '../src/client/comun/temas.js';
-import { contraste, sobre } from '../tools/comun/color.js';
+import { aOklab, contraste, deHex, deOklab, hex, sobre } from '../tools/comun/color.js';
 import { PAREJAS } from '../tools/taller/temas/paleta.js';
 import {
   bloquesCss,
@@ -80,6 +80,55 @@ const CIFRAS_DE_CAJA_BAJA = [
 
 const familias = (letra: string): string[] =>
   letra.split(',').map((f) => f.trim().replace(/^['"]|['"]$/g, ''));
+
+// Las reglas de verdad de una hoja, para los guardias que miran la cascada de una fila del
+// lateral (la pastilla de «En el campo», la fila-botón bajo el ratón). Cada hoja se
+// trocea una vez: la fila-botón pregunta por sus reglas unas trescientas veces.
+const troceadas = new Map<string, ReturnType<typeof bloquesCss>>();
+const reglas = (hoja: string, selector: string): readonly Declaracion[] => {
+  let bloques = troceadas.get(hoja);
+  if (bloques === undefined) {
+    bloques = bloquesCss(leer(hoja));
+    troceadas.set(hoja, bloques);
+  }
+  return bloques
+    .filter((b) => b.selector === selector && b.padres.length === 0)
+    .flatMap((b) => b.declaraciones);
+};
+const fichasDeLaRegla = (hoja: string, selector: string): Map<string, string> =>
+  new Map(
+    reglas(hoja, selector)
+      .filter((d) => d.propiedad.startsWith('--'))
+      .map((d) => [d.propiedad, d.valor]),
+  );
+/** De las reglas que se le aplican (de menos a más peso), la que gana en `propiedad`. */
+const gana = (aplican: readonly (readonly [string, string])[], propiedad: string): string | null =>
+  aplican
+    .flatMap(([hoja, selector]) => reglas(hoja, selector))
+    .filter((d) => d.propiedad === propiedad)
+    .at(-1)?.valor ?? null;
+// Un `var()` se resuelve donde se declara, con lo heredado de más arriba: el
+// `--accent: var(--lateral-acento)` del lateral lee la `--lateral-acento` de la raíz.
+const enLasCapas = (
+  capas: readonly ReadonlyMap<string, string>[],
+  valor: string,
+  hasta = capas.length - 1,
+  vistas: readonly string[] = [],
+): string =>
+  valor.replace(/var\((--[a-z0-9-]+)\)/g, (_, ficha: string) => {
+    for (let i = hasta; i >= 0; i--) {
+      const suyo = capas[i]?.get(ficha);
+      if (suyo === undefined) continue;
+      const clave = `${i}:${ficha}`;
+      if (vistas.includes(clave))
+        throw new Error(`fichas en círculo: ${[...vistas, clave].join(' → ')}`);
+      return enLasCapas(capas, suyo, i, [...vistas, clave]);
+    }
+    throw new Error(`${ficha} no la define nadie`);
+  });
+
+const LATERAL = ':root[data-tema] #lateral';
+type Reglas = readonly (readonly [string, string])[];
 
 describe('los temas de la interfaz', () => {
   it('hay un tema por facción de la arena, ni uno más, y style.css los trae', () => {
@@ -174,47 +223,6 @@ describe('los temas de la interfaz', () => {
     // `forma.css`, «elfos +» = 1,02 y «elfos −» = 1,29 (verde y rojo oscuros sobre su
     // fila verde azulada). La fila que no es la activa va además a `opacity: 0.45`
     // (`.empty`), que apaga igual su nombre: eso no es de la pastilla y no se mide.
-    const reglas = (hoja: string, selector: string): readonly Declaracion[] =>
-      bloquesCss(leer(hoja))
-        .filter((b) => b.selector === selector && b.padres.length === 0)
-        .flatMap((b) => b.declaraciones);
-    const fichasDeLaRegla = (hoja: string, selector: string): Map<string, string> =>
-      new Map(
-        reglas(hoja, selector)
-          .filter((d) => d.propiedad.startsWith('--'))
-          .map((d) => [d.propiedad, d.valor]),
-      );
-    /** De las reglas que se le aplican (de menos a más peso), la que gana en `propiedad`. */
-    const gana = (
-      aplican: readonly (readonly [string, string])[],
-      propiedad: string,
-    ): string | null =>
-      aplican
-        .flatMap(([hoja, selector]) => reglas(hoja, selector))
-        .filter((d) => d.propiedad === propiedad)
-        .at(-1)?.valor ?? null;
-    // Un `var()` se resuelve donde se declara, con lo heredado de más arriba: el
-    // `--accent: var(--lateral-acento)` del lateral lee la `--lateral-acento` de la raíz.
-    const enLasCapas = (
-      capas: readonly ReadonlyMap<string, string>[],
-      valor: string,
-      hasta = capas.length - 1,
-      vistas: readonly string[] = [],
-    ): string =>
-      valor.replace(/var\((--[a-z0-9-]+)\)/g, (_, ficha: string) => {
-        for (let i = hasta; i >= 0; i--) {
-          const suyo = capas[i]?.get(ficha);
-          if (suyo === undefined) continue;
-          const clave = `${i}:${ficha}`;
-          if (vistas.includes(clave))
-            throw new Error(`fichas en círculo: ${[...vistas, clave].join(' → ')}`);
-          return enLasCapas(capas, suyo, i, [...vistas, clave]);
-        }
-        throw new Error(`${ficha} no la define nadie`);
-      });
-
-    const LATERAL = ':root[data-tema] #lateral';
-    type Reglas = readonly (readonly [string, string])[];
     const casos: readonly {
       readonly tema: string;
       /** Las fichas de la raíz al lateral y a la fila. */
@@ -266,6 +274,109 @@ describe('los temas de la interfaz', () => {
     }
     expect(medidas.filter((m) => !m.endsWith('se lee'))).toEqual([]);
     expect(medidas.length).toBe(12);
+  });
+
+  it('la fila-botón del lateral se lee en reposo, bajo el ratón y elegida, en el neutro y en los cinco (#332, 11-11-2026)', () => {
+    // Con las reglas de verdad: las que casan con un `button.stack` del lateral (héroes,
+    // ciudades, objetos, sitios de la base, tropa, morada, «Lo que hay» del lugar) en
+    // cada estado, ordenadas por peso (especificidad y, a igualdad, la hoja: `forma.css`
+    // entra por el `@import` de `style.css`, antes que sus reglas). Roto a mano: sin la
+    // regla del ratón de `forma.css`, «templarios encima = 1.24» (el `--boton-encima` del
+    // `button:hover`, oscuro, bajo la tinta oscura del pergamino), lo mismo que midió el
+    // navegador.
+    const RATON = `${LATERAL} button.stack:not(.primary):hover:not(:disabled)`;
+    const especificidad = (selector: string): readonly [number, number, number] => {
+      // `:not(x)` pesa lo que `x`.
+      const s = selector.replace(/:not\(([^)]*)\)/g, ' $1');
+      return [
+        (s.match(/#[\w-]+/g) ?? []).length,
+        (s.match(/\.[\w-]+|\[[^\]]*\]|:[\w-]+/g) ?? []).length,
+        (s.match(/(?:^|[\s>+~])[a-z][\w-]*/g) ?? []).length,
+      ];
+    };
+    const HOJAS = ['forma.css', 'style.css'];
+    const porPeso = (aplican: Reglas): Reglas =>
+      [...aplican].sort(([ha, a], [hb, b]) => {
+        const [x, y] = [especificidad(a), especificidad(b)];
+        for (let i = 0; i < 3; i++) if (x[i] !== y[i]) return (x[i] as number) - (y[i] as number);
+        return HOJAS.indexOf(ha) - HOJAS.indexOf(hb);
+      });
+    const fila: Reglas = [
+      ['style.css', 'button'],
+      ['style.css', '.stack'],
+      ['forma.css', `${LATERAL} .stack`],
+    ];
+    const elegida: Reglas = [
+      ['style.css', 'button.primary'],
+      ['style.css', '.stack.primary'],
+      ['forma.css', `${LATERAL} .stack.primary`],
+    ];
+    const encima: Reglas = [['style.css', 'button:hover:not(:disabled)']];
+    const estados: readonly { readonly estado: string; readonly aplican: Reglas }[] = [
+      { estado: 'reposo', aplican: fila },
+      { estado: 'encima', aplican: [...fila, ...encima, ['forma.css', RATON]] },
+      { estado: 'elegida', aplican: [...fila, ...elegida] },
+      {
+        estado: 'elegida encima',
+        aplican: [
+          ...fila,
+          ...elegida,
+          ...encima,
+          ['style.css', 'button.primary:hover:not(:disabled)'],
+        ],
+      },
+    ];
+    // Una regla que ya no se llama así dejaría de contar sin decirlo. La del ratón de
+    // `forma.css` es la que se rompe a mano: sin ella, el guardia sale rojo por el contraste.
+    for (const { aplican } of estados)
+      for (const [hoja, selector] of aplican)
+        if (selector !== RATON && reglas(hoja, selector).length === 0)
+          throw new Error(`${hoja} no tiene la regla «${selector}»`);
+
+    // `color-mix(in oklab, a, b n%)`, como lo mezcla el navegador (los dos opacos).
+    const NOMBRADOS: Readonly<Record<string, string>> = { white: '#ffffff', black: '#000000' };
+    const colorDe = (valor: string): string => {
+      const v = valor.trim();
+      const m = /^color-mix\(in oklab,\s*([^,]+?),\s*([^,]+?)\s+([\d.]+)%\)$/.exec(v);
+      if (m === null) return NOMBRADOS[v] ?? v;
+      const p = Number(m[3]) / 100;
+      const a = aOklab(deHex(colorDe(m[1] as string)));
+      const b = aOklab(deHex(colorDe(m[2] as string)));
+      const mezcla = [0, 1, 2].map((i) => (a[i] as number) * (1 - p) + (b[i] as number) * p);
+      return hex(deOklab(mezcla as [number, number, number]));
+    };
+
+    const medidas: string[] = [];
+    for (const [tema, bloque] of new Map([['neutro', neutro()], ...temas().bloques])) {
+      const conTema = tema !== 'neutro';
+      for (const { estado, aplican } of estados) {
+        const suyas = porPeso(
+          aplican.filter(([, sel]) => conTema || !sel.startsWith(':root[data-tema]')),
+        );
+        const capas = conTema
+          ? [
+              bloque,
+              fichasDeLaRegla('forma.css', LATERAL),
+              fichasDeLaRegla('forma.css', `${LATERAL} .stack`),
+              ...(estado.startsWith('elegida')
+                ? [fichasDeLaRegla('forma.css', `${LATERAL} .stack.primary`)]
+                : []),
+            ]
+          : [bloque];
+        const detras = colorDe(
+          enLasCapas(capas.slice(0, 2), conTema ? 'var(--lateral)' : 'var(--panel)'),
+        );
+        const suFondo = gana(suyas, 'background');
+        const suTinta = gana(suyas, 'color');
+        if (suFondo === null || suTinta === null)
+          throw new Error(`${tema} ${estado}: la fila sin fondo o sin tinta`);
+        const fondo = sobre(colorDe(enLasCapas(capas, suFondo)), detras);
+        const c = contraste(sobre(colorDe(enLasCapas(capas, suTinta)), fondo), fondo);
+        medidas.push(`${tema} ${estado} ${c >= 4.5 ? 'se lee' : `= ${c.toFixed(2)}`}`);
+      }
+    }
+    expect(medidas.filter((m) => !m.endsWith('se lee'))).toEqual([]);
+    expect(medidas.length).toBe(24);
   });
 
   it('los cinco se distinguen: panel, marco y letra de títulos, distintos en cada uno', () => {
